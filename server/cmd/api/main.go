@@ -1,17 +1,13 @@
 package main
 
-import (
-	"log"
-	"net/http"
-)
+import "github.com/gin-gonic/gin"
 
 func main() {
-	mux := http.NewServeMux()
+	r := gin.Default()
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
+	r.GET("/health", func(c *gin.Context) {
+		c.String(200, "OK")
 	})
 
-	log.Println("Server running on http://localhost:8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	r.Run(":8080")
 }
