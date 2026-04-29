@@ -34,6 +34,33 @@ func (h *FuelHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, fuels)
 }
 
+func (h *FuelHandler) ListPumps(c *gin.Context) {
+	rows, err := h.DB.Query(c.Request.Context(),
+		`SELECT DISTINCT p.id::text, p.name, p.description
+		 FROM pumps p
+		 JOIN nozzles n ON n.pump_id = p.id
+		 WHERE n.fuel_id = $1
+		 ORDER BY p.name`,
+		c.Param("fuelId"),
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	pumps := []model.Pump{}
+	for rows.Next() {
+		var p model.Pump
+		if err := rows.Scan(&p.ID, &p.Name, &p.Description); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		pumps = append(pumps, p)
+	}
+	c.JSON(http.StatusOK, pumps)
+}
+
 func (h *FuelHandler) Create(c *gin.Context) {
 	var body struct {
 		Name string `json:"name" binding:"required"`

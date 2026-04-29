@@ -13,4 +13,5 @@ func RegisterRoute(g *gin.RouterGroup, db *pgxpool.Pool) {
 	fuels := g.Group("/fuels")
 	fuels.GET("", h.List)
 	fuels.POST("", h.Create)
+	fuels.GET("/:fuelId/pumps", h.ListPumps)
 }
