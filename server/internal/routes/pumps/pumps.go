@@ -18,4 +18,5 @@ func RegisterRoute(g *gin.RouterGroup, db *pgxpool.Pool) {
 	pumps.GET("/:pumpId/nozzles", nh.ListByPump)
 	pumps.POST("/:pumpId/nozzles", nh.Create)
 	pumps.GET("/:pumpId/shifts/:shiftId/litres-sold-by-fuel", h.GetShiftFuelSales)
+	pumps.GET("/:pumpId/shifts/:shiftId/fuel-summary", h.GetFuelSummary)
 }
