@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { PricesPanel } from '../components/dashboard/PricesPanel'
-import { PumpsPanel, type PumpGrade } from '../components/dashboard/PumpsPanel'
+import { PumpsPanel, type Pump } from '../components/dashboard/PumpsPanel'
 import { PumpDetailPanel } from '../components/dashboard/PumpDetailPanel'
 import { TanksPanel, type TankGrade } from '../components/dashboard/TanksPanel'
 import { TankDetailPanel } from '../components/dashboard/TankDetailPanel'
@@ -12,18 +12,27 @@ import { AttendantsCard } from '../components/dashboard/AttendantsCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
 import { useMinWidth } from '../hooks/useIsDesktop'
+import { apiFetch, type Shift } from '../lib/api'
 
 export function DashboardPage() {
-  const [selectedPump, setSelectedPump] = useState<PumpGrade | null>(null)
+  const [selectedPump, setSelectedPump] = useState<Pump | null>(null)
   const [selectedTank, setSelectedTank] = useState<TankGrade | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<AccountType>('Cash')
+  const [currentShiftId, setCurrentShiftId] = useState<string | null>(null)
 
-  const isDesktop = useMinWidth(1200)  // two-column layout breakpoint
-  const isWide = useMinWidth(1686)     // detail panel as column vs modal
+  const isDesktop = useMinWidth(1200)
+  const isWide = useMinWidth(1686)
 
-  function handlePumpSelect(grade: PumpGrade | null) {
-    setSelectedPump(grade)
-    if (grade) setSelectedTank(null)
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    apiFetch<Shift[]>(`/shifts?date=${today}`)
+      .then((shifts) => setCurrentShiftId(shifts[0]?.id ?? null))
+      .catch(() => {})
+  }, [])
+
+  function handlePumpSelect(pump: Pump | null) {
+    setSelectedPump(pump)
+    if (pump) setSelectedTank(null)
   }
 
   function handleTankSelect(grade: TankGrade | null) {
@@ -38,7 +47,6 @@ export function DashboardPage() {
 
   const showDetail = selectedPump !== null || selectedTank !== null
 
-  // Close modal on Escape
   useEffect(() => {
     if (!showDetail || isWide) return
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDetail() }
@@ -48,7 +56,7 @@ export function DashboardPage() {
 
   const detailContent = (
     <>
-      {selectedPump && <PumpDetailPanel grade={selectedPump} />}
+      {selectedPump && <PumpDetailPanel pump={selectedPump} shiftId={currentShiftId} />}
       {selectedTank && <TankDetailPanel grade={selectedTank} />}
     </>
   )
