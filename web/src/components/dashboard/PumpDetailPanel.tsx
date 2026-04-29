@@ -1,31 +1,16 @@
-import { useEffect, useState } from 'react'
-import { apiFetch, type Pump, type FuelSummary } from '../../lib/api'
+import { useFuelSummary } from '../../hooks/useApi'
+import type { Pump } from '../../lib/api'
 
 interface Props {
   pump: Pump
-  shiftId: string | null
+  shiftId: string | undefined
   fuelType?: string
 }
 
 export function PumpDetailPanel({ pump, shiftId, fuelType }: Props) {
-  const [summaries, setSummaries] = useState<FuelSummary[]>([])
-
-  useEffect(() => {
-    if (!shiftId) return
-    apiFetch<FuelSummary[]>(`/pumps/${pump.id}/shifts/${shiftId}/fuel-summary`)
-      .then(setSummaries)
-      .catch(() => {})
-  }, [pump.id, shiftId])
+  const { data: summaries = [] } = useFuelSummary(pump.id, shiftId)
 
   const visible = fuelType ? summaries.filter((s) => s.fuelType === fuelType) : summaries
-
-  if (!shiftId) {
-    return (
-      <div className="bg-white rounded-2xl border border-[#ebebeb] px-5 py-8 text-center text-[13px] text-[#aaa]">
-        No active shift for today.
-      </div>
-    )
-  }
 
   if (visible.length === 0) {
     return (

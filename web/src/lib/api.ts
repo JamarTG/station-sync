@@ -1,10 +1,6 @@
-const BASE = 'http://localhost:8080/v1'
+import axios from 'axios'
 
-export async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`)
-  if (!res.ok) throw new Error(`API ${res.status}: ${path}`)
-  return res.json()
-}
+export const api = axios.create({ baseURL: 'http://localhost:8080/v1' })
 
 export interface Fuel {
   id: string

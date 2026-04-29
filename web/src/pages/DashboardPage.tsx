@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { PricesPanel } from '../components/dashboard/PricesPanel'
@@ -12,28 +12,20 @@ import { AttendantsCard } from '../components/dashboard/AttendantsCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
 import { useMinWidth } from '../hooks/useIsDesktop'
-import { apiFetch, type Pump, type Shift } from '../lib/api'
+import { usePumps, useShiftForDate } from '../hooks/useApi'
 
 export function DashboardPage() {
   const [selectedFuel, setSelectedFuel] = useState<Fuel | null>(null)
   const [selectedTank, setSelectedTank] = useState<TankGrade | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<AccountType>('Cash')
-  const [currentShiftId, setCurrentShiftId] = useState<string | null>(null)
-  const [firstPump, setFirstPump] = useState<Pump | null>(null)
 
   const isDesktop = useMinWidth(1200)
   const isWide = useMinWidth(1686)
 
-  useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    apiFetch<Shift[]>(`/shifts?date=${today}`)
-      .then((shifts) => setCurrentShiftId(shifts[0]?.id ?? null))
-      .catch(() => {})
-
-    apiFetch<Pump[]>('/pumps')
-      .then((pumps) => setFirstPump(pumps[0] ?? null))
-      .catch(() => {})
-  }, [])
+  const today = new Date().toISOString().slice(0, 10)
+  const { data: shift } = useShiftForDate(today)
+  const { data: pumps = [] } = usePumps()
+  const firstPump = pumps[0]
 
   function handleFuelSelect(fuel: Fuel | null) {
     setSelectedFuel(fuel)
@@ -52,17 +44,10 @@ export function DashboardPage() {
 
   const showDetail = selectedFuel !== null || selectedTank !== null
 
-  useEffect(() => {
-    if (!showDetail || isWide) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDetail() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [showDetail, isWide])
-
   const detailContent = (
     <>
       {selectedFuel && firstPump && (
-        <PumpDetailPanel pump={firstPump} shiftId={currentShiftId} fuelType={selectedFuel.name} />
+        <PumpDetailPanel pump={firstPump} shiftId={shift?.id} fuelType={selectedFuel.name} />
       )}
       {selectedTank && <TankDetailPanel grade={selectedTank} />}
     </>
