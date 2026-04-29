@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import clsx from 'clsx'
 import { ArrowLeft } from 'lucide-react'
 import { PricesPanel } from '../components/dashboard/PricesPanel'
-import { PumpsPanel, type PumpGrade } from '../components/dashboard/PumpsPanel'
+import { PumpsPanel, type Fuel } from '../components/dashboard/PumpsPanel'
 import { PumpDetailPanel } from '../components/dashboard/PumpDetailPanel'
 import { TanksPanel, type TankGrade } from '../components/dashboard/TanksPanel'
 import { TankDetailPanel } from '../components/dashboard/TankDetailPanel'
@@ -12,43 +12,43 @@ import { AttendantsCard } from '../components/dashboard/AttendantsCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
 import { useMinWidth } from '../hooks/useIsDesktop'
+import { usePumps, useShiftForDate } from '../hooks/useApi'
 
 export function DashboardPage() {
-  const [selectedPump, setSelectedPump] = useState<PumpGrade | null>(null)
+  const [selectedFuel, setSelectedFuel] = useState<Fuel | null>(null)
   const [selectedTank, setSelectedTank] = useState<TankGrade | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<AccountType>('Cash')
 
-  const isDesktop = useMinWidth(1200)  // two-column layout breakpoint
-  const isWide = useMinWidth(1686)     // detail panel as column vs modal
+  const isDesktop = useMinWidth(1200)
+  const isWide = useMinWidth(1686)
 
-  function handlePumpSelect(grade: PumpGrade | null) {
-    setSelectedPump(grade)
-    if (grade) setSelectedTank(null)
+  const today = new Date().toISOString().slice(0, 10)
+  const { data: shift } = useShiftForDate(today)
+  const { data: pumps = [] } = usePumps()
+  const firstPump = pumps[0]
+
+  function handleFuelSelect(fuel: Fuel | null) {
+    setSelectedFuel(fuel)
+    if (fuel) setSelectedTank(null)
   }
 
   function handleTankSelect(grade: TankGrade | null) {
     setSelectedTank(grade)
-    if (grade) setSelectedPump(null)
+    if (grade) setSelectedFuel(null)
   }
 
   function closeDetail() {
-    setSelectedPump(null)
+    setSelectedFuel(null)
     setSelectedTank(null)
   }
 
-  const showDetail = selectedPump !== null || selectedTank !== null
-
-  // Close modal on Escape
-  useEffect(() => {
-    if (!showDetail || isWide) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDetail() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [showDetail, isWide])
+  const showDetail = selectedFuel !== null || selectedTank !== null
 
   const detailContent = (
     <>
-      {selectedPump && <PumpDetailPanel grade={selectedPump} />}
+      {selectedFuel && firstPump && (
+        <PumpDetailPanel pump={firstPump} shiftId={shift?.id} fuelType={selectedFuel.name} />
+      )}
       {selectedTank && <TankDetailPanel grade={selectedTank} />}
     </>
   )
@@ -73,7 +73,7 @@ export function DashboardPage() {
           </div>
           <AttendantsCard />
           <div className="min-[1200px]:hidden">
-            <PumpsPanel selected={selectedPump} onSelect={handlePumpSelect} />
+            <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} />
           </div>
           <div className="min-[1200px]:hidden">
             <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />
@@ -90,7 +90,7 @@ export function DashboardPage() {
             <PricesPanel />
           </div>
           <div className="hidden min-[1200px]:block">
-            <PumpsPanel selected={selectedPump} onSelect={handlePumpSelect} />
+            <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} />
           </div>
           <div className="hidden min-[1200px]:block">
             <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />

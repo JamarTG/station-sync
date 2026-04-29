@@ -1,30 +1,32 @@
 import clsx from 'clsx'
+import { useFuels } from '../../hooks/useApi'
+import type { Fuel } from '../../lib/api'
 
-export type PumpGrade = '87' | '90' | 'ADO' | 'ULSD'
-
-const grades: PumpGrade[] = ['87', '90', 'ADO', 'ULSD']
+export type { Fuel }
 
 interface Props {
-  selected: PumpGrade | null
-  onSelect: (grade: PumpGrade | null) => void
+  selected: Fuel | null
+  onSelect: (fuel: Fuel | null) => void
 }
 
 export function PumpsPanel({ selected, onSelect }: Props) {
+  const { data: fuels = [], isLoading } = useFuels()
+
   return (
     <div className="p-5">
       <div className="flex items-center justify-between mb-4">
         <p className="text-[13px] font-semibold text-[#888]">Pumps</p>
-        <p className="text-[11px] text-[#bbb] font-medium">
-          TOTAL LITRES SOLD&nbsp;&nbsp;<span className="text-[#555] font-bold">2.5051</span>
-        </p>
       </div>
+      <pre className="text-[11px] bg-[#f5f5f5] rounded-lg p-3 mb-3 overflow-x-auto text-[#333]">
+        {JSON.stringify({ isLoading, fuels }, null, 2)}
+      </pre>
       <div className="grid grid-cols-4 gap-2">
-        {grades.map((g) => {
-          const isActive = selected === g
+        {fuels.map((fuel) => {
+          const isActive = selected?.id === fuel.id
           return (
             <button
-              key={g}
-              onClick={() => onSelect(isActive ? null : g)}
+              key={fuel.id}
+              onClick={() => onSelect(isActive ? null : fuel)}
               className={clsx(
                 'rounded-xl py-3 text-[13px] font-bold transition-colors',
                 isActive
@@ -32,7 +34,7 @@ export function PumpsPanel({ selected, onSelect }: Props) {
                   : 'bg-white border border-[#ebebeb] text-[#333] hover:border-[#ccc] hover:bg-[#fafafa]'
               )}
             >
-              {g}
+              {fuel.name}
             </button>
           )
         })}
