@@ -4,9 +4,10 @@ import { apiFetch, type Pump, type FuelSummary } from '../../lib/api'
 interface Props {
   pump: Pump
   shiftId: string | null
+  fuelType?: string
 }
 
-export function PumpDetailPanel({ pump, shiftId }: Props) {
+export function PumpDetailPanel({ pump, shiftId, fuelType }: Props) {
   const [summaries, setSummaries] = useState<FuelSummary[]>([])
 
   useEffect(() => {
@@ -16,6 +17,8 @@ export function PumpDetailPanel({ pump, shiftId }: Props) {
       .catch(() => {})
   }, [pump.id, shiftId])
 
+  const visible = fuelType ? summaries.filter((s) => s.fuelType === fuelType) : summaries
+
   if (!shiftId) {
     return (
       <div className="bg-white rounded-2xl border border-[#ebebeb] px-5 py-8 text-center text-[13px] text-[#aaa]">
@@ -24,7 +27,7 @@ export function PumpDetailPanel({ pump, shiftId }: Props) {
     )
   }
 
-  if (summaries.length === 0) {
+  if (visible.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-[#ebebeb] px-5 py-8 text-center text-[13px] text-[#aaa]">
         No data for this pump.
@@ -34,7 +37,7 @@ export function PumpDetailPanel({ pump, shiftId }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      {summaries.map((s) => (
+      {visible.map((s) => (
         <div key={s.fuelType} className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#f0f0f0]">
             <p className="text-[12px] font-bold text-[#111] tracking-widest">{s.fuelType}</p>

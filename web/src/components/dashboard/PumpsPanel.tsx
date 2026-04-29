@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react'
 import clsx from 'clsx'
-import { apiFetch, type Pump } from '../../lib/api'
+import { apiFetch, type Fuel } from '../../lib/api'
 
-export type { Pump }
+export type { Fuel }
 
 interface Props {
-  selected: Pump | null
-  onSelect: (pump: Pump | null) => void
+  selected: Fuel | null
+  onSelect: (fuel: Fuel | null) => void
 }
 
 export function PumpsPanel({ selected, onSelect }: Props) {
-  const [pumps, setPumps] = useState<Pump[]>([])
+  const [fuels, setFuels] = useState<Fuel[]>([])
 
   useEffect(() => {
-    apiFetch<Pump[]>('/pumps').then(setPumps).catch(() => {})
+    apiFetch<Fuel[]>('/fuels').then(setFuels).catch(() => {})
   }, [])
 
   return (
@@ -22,12 +22,12 @@ export function PumpsPanel({ selected, onSelect }: Props) {
         <p className="text-[13px] font-semibold text-[#888]">Pumps</p>
       </div>
       <div className="grid grid-cols-4 gap-2">
-        {pumps.map((pump) => {
-          const isActive = selected?.id === pump.id
+        {fuels.map((fuel) => {
+          const isActive = selected?.id === fuel.id
           return (
             <button
-              key={pump.id}
-              onClick={() => onSelect(isActive ? null : pump)}
+              key={fuel.id}
+              onClick={() => onSelect(isActive ? null : fuel)}
               className={clsx(
                 'rounded-xl py-3 text-[13px] font-bold transition-colors',
                 isActive
@@ -35,7 +35,7 @@ export function PumpsPanel({ selected, onSelect }: Props) {
                   : 'bg-white border border-[#ebebeb] text-[#333] hover:border-[#ccc] hover:bg-[#fafafa]'
               )}
             >
-              {pump.name}
+              {fuel.name}
             </button>
           )
         })}

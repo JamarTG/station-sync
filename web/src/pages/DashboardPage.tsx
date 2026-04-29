@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import clsx from 'clsx'
 import { X } from 'lucide-react'
 import { PricesPanel } from '../components/dashboard/PricesPanel'
-import { PumpsPanel, type Pump } from '../components/dashboard/PumpsPanel'
+import { PumpsPanel, type Fuel } from '../components/dashboard/PumpsPanel'
 import { PumpDetailPanel } from '../components/dashboard/PumpDetailPanel'
 import { TanksPanel, type TankGrade } from '../components/dashboard/TanksPanel'
 import { TankDetailPanel } from '../components/dashboard/TankDetailPanel'
@@ -12,13 +12,14 @@ import { AttendantsCard } from '../components/dashboard/AttendantsCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
 import { useMinWidth } from '../hooks/useIsDesktop'
-import { apiFetch, type Shift } from '../lib/api'
+import { apiFetch, type Pump, type Shift } from '../lib/api'
 
 export function DashboardPage() {
-  const [selectedPump, setSelectedPump] = useState<Pump | null>(null)
+  const [selectedFuel, setSelectedFuel] = useState<Fuel | null>(null)
   const [selectedTank, setSelectedTank] = useState<TankGrade | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<AccountType>('Cash')
   const [currentShiftId, setCurrentShiftId] = useState<string | null>(null)
+  const [firstPump, setFirstPump] = useState<Pump | null>(null)
 
   const isDesktop = useMinWidth(1200)
   const isWide = useMinWidth(1686)
@@ -28,24 +29,28 @@ export function DashboardPage() {
     apiFetch<Shift[]>(`/shifts?date=${today}`)
       .then((shifts) => setCurrentShiftId(shifts[0]?.id ?? null))
       .catch(() => {})
+
+    apiFetch<Pump[]>('/pumps')
+      .then((pumps) => setFirstPump(pumps[0] ?? null))
+      .catch(() => {})
   }, [])
 
-  function handlePumpSelect(pump: Pump | null) {
-    setSelectedPump(pump)
-    if (pump) setSelectedTank(null)
+  function handleFuelSelect(fuel: Fuel | null) {
+    setSelectedFuel(fuel)
+    if (fuel) setSelectedTank(null)
   }
 
   function handleTankSelect(grade: TankGrade | null) {
     setSelectedTank(grade)
-    if (grade) setSelectedPump(null)
+    if (grade) setSelectedFuel(null)
   }
 
   function closeDetail() {
-    setSelectedPump(null)
+    setSelectedFuel(null)
     setSelectedTank(null)
   }
 
-  const showDetail = selectedPump !== null || selectedTank !== null
+  const showDetail = selectedFuel !== null || selectedTank !== null
 
   useEffect(() => {
     if (!showDetail || isWide) return
@@ -56,7 +61,9 @@ export function DashboardPage() {
 
   const detailContent = (
     <>
-      {selectedPump && <PumpDetailPanel pump={selectedPump} shiftId={currentShiftId} />}
+      {selectedFuel && firstPump && (
+        <PumpDetailPanel pump={firstPump} shiftId={currentShiftId} fuelType={selectedFuel.name} />
+      )}
       {selectedTank && <TankDetailPanel grade={selectedTank} />}
     </>
   )
@@ -81,7 +88,7 @@ export function DashboardPage() {
           </div>
           <AttendantsCard />
           <div className="min-[1200px]:hidden">
-            <PumpsPanel selected={selectedPump} onSelect={handlePumpSelect} />
+            <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} />
           </div>
           <div className="min-[1200px]:hidden">
             <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />
@@ -98,7 +105,7 @@ export function DashboardPage() {
             <PricesPanel />
           </div>
           <div className="hidden min-[1200px]:block">
-            <PumpsPanel selected={selectedPump} onSelect={handlePumpSelect} />
+            <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} />
           </div>
           <div className="hidden min-[1200px]:block">
             <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />
