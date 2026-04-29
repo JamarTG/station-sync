@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import clsx from 'clsx'
 import { ArrowLeft } from 'lucide-react'
 import { PricesPanel } from '../components/dashboard/PricesPanel'
 import { PumpsPanel, type Fuel } from '../components/dashboard/PumpsPanel'
@@ -20,7 +19,6 @@ export function DashboardPage() {
   const [selectedAccount, setSelectedAccount] = useState<AccountType>('Cash')
 
   const isDesktop = useMinWidth(1200)
-  const isWide = useMinWidth(1686)
 
   const today = new Date().toISOString().slice(0, 10)
   const { data: shift } = useShiftForDate(today)
@@ -54,62 +52,37 @@ export function DashboardPage() {
   )
 
   return (
-    <div className="p-4 min-[1200px]:p-6 overflow-x-auto">
-      <div
-        className={clsx(
-          'grid gap-4 min-[1200px]:gap-5',
-          'grid-cols-1 max-w-[600px] min-[1200px]:max-w-none',
-          showDetail && isWide
-            ? 'min-[1200px]:grid-cols-[600px_400px_400px]'
-            : 'min-[1200px]:grid-cols-[600px_400px]',
-        )}
-      >
-        {/* Column 1 — main content */}
-        <div className="flex flex-col gap-4">
-          <ActionBar />
-          <TotalSalesCard />
-          <div className="min-[1200px]:hidden">
-            <PricesPanel />
-          </div>
-          <AttendantsCard />
-          <div className="min-[1200px]:hidden">
-            <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} />
-          </div>
-          <div className="min-[1200px]:hidden">
-            <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />
-          </div>
-          <div className="min-[1200px]:hidden">
-            <AccountsPanel selected={selectedAccount} onSelect={setSelectedAccount} />
-          </div>
-          <RecentActivityCard account={selectedAccount} />
-        </div>
+    <div className="p-4 min-[1200px]:p-6 flex flex-col gap-5">
 
-        {/* Column 2 — service station sidebar */}
-        <div className="flex flex-col gap-4">
-          <div className="hidden min-[1200px]:block">
-            <PricesPanel />
-          </div>
-          <div className="hidden min-[1200px]:block">
-            <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} />
-          </div>
-          <div className="hidden min-[1200px]:block">
-            <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />
-          </div>
-          <div className="hidden min-[1200px]:block">
-            <AccountsPanel selected={selectedAccount} onSelect={setSelectedAccount} />
-          </div>
-        </div>
+      {/* Row 1 — actions */}
+      <ActionBar />
 
-        {/* Column 3 — detail panel (≥1686px only) */}
-        {showDetail && isWide && (
-          <div className="flex flex-col gap-4">
-            {detailContent}
-          </div>
-        )}
+      {/* Row 2 — summary panels (like CMP's Activities | Actions) */}
+      <div className="grid grid-cols-1 min-[1200px]:grid-cols-2 gap-5">
+        <TotalSalesCard />
+        <AttendantsCard />
       </div>
 
-      {/* Modal — shown when detail is open and screen < 1686px */}
-      {showDetail && !isWide && (
+      {/* Row 3 — operations (like WooCommerce's middle section) */}
+      <div className="grid grid-cols-1 min-[900px]:grid-cols-3 gap-5">
+        <PricesPanel />
+        <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} />
+        <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />
+      </div>
+
+      {/* Row 4 — accounts filter + activity table (like CMP's Scheduled Activities) */}
+      <AccountsPanel selected={selectedAccount} onSelect={setSelectedAccount} />
+      <RecentActivityCard account={selectedAccount} />
+
+      {/* Detail panel — inline below table on desktop */}
+      {showDetail && isDesktop && (
+        <div className="grid grid-cols-1 min-[900px]:grid-cols-2 gap-5">
+          {detailContent}
+        </div>
+      )}
+
+      {/* Detail panel — modal on mobile */}
+      {showDetail && !isDesktop && (
         <div
           className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm overflow-y-auto p-4"
           onClick={closeDetail}
