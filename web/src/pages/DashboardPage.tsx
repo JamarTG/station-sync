@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import clsx from 'clsx'
-import { X } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { PricesPanel } from '../components/dashboard/PricesPanel'
 import { PumpsPanel, type Fuel } from '../components/dashboard/PumpsPanel'
 import { PumpDetailPanel } from '../components/dashboard/PumpDetailPanel'
@@ -111,19 +111,20 @@ export function DashboardPage() {
       {/* Modal — shown when detail is open and screen < 1686px */}
       {showDetail && !isWide && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm overflow-y-auto p-4"
           onClick={closeDetail}
         >
+          <button
+            onClick={closeDetail}
+            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f4f4f4] transition-colors mb-4"
+          >
+            <ArrowLeft size={13} />
+            Go back
+          </button>
           <div
-            className="relative w-full max-w-sm max-h-[90vh] overflow-y-auto flex flex-col gap-4"
+            className="w-full max-w-sm mx-auto flex flex-col gap-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={closeDetail}
-              className="absolute -top-1 -right-1 z-10 w-8 h-8 rounded-full bg-white border border-[#ebebeb] flex items-center justify-center shadow-sm hover:bg-[#f4f4f4] transition-colors"
-            >
-              <X size={14} className="text-[#555]" />
-            </button>
             {detailContent}
           </div>
         </div>

@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import type { TankGrade } from './TanksPanel'
+import { FuelReceivalModal } from './FuelReceivalModal'
+import { EditFuelReceivalModal } from './EditFuelReceivalModal'
 
 const gradeLabels: Record<TankGrade, string> = {
   '87': 'UNLEADED 87',
@@ -12,6 +15,10 @@ interface Props {
 }
 
 export function TankDetailPanel({ grade }: Props) {
+  const [hasReceival, setHasReceival] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+
   return (
     <div className="flex flex-col gap-4">
       {/* Dip readings card */}
@@ -76,9 +83,21 @@ export function TankDetailPanel({ grade }: Props) {
       <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
         <div className="flex items-center justify-between mb-4">
           <p className="text-[12px] font-bold tracking-widest text-[#111]">RECEIVAL LOG</p>
-          <button className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
-            Edit
-          </button>
+          {hasReceival ? (
+            <button
+              onClick={() => setShowEdit(true)}
+              className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors"
+            >
+              Edit
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowAdd(true)}
+              className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors"
+            >
+              Add
+            </button>
+          )}
         </div>
         <div className="space-y-3 mb-4">
           <div className="flex items-center justify-between">
@@ -93,6 +112,19 @@ export function TankDetailPanel({ grade }: Props) {
         <p className="text-[11px] font-semibold text-[#aaa] mb-1">Variance</p>
         <p className="text-[28px] font-bold text-[#111] leading-none">0.00</p>
       </div>
+      {showAdd && (
+        <FuelReceivalModal
+          onBack={() => setShowAdd(false)}
+          onClose={() => setShowAdd(false)}
+          onSubmit={() => setHasReceival(true)}
+        />
+      )}
+      {showEdit && (
+        <EditFuelReceivalModal
+          onClose={() => setShowEdit(false)}
+          onSubmit={() => setShowEdit(false)}
+        />
+      )}
     </div>
   )
 }

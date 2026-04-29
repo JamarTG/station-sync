@@ -31,7 +31,7 @@ export function TopBar({ onMenuClick }: Props) {
       {/* Right side */}
       <div className="flex items-center gap-3 text-[12px] text-[#888]">
         {/* Desktop only */}
-        <span className="hidden min-[668px]:inline font-semibold text-[#333]">PTM PETROLEUM LTD.</span>
+        <span className="hidden min-[668px]:inline font-semibold text-[#333]">YAAD MAN ENERGY JA LTD.</span>
         <span className="hidden min-[668px]:inline text-[#ddd]">|</span>
 
         {/* Always visible */}
