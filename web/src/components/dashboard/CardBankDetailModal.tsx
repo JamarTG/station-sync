@@ -28,7 +28,7 @@ export function CardBankDetailModal({ bank, transactions, onBack, onClose }: Pro
       >
         <button
           onClick={onBack}
-          className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors mb-8"
+          className="self-start flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors mb-8"
         >
           <ArrowLeft size={13} />
           Go back

@@ -32,77 +32,14 @@ export function SalesBreakdownModal({ onClose }: Props) {
   const [showOveragesBreakdown, setShowOveragesBreakdown] = useState(false)
   const [showFXBreakdown, setShowFXBreakdown] = useState(false)
 
-  if (showCashBreakdown) {
-    return (
-      <CashBreakdownModal
-        onBack={() => setShowCashBreakdown(false)}
-        onClose={onClose}
-      />
-    )
-  }
-
-  if (showExpenditureBreakdown) {
-    return (
-      <ExpenditureBreakdownModal
-        onBack={() => setShowExpenditureBreakdown(false)}
-        onClose={onClose}
-      />
-    )
-  }
-
-  if (showCardBreakdown) {
-    return (
-      <CardBreakdownModal
-        onBack={() => setShowCardBreakdown(false)}
-        onClose={onClose}
-      />
-    )
-  }
-
-  if (showChargesBreakdown) {
-    return (
-      <ChargesBreakdownModal
-        onBack={() => setShowChargesBreakdown(false)}
-        onClose={onClose}
-      />
-    )
-  }
-
-  if (showAdvanceBreakdown) {
-    return (
-      <AdvanceBreakdownModal
-        onBack={() => setShowAdvanceBreakdown(false)}
-        onClose={onClose}
-      />
-    )
-  }
-
-  if (showFXBreakdown) {
-    return (
-      <FXBreakdownModal
-        onBack={() => setShowFXBreakdown(false)}
-        onClose={onClose}
-      />
-    )
-  }
-
-  if (showShortagesBreakdown) {
-    return (
-      <ShortagesBreakdownModal
-        onBack={() => setShowShortagesBreakdown(false)}
-        onClose={onClose}
-      />
-    )
-  }
-
-  if (showOveragesBreakdown) {
-    return (
-      <OveragesBreakdownModal
-        onBack={() => setShowOveragesBreakdown(false)}
-        onClose={onClose}
-      />
-    )
-  }
+  if (showCashBreakdown) return <CashBreakdownModal onBack={() => setShowCashBreakdown(false)} onClose={onClose} />
+  if (showExpenditureBreakdown) return <ExpenditureBreakdownModal onBack={() => setShowExpenditureBreakdown(false)} onClose={onClose} />
+  if (showCardBreakdown) return <CardBreakdownModal onBack={() => setShowCardBreakdown(false)} onClose={onClose} />
+  if (showChargesBreakdown) return <ChargesBreakdownModal onBack={() => setShowChargesBreakdown(false)} onClose={onClose} />
+  if (showAdvanceBreakdown) return <AdvanceBreakdownModal onBack={() => setShowAdvanceBreakdown(false)} onClose={onClose} />
+  if (showFXBreakdown) return <FXBreakdownModal onBack={() => setShowFXBreakdown(false)} onClose={onClose} />
+  if (showShortagesBreakdown) return <ShortagesBreakdownModal onBack={() => setShowShortagesBreakdown(false)} onClose={onClose} />
+  if (showOveragesBreakdown) return <OveragesBreakdownModal onBack={() => setShowOveragesBreakdown(false)} onClose={onClose} />
 
   return (
     <div
@@ -110,12 +47,12 @@ export function SalesBreakdownModal({ onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-3xl w-full max-w-[640px] p-8 shadow-xl h-[820px] overflow-y-auto"
+        className="bg-white rounded-3xl w-full max-w-[640px] p-8 shadow-xl h-[820px] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           onClick={onClose}
-          className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors mb-8"
+          className="self-start flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors mb-8"
         >
           <ArrowLeft size={13} />
           Go back
@@ -126,90 +63,52 @@ export function SalesBreakdownModal({ onClose }: Props) {
           <p className="text-[36px] font-bold text-[#111] leading-none">J$0.00</p>
         </div>
 
-        <SectionLabel label="Amount Sold" />
-        {fuelGrades.map((g) => (
-          <div key={g} className="flex items-center justify-between py-2">
-            <p className="text-[13px] font-semibold text-[#111]">{g}</p>
-            <p className="text-[13px] font-semibold text-[#bbb]">--</p>
-          </div>
-        ))}
-
-        <div className="border-t border-[#f0f0f0] mt-2" />
-
-        <SectionLabel label="Accounts" />
-        {accounts.map((a) => (
-          <div key={a} className="flex items-start justify-between py-2">
-            <div>
-              {a === 'CASH' ? (
-                <button
-                  onClick={() => setShowCashBreakdown(true)}
-                  className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
-                >
-                  {a}
-                </button>
-              ) : a === 'CARD' ? (
-                <button
-                  onClick={() => setShowCardBreakdown(true)}
-                  className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
-                >
-                  {a}
-                </button>
-              ) : a === 'FX' ? (
-                <button
-                  onClick={() => setShowFXBreakdown(true)}
-                  className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
-                >
-                  {a}
-                </button>
-              ) : a === 'CHARGES' ? (
-                <button
-                  onClick={() => setShowChargesBreakdown(true)}
-                  className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
-                >
-                  {a}
-                </button>
-              ) : a === 'ADVANCE' ? (
-                <button
-                  onClick={() => setShowAdvanceBreakdown(true)}
-                  className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
-                >
-                  {a}
-                </button>
-              ) : a === 'EXPENDITURES' ? (
-                <button
-                  onClick={() => setShowExpenditureBreakdown(true)}
-                  className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
-                >
-                  {a}
-                </button>
-              ) : (
-                <p className="text-[13px] font-semibold text-[#111]">{a}</p>
-              )}
+        <div className="flex-1 overflow-y-auto">
+          <SectionLabel label="Amount Sold" />
+          {fuelGrades.map((g) => (
+            <div key={g} className="flex items-center justify-between py-2">
+              <p className="text-[13px] font-semibold text-[#111]">{g}</p>
+              <p className="text-[13px] font-semibold text-[#bbb]">--</p>
             </div>
+          ))}
+
+          <div className="border-t border-[#f0f0f0] mt-2" />
+
+          <SectionLabel label="Accounts" />
+          {accounts.map((a) => (
+            <div key={a} className="flex items-start justify-between py-2">
+              <div>
+                {a === 'CASH' ? (
+                  <button onClick={() => setShowCashBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">{a}</button>
+                ) : a === 'CARD' ? (
+                  <button onClick={() => setShowCardBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">{a}</button>
+                ) : a === 'FX' ? (
+                  <button onClick={() => setShowFXBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">{a}</button>
+                ) : a === 'CHARGES' ? (
+                  <button onClick={() => setShowChargesBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">{a}</button>
+                ) : a === 'ADVANCE' ? (
+                  <button onClick={() => setShowAdvanceBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">{a}</button>
+                ) : a === 'EXPENDITURES' ? (
+                  <button onClick={() => setShowExpenditureBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">{a}</button>
+                ) : (
+                  <p className="text-[13px] font-semibold text-[#111]">{a}</p>
+                )}
+              </div>
+              <p className="text-[13px] font-semibold text-[#bbb]">--</p>
+            </div>
+          ))}
+
+          <div className="border-t border-[#f0f0f0] mt-2" />
+
+          <SectionLabel label="Attendants" />
+          <div className="flex items-center justify-between py-2">
+            <button onClick={() => setShowShortagesBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">SHORTAGES</button>
             <p className="text-[13px] font-semibold text-[#bbb]">--</p>
           </div>
-        ))}
-
-        <div className="border-t border-[#f0f0f0] mt-2" />
-
-        <SectionLabel label="Attendants" />
-        <div className="flex items-center justify-between py-2">
-          <button
-            onClick={() => setShowShortagesBreakdown(true)}
-            className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
-          >
-            SHORTAGES
-          </button>
-          <p className="text-[13px] font-semibold text-[#bbb]">--</p>
-        </div>
-        <div className="flex items-center justify-between py-2">
-          <button
-            onClick={() => setShowOveragesBreakdown(true)}
-            className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
-          >
-            OVERAGES
-          </button>
-          <p className="text-[13px] font-semibold text-[#bbb]">--</p>
+          <div className="flex items-center justify-between py-2">
+            <button onClick={() => setShowOveragesBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">OVERAGES</button>
+            <p className="text-[13px] font-semibold text-[#bbb]">--</p>
+          </div>
         </div>
 
         <div className="border-t border-[#f0f0f0] mt-4" />
