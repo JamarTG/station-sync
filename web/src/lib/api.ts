@@ -6,6 +6,11 @@ export async function apiFetch<T>(path: string): Promise<T> {
   return res.json()
 }
 
+export interface Fuel {
+  id: string
+  name: string
+}
+
 export interface Pump {
   id: string
   name: string
