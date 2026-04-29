@@ -1,0 +1,73 @@
+import { ArrowLeft } from 'lucide-react'
+import { useEscapeKey } from '../../hooks/useEscapeKey'
+
+const largeDenominations = [5000, 2000, 1000, 500, 100, 50]
+const smallDenominations = [20, 10, 5, 1]
+
+interface Props {
+  description: string
+  requestedBy: string
+  onBack: () => void
+  onClose: () => void
+}
+
+export function ExpenditureDetailModal({ description, requestedBy, onBack, onClose }: Props) {
+  useEscapeKey(onClose)
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl w-full max-w-[640px] p-8 shadow-xl h-[820px] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors mb-8"
+        >
+          <ArrowLeft size={13} />
+          Go back
+        </button>
+
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-[36px] font-bold text-[#111] leading-none">{description}</h2>
+          <p className="text-[36px] font-bold text-[#111] leading-none">J$0.00</p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Breakdown</p>
+
+          {largeDenominations.map((d) => (
+            <div key={d} className="flex items-center justify-between py-2">
+              <p className="text-[13px] font-semibold text-[#111]">${d.toLocaleString()}</p>
+              <p className="text-[13px] font-semibold text-[#bbb]">--</p>
+            </div>
+          ))}
+
+          <div className="border-t border-[#f0f0f0] my-2" />
+
+          {smallDenominations.map((d) => (
+            <div key={d} className="flex items-center justify-between py-2">
+              <p className="text-[13px] font-semibold text-[#111]">${d}</p>
+              <p className="text-[13px] font-semibold text-[#bbb]">--</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="border-t border-[#f0f0f0] mt-4" />
+
+        <div className="flex items-center justify-between pt-4">
+          <div>
+            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Requested by</p>
+            <p className="text-[13px] font-semibold text-[#333] mt-0.5">{requestedBy}</p>
+          </div>
+          <button className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
+            Edit
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}

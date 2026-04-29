@@ -13,7 +13,7 @@ export function AccountsPanel({ selected, onSelect }: Props) {
   return (
     <div className="p-5 flex flex-col">
       <p className="text-[13px] font-semibold text-[#888] mb-3">Accounts</p>
-      <div className="grid grid-cols-2 gap-2 flex-1 content-start">
+      <div className="grid grid-cols-1 gap-2 flex-1 content-start">
         {accounts.map((a) => {
           const isActive = selected === a
           return (

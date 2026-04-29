@@ -1,12 +1,28 @@
+import { useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, MoreHorizontal } from 'lucide-react'
 import type { AccountType } from './AccountsPanel'
+import { ExpenditureModal } from './ExpenditureModal'
+import { CashDepositModal } from './CashDropModal'
+import { CardModal } from './CardModal'
+import { AdvanceModal } from './AdvanceModal'
+import { ChargeModal } from './ChargeModal'
+import { FXModal } from './FXModal'
+import { CashBreakdownModal } from './CashBreakdownModal'
+import { ExpenditureBreakdownModal } from './ExpenditureBreakdownModal'
+import { CardBreakdownModal } from './CardBreakdownModal'
+import { ChargesBreakdownModal } from './ChargesBreakdownModal'
+import { AdvanceBreakdownModal } from './AdvanceBreakdownModal'
+import { FXBreakdownModal } from './FXBreakdownModal'
 
 interface BaseRow { id: number; amount: number }
 interface AttendantRow extends BaseRow { type: 'attendant'; name: string; time: string }
 interface ExpenditureRow extends BaseRow { type: 'expenditure'; requestedBy: string; description: string }
 interface ChargesRow extends BaseRow { type: 'charges'; name: string; fuelType: string; litres: number }
+interface CardRow extends BaseRow { type: 'card'; name: string; bank: string; litres: number }
+interface AdvanceRow extends BaseRow { type: 'advance'; name: string; fuelType: string; litres: number }
+interface FXRow extends BaseRow { type: 'fx'; name: string; fxAmount: number; currency: string }
 
-type ActivityRow = AttendantRow | ExpenditureRow | ChargesRow
+type ActivityRow = AttendantRow | ExpenditureRow | ChargesRow | CardRow | AdvanceRow | FXRow
 
 const activityByAccount: Record<AccountType, ActivityRow[]> = {
   Cash: [
@@ -24,11 +40,17 @@ const activityByAccount: Record<AccountType, ActivityRow[]> = {
     { type: 'expenditure', id: 1, requestedBy: 'A. Lewis', description: 'Office supplies', amount: 5000.0 },
     { type: 'expenditure', id: 2, requestedBy: 'T. Brisco', description: 'Equipment repair', amount: 12000.0 },
   ],
-  Advance: [],
-  FX: [],
+  Advance: [
+    { type: 'advance', id: 1, name: 'T. Brisco', fuelType: '87', litres: 45.2, amount: 8608.08 },
+    { type: 'advance', id: 2, name: 'S. Smith', fuelType: '90', litres: 30.0, amount: 6150.0 },
+  ],
+  FX: [
+    { type: 'fx', id: 1, name: 'S. Smith', fxAmount: 500, currency: 'USD', amount: 75000 },
+    { type: 'fx', id: 2, name: 'T. Brisco', fxAmount: 200, currency: 'EUR', amount: 32000 },
+  ],
   Card: [
-    { type: 'attendant', id: 1, name: 'S. Smith', time: '7:00 PM', amount: 23000.0 },
-    { type: 'attendant', id: 2, name: 'T. Brisco', time: '5:30 PM', amount: 15000.0 },
+    { type: 'card', id: 1, name: 'S. Smith', bank: 'NCB', litres: 120.5, amount: 23000.0 },
+    { type: 'card', id: 2, name: 'T. Brisco', bank: 'Scotiabank', litres: 78.3, amount: 15000.0 },
   ],
 }
 
@@ -47,8 +69,29 @@ function TableHeaders({ account }: { account: AccountType }) {
   if (account === 'Charges') return (
     <>
       <th className={th}>Attendant</th>
-      <th className={th}>Fuel Type</th>
+      <th className={th}>Fuel</th>
       <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Litres</th>
+    </>
+  )
+  if (account === 'Card') return (
+    <>
+      <th className={th}>Attendant</th>
+      <th className={th}>Bank</th>
+      <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Litres</th>
+    </>
+  )
+  if (account === 'Advance') return (
+    <>
+      <th className={th}>Attendant</th>
+      <th className={th}>Fuel</th>
+      <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Litres</th>
+    </>
+  )
+  if (account === 'FX') return (
+    <>
+      <th className={th}>Attendant</th>
+      <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Amount</th>
+      <th className={th}>Currency</th>
     </>
   )
   return <th className={th}>Attendant</th>
@@ -78,6 +121,45 @@ function TableCells({ row }: { row: ActivityRow }) {
       </td>
     </>
   )
+  if (row.type === 'advance') return (
+    <>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] font-semibold text-[#222]">{row.name}</p>
+      </td>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] text-[#555]">{row.fuelType}</p>
+      </td>
+      <td className="px-3 py-3.5 text-right">
+        <p className="text-[13px] text-[#555]">{row.litres.toFixed(2)}</p>
+      </td>
+    </>
+  )
+  if (row.type === 'card') return (
+    <>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] font-semibold text-[#222]">{row.name}</p>
+      </td>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] text-[#555]">{row.bank}</p>
+      </td>
+      <td className="px-3 py-3.5 text-right">
+        <p className="text-[13px] text-[#555]">{row.litres.toFixed(2)}</p>
+      </td>
+    </>
+  )
+  if (row.type === 'fx') return (
+    <>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] font-semibold text-[#222]">{row.name}</p>
+      </td>
+      <td className="px-3 py-3.5 text-right">
+        <p className="text-[13px] text-[#555]">{row.fxAmount.toFixed(2)}</p>
+      </td>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] text-[#555]">{row.currency}</p>
+      </td>
+    </>
+  )
   return (
     <td className="px-3 py-3.5">
       <p className="text-[13px] font-semibold text-[#222]">{row.name}</p>
@@ -88,8 +170,21 @@ function TableCells({ row }: { row: ActivityRow }) {
 
 export function RecentActivityCard({ account }: Props) {
   const activities = activityByAccount[account]
+  const [showExpenditure, setShowExpenditure] = useState(false)
+  const [showCashDeposit, setShowCashDeposit] = useState(false)
+  const [showCard, setShowCard] = useState(false)
+  const [showAdvance, setShowAdvance] = useState(false)
+  const [showCharge, setShowCharge] = useState(false)
+  const [showFX, setShowFX] = useState(false)
+  const [showCashBreakdown, setShowCashBreakdown] = useState(false)
+  const [showExpenditureBreakdown, setShowExpenditureBreakdown] = useState(false)
+  const [showCardBreakdown, setShowCardBreakdown] = useState(false)
+  const [showChargesBreakdown, setShowChargesBreakdown] = useState(false)
+  const [showAdvanceBreakdown, setShowAdvanceBreakdown] = useState(false)
+  const [showFXBreakdown, setShowFXBreakdown] = useState(false)
 
   return (
+    <>
     <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-[#f0f0f0] flex-shrink-0">
@@ -107,7 +202,17 @@ export function RecentActivityCard({ account }: Props) {
               <ChevronUp size={12} className="text-[#666]" />
             </span>
           </button>
-          <button className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]">
+          <button
+            onClick={() => {
+              if (account === 'Expenditures') setShowExpenditure(true)
+              if (account === 'Cash') setShowCashDeposit(true)
+              if (account === 'Card') setShowCard(true)
+              if (account === 'Advance') setShowAdvance(true)
+              if (account === 'Charges') setShowCharge(true)
+              if (account === 'FX') setShowFX(true)
+            }}
+            className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]"
+          >
             <Plus size={13} />
           </button>
           <button className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]">
@@ -160,9 +265,128 @@ export function RecentActivityCard({ account }: Props) {
         </button>
         <div className="flex items-center gap-4">
           <span className="text-[12px] text-[#bbb] font-medium">{activities.length}</span>
-          <span className="text-[13px] font-bold text-[#333]">J$ 0.00</span>
+          {account === 'Cash' ? (
+            <button
+              onClick={() => setShowCashBreakdown(true)}
+              className="text-[13px] font-bold text-[#333] hover:text-[#111] transition-colors"
+            >
+              J$ 0.00
+            </button>
+          ) : account === 'Expenditures' ? (
+            <button
+              onClick={() => setShowExpenditureBreakdown(true)}
+              className="text-[13px] font-bold text-[#333] hover:text-[#111] transition-colors"
+            >
+              J$ 0.00
+            </button>
+          ) : account === 'Card' ? (
+            <button
+              onClick={() => setShowCardBreakdown(true)}
+              className="text-[13px] font-bold text-[#333] hover:text-[#111] transition-colors"
+            >
+              J$ 0.00
+            </button>
+          ) : account === 'Charges' ? (
+            <button
+              onClick={() => setShowChargesBreakdown(true)}
+              className="text-[13px] font-bold text-[#333] hover:text-[#111] transition-colors"
+            >
+              J$ 0.00
+            </button>
+          ) : account === 'Advance' ? (
+            <button
+              onClick={() => setShowAdvanceBreakdown(true)}
+              className="text-[13px] font-bold text-[#333] hover:text-[#111] transition-colors"
+            >
+              J$ 0.00
+            </button>
+          ) : account === 'FX' ? (
+            <button
+              onClick={() => setShowFXBreakdown(true)}
+              className="text-[13px] font-bold text-[#333] hover:text-[#111] transition-colors"
+            >
+              J$ 0.00
+            </button>
+          ) : (
+            <span className="text-[13px] font-bold text-[#333]">J$ 0.00</span>
+          )}
         </div>
       </div>
     </div>
+
+      {showExpenditure && (
+        <ExpenditureModal
+          onBack={() => setShowExpenditure(false)}
+          onClose={() => setShowExpenditure(false)}
+        />
+      )}
+      {showCashDeposit && (
+        <CashDepositModal
+          initialAttendant=""
+          onBack={() => setShowCashDeposit(false)}
+          onClose={() => setShowCashDeposit(false)}
+        />
+      )}
+      {showCard && (
+        <CardModal
+          onBack={() => setShowCard(false)}
+          onClose={() => setShowCard(false)}
+        />
+      )}
+      {showAdvance && (
+        <AdvanceModal
+          onBack={() => setShowAdvance(false)}
+          onClose={() => setShowAdvance(false)}
+        />
+      )}
+      {showCharge && (
+        <ChargeModal
+          onBack={() => setShowCharge(false)}
+          onClose={() => setShowCharge(false)}
+        />
+      )}
+      {showFX && (
+        <FXModal
+          onBack={() => setShowFX(false)}
+          onClose={() => setShowFX(false)}
+        />
+      )}
+      {showCashBreakdown && (
+        <CashBreakdownModal
+          onBack={() => setShowCashBreakdown(false)}
+          onClose={() => setShowCashBreakdown(false)}
+        />
+      )}
+      {showExpenditureBreakdown && (
+        <ExpenditureBreakdownModal
+          onBack={() => setShowExpenditureBreakdown(false)}
+          onClose={() => setShowExpenditureBreakdown(false)}
+        />
+      )}
+      {showCardBreakdown && (
+        <CardBreakdownModal
+          onBack={() => setShowCardBreakdown(false)}
+          onClose={() => setShowCardBreakdown(false)}
+        />
+      )}
+      {showChargesBreakdown && (
+        <ChargesBreakdownModal
+          onBack={() => setShowChargesBreakdown(false)}
+          onClose={() => setShowChargesBreakdown(false)}
+        />
+      )}
+      {showAdvanceBreakdown && (
+        <AdvanceBreakdownModal
+          onBack={() => setShowAdvanceBreakdown(false)}
+          onClose={() => setShowAdvanceBreakdown(false)}
+        />
+      )}
+      {showFXBreakdown && (
+        <FXBreakdownModal
+          onBack={() => setShowFXBreakdown(false)}
+          onClose={() => setShowFXBreakdown(false)}
+        />
+      )}
+    </>
   )
 }
