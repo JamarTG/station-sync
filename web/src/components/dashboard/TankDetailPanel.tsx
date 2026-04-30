@@ -1,7 +1,11 @@
-import { useState } from 'react'
-import type { TankGrade } from './TanksPanel'
+import { useState, useEffect } from 'react'
+import clsx from 'clsx'
 import { FuelReceivalModal } from './FuelReceivalModal'
 import { EditFuelReceivalModal } from './EditFuelReceivalModal'
+
+type TankGrade = '87' | '90' | 'ADO' | 'ULSD'
+
+const grades: TankGrade[] = ['87', '90', 'ADO', 'ULSD']
 
 const gradeLabels: Record<TankGrade, string> = {
   '87': 'UNLEADED 87',
@@ -10,21 +14,42 @@ const gradeLabels: Record<TankGrade, string> = {
   'ULSD': 'ULTRA LOW SULPHUR',
 }
 
-interface Props {
-  grade: TankGrade
-}
-
-export function TankDetailPanel({ grade }: Props) {
+export function TankDetailPanel() {
+  const [grade, setGrade] = useState<TankGrade>('87')
   const [hasReceival, setHasReceival] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+
+  useEffect(() => {
+    setHasReceival(false)
+    setShowAdd(false)
+    setShowEdit(false)
+  }, [grade])
 
   return (
     <div className="flex flex-col gap-4">
       {/* Dip readings card */}
       <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#f0f0f0]">
-          <p className="text-[12px] font-bold text-[#111] tracking-widest">{gradeLabels[grade]}</p>
+        {/* Grade tabs */}
+        <div className="flex items-center border-b border-[#f0f0f0] px-5">
+          {grades.map((g) => {
+            const isActive = grade === g
+            return (
+              <button
+                key={g}
+                onClick={() => setGrade(g)}
+                className={clsx(
+                  'relative flex-shrink-0 py-4 mr-5 text-[13px] font-semibold transition-colors whitespace-nowrap',
+                  isActive ? 'text-[#111]' : 'text-[#aaa] hover:text-[#555]'
+                )}
+              >
+                {g}
+                {isActive && (
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#111] translate-y-px" />
+                )}
+              </button>
+            )
+          })}
         </div>
 
         <table className="w-full">
@@ -60,11 +85,15 @@ export function TankDetailPanel({ grade }: Props) {
 
         <div className="px-5 pt-4 pb-2 border-t border-[#f0f0f0] space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">SUGGESTED LITRES SOLD</span>
+            <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">
+              SUGGESTED LITRES SOLD
+            </span>
             <span className="text-[12px] font-bold text-[#bbb]">---</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">ACTUAL LITRES SOLD</span>
+            <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">
+              ACTUAL LITRES SOLD
+            </span>
             <span className="text-[12px] font-bold text-[#bbb]">---</span>
           </div>
           <div className="flex items-center justify-between">
@@ -74,7 +103,9 @@ export function TankDetailPanel({ grade }: Props) {
         </div>
 
         <div className="px-5 pt-2 pb-5">
-          <p className="text-[10px] font-semibold tracking-widest text-[#aaa] mb-1">WET STOCK SUMMARY</p>
+          <p className="text-[10px] font-semibold tracking-widest text-[#aaa] mb-1">
+            WET STOCK SUMMARY
+          </p>
           <p className="text-[28px] font-bold text-[#111] leading-none tracking-tight">+0.00%</p>
         </div>
       </div>
@@ -112,11 +143,12 @@ export function TankDetailPanel({ grade }: Props) {
         <p className="text-[11px] font-semibold text-[#aaa] mb-1">Variance</p>
         <p className="text-[28px] font-bold text-[#111] leading-none">0.00</p>
       </div>
+
       {showAdd && (
         <FuelReceivalModal
           onBack={() => setShowAdd(false)}
           onClose={() => setShowAdd(false)}
-          onSubmit={() => setHasReceival(true)}
+          onSubmit={() => { setHasReceival(true); setShowAdd(false) }}
         />
       )}
       {showEdit && (
