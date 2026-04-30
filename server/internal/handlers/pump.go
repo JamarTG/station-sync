@@ -104,6 +104,7 @@ func (h *PumpHandler) GetFuelSummary(c *gin.Context) {
 	type FuelSummary struct {
 		FuelType        string          `json:"fuelType"`
 		Nozzles         []NozzleReading `json:"nozzles"`
+		PricePerLitre   float64         `json:"pricePerLitre"`
 		TotalLitresSold float64         `json:"totalLitresSold"`
 		TotalSales      float64         `json:"totalSales"`
 	}
@@ -123,7 +124,7 @@ func (h *PumpHandler) GetFuelSummary(c *gin.Context) {
 		}
 
 		if _, exists := summaryMap[fuelType]; !exists {
-			summaryMap[fuelType] = &FuelSummary{FuelType: fuelType, Nozzles: []NozzleReading{}}
+			summaryMap[fuelType] = &FuelSummary{FuelType: fuelType, Nozzles: []NozzleReading{}, PricePerLitre: price}
 			order = append(order, fuelType)
 		}
 

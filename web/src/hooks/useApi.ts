@@ -25,12 +25,7 @@ export function useShiftForDate(date: string) {
 export function useFuelSummary(pumpId: string | undefined, shiftId: string | undefined) {
   return useQuery({
     queryKey: ['fuel-summary', pumpId, shiftId],
-    queryFn: async () => {
-
-      const r = await api.get<FuelSummary[]>(`/pumps/${pumpId}/shifts/${shiftId}/fuel-summary`)
-      console.log(r.data,"tester")     
-      return r.data
-    },
+    queryFn: () => api.get<FuelSummary[]>(`/pumps/${pumpId}/shifts/${shiftId}/fuel-summary`).then((r) => r.data),
     enabled: !!pumpId && !!shiftId,
   })
 }

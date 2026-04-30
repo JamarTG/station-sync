@@ -31,6 +31,7 @@ export interface NozzleReading {
 export interface FuelSummary {
   fuelType: string
   nozzles: NozzleReading[]
+  pricePerLitre: number
   totalLitresSold: number
   totalSales: number
 }

@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import clsx from 'clsx'
+import { ChevronDown } from 'lucide-react'
 import { useFuels, useFuelSummary } from '../../hooks/useApi'
-import type { Pump } from '../../lib/api'
+import type { Pump, FuelSummary } from '../../lib/api'
 import { PumpDetailPanel } from './PumpDetailPanel'
 import { FuelReceivalModal } from './FuelReceivalModal'
 import { EditFuelReceivalModal } from './EditFuelReceivalModal'
@@ -10,6 +11,64 @@ type View = 'pumps' | 'tanks'
 type TankGrade = '87' | '90' | 'ADO' | 'ULSD'
 
 const grades: TankGrade[] = ['87', '90', 'ADO', 'ULSD']
+
+function FuelDropdown({
+  summaries,
+  active,
+  onChange,
+}: {
+  summaries: FuelSummary[]
+  active: string | null
+  onChange: (name: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const activeSummary = summaries.find((s) => s.fuelType === active)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative flex-1 py-3">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 border border-[#ddd] rounded-lg px-3 py-1.5"
+      >
+        <span className="text-[13px] font-semibold text-[#111]">{active ?? '—'}</span>
+        {activeSummary && (
+          <span className="text-[11px] text-[#aaa] font-medium">
+            J${activeSummary.pricePerLitre.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        )}
+        <ChevronDown size={12} className={clsx('text-[#888] transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-[#e0e0e0] rounded-xl shadow-md py-1 min-w-[160px]">
+          {summaries.map((s) => (
+            <button
+              key={s.fuelType}
+              onClick={() => { onChange(s.fuelType); setOpen(false) }}
+              className={clsx(
+                'w-full text-left px-4 py-2.5 flex items-center justify-between gap-4 transition-colors',
+                s.fuelType === active ? 'bg-[#f5f5f5]' : 'hover:bg-[#f9f9f9]'
+              )}
+            >
+              <span className="text-[13px] font-semibold text-[#111]">{s.fuelType}</span>
+              <span className="text-[11px] text-[#aaa] font-medium">
+                J${s.pricePerLitre.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface Props {
   pump: Pump | undefined
@@ -47,31 +106,60 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
     <>
       <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col flex-1 min-h-0">
         <div className="flex items-center px-5 flex-shrink-0">
-          <div className="flex flex-1 overflow-x-auto min-w-0">
-            {tabs.length === 0 ? (
-              <span className="py-4 text-[13px] text-[#ccc] font-medium border-b-2 border-[#f0f0f0]">
-                No fuels configured
-              </span>
-            ) : (
-              tabs.map((tab) => {
-                const isActive = tab === activeTab
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => handleTabClick(tab)}
-                    className={clsx(
-                      'flex-shrink-0 py-4 mr-4 text-[13px] font-semibold transition-colors whitespace-nowrap border-b-2',
-                      isActive
-                        ? 'border-[#111] text-[#111]'
-                        : 'border-[#f0f0f0] text-[#aaa] hover:text-[#555]'
-                    )}
-                  >
-                    {tab}
-                  </button>
-                )
-              })
-            )}
-          </div>
+          {view === 'pumps' && summaries.length > 0 ? (
+            <>
+              <div className="sm:hidden flex-1 border-b-2 border-[#f0f0f0]">
+                <FuelDropdown summaries={summaries} active={activeFuelName} onChange={setSelectedFuelName} />
+              </div>
+              <div className="hidden sm:flex flex-1 min-w-0">
+                {summaries.map((s) => {
+                  const isActive = s.fuelType === activeFuelName
+                  return (
+                    <button
+                      key={s.fuelType}
+                      onClick={() => setSelectedFuelName(s.fuelType)}
+                      className={clsx(
+                        'flex-shrink-0 py-4 mr-4 flex flex-col items-start border-b-2 transition-colors whitespace-nowrap',
+                        isActive ? 'border-[#111]' : 'border-[#f0f0f0]'
+                      )}
+                    >
+                      <span className={clsx('text-[13px] font-semibold', isActive ? 'text-[#111]' : 'text-[#aaa]')}>
+                        {s.fuelType}
+                      </span>
+                      <span className="text-[10px] font-medium text-[#bbb]">
+                        J${s.pricePerLitre.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-1 min-w-0">
+              {tabs.length === 0 ? (
+                <span className="py-4 text-[13px] text-[#ccc] font-medium border-b-2 border-[#f0f0f0]">
+                  No fuels configured
+                </span>
+              ) : (
+                tabs.map((tab) => {
+                  const isActive = tab === activeTab
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => handleTabClick(tab)}
+                      className={clsx(
+                        'flex-shrink-0 py-4 mr-4 text-[13px] font-semibold transition-colors whitespace-nowrap border-b-2',
+                        isActive ? 'border-[#111] text-[#111]' : 'border-[#f0f0f0] text-[#aaa] hover:text-[#555]'
+                      )}
+                    >
+                      {tab}
+                    </button>
+                  )
+                })
+              )}
+            </div>
+          )}
+
           <div className="flex items-center pl-3 py-3 border-b-2 border-[#f0f0f0] flex-shrink-0">
             <div className="flex items-center border border-[#e0e0e0] rounded-lg overflow-hidden">
               <button
