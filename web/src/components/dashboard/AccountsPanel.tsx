@@ -7,13 +7,14 @@ const accounts: AccountType[] = ['Expenditures', 'Charges', 'Advance', 'FX', 'Ca
 interface Props {
   selected: AccountType
   onSelect: (account: AccountType) => void
+  className?: string
 }
 
-export function AccountsPanel({ selected, onSelect }: Props) {
+export function AccountsPanel({ selected, onSelect, className }: Props) {
   return (
-    <div className="p-5 flex flex-col">
+    <div className={clsx('p-5 flex flex-col', className)}>
       <p className="text-[13px] font-semibold text-[#888] mb-3">Accounts</p>
-      <div className="grid grid-cols-1 gap-2 flex-1 content-start">
+      <div className="grid grid-cols-1 gap-2 flex-1 content-start overflow-y-auto">
         {accounts.map((a) => {
           const isActive = selected === a
           return (
