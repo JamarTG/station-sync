@@ -12,13 +12,6 @@ const prices: Record<string, number> = {
   'ULSD': 190.90,
 }
 
-const prices: Record<string, number> = {
-  '87': 190.90,
-  '90': 190.90,
-  'ADO': 190.90,
-  'ULSD': 190.90,
-}
-
 interface Props {
   selected: Fuel | null
   onSelect: (fuel: Fuel) => void

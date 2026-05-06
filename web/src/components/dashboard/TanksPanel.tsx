@@ -4,12 +4,6 @@ export type TankGrade = '87' | '90' | 'ADO' | 'ULSD'
 
 const grades: TankGrade[] = ['87', '90', 'ADO', 'ULSD']
 
-const prices: Record<TankGrade, number> = {
-  '87': 190.90,
-  '90': 190.90,
-  'ADO': 190.90,
-  'ULSD': 190.90,
-}
 
 interface Props {
   selected: TankGrade
@@ -34,21 +28,10 @@ export function TanksPanel({ selected, onSelect }: Props) {
                   : 'border-transparent text-[#999] hover:text-[#555]'
               )}
             >
-              <p className={clsx('text-[13px] font-bold mb-1 leading-none', isActive ? 'text-[#111]' : 'text-[#aaa]')}>
-                {g}
-              </p>
-              <p className={clsx('text-[11px] leading-none', isActive ? 'text-[#555]' : 'text-[#ccc]')}>
-                <span className="text-[10px]">J$</span>{prices[g].toFixed(2)}
-              </p>
+              {g}
             </button>
           )
         })}
-      </div>
-      <div className="flex-1 flex items-center px-5">
-        <p className="text-[11px] font-medium text-[#bbb] uppercase tracking-wide">
-          Available&nbsp;
-          <span className="text-[#555] font-bold normal-case tracking-normal text-[12px]">2.5051</span>
-        </p>
       </div>
     </div>
   )

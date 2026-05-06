@@ -128,7 +128,7 @@ export function DashboardPage() {
             <>
               <TanksPanel selected={selectedTank} onSelect={setSelectedTank} />
               <div className="flex-1 overflow-hidden flex flex-col">
-                <TankDetailPanel grade={selectedTank} />
+                <TankDetailPanel />
               </div>
             </>
           )}
@@ -168,7 +168,7 @@ export function DashboardPage() {
                 </div>
               </>
             )}
-          </div>
+          </div>  
         </div>
       )}
 
@@ -199,7 +199,7 @@ export function DashboardPage() {
                   <TanksPanel selected={selectedTank} onSelect={setSelectedTank} />
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                  <TankDetailPanel grade={selectedTank} />
+                  <TankDetailPanel />
                 </div>
               </>
             )}

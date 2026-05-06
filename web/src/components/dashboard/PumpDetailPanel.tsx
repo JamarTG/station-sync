@@ -13,7 +13,7 @@ interface Props {
   pump: Pump | undefined
   shiftId: string | undefined
   fuelType: string | null
-  summaries: FuelSummary[]
+  /*summaries: FuelSummary[]*/
 }
 
 export function PumpDetailPanel({ fuelType }: Props) {

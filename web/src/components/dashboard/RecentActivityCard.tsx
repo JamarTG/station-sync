@@ -18,6 +18,8 @@ import { AttendantModal } from './AttendantModal'
 import { ManageAttendantsModal } from './ManageAttendantsModal'
 import { DepositModal } from './DepositModal'
 
+const accounts: AccountType[] = ['Cash', 'Expenditures', 'Charges', 'Advance', 'FX', 'Card']
+
 interface BaseRow { id: number; amount: number }
 interface AttendantsRow extends BaseRow { type: 'attendants'; name: string; pump: string; balance: number; clockIn: string }
 interface AttendantRow extends BaseRow { type: 'attendant'; name: string; time: string }
@@ -68,10 +70,6 @@ const activityByAccount: Record<AccountType, ActivityRow[]> = {
     { type: 'deposit', id: 2, name: 'S. Smith', description: 'Card settlement', depositType: 'Card', amount: 45000.0 },
     { type: 'deposit', id: 3, name: 'T. Brisco', description: 'FX deposit', depositType: 'FX', amount: 32000.0 },
   ],
-}
-
-interface Props {
-  account: AccountType
 }
 
 function TableHeaders({ account }: { account: AccountType }) {
@@ -226,8 +224,54 @@ function TableCells({ row }: { row: ActivityRow }) {
   return null
 }
 
+function AccountDropdown({ account, onChange }: { account: AccountType; onChange: (a: AccountType) => void }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative flex-1 py-3">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1.5 border border-[#ddd] rounded-lg px-3 py-1.5"
+      >
+        <span className="text-[13px] font-semibold text-[#111]">{account}</span>
+        <ChevronDown size={12} className={clsx('text-[#888] transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-[#e0e0e0] rounded-xl shadow-md py-1 min-w-[140px]">
+          {accounts.map((a) => (
+            <button
+              key={a}
+              onClick={() => { onChange(a); setOpen(false) }}
+              className={clsx(
+                'w-full text-left px-4 py-2.5 text-[13px] font-semibold transition-colors',
+                a === account ? 'text-[#111] bg-[#f5f5f5]' : 'text-[#555] hover:bg-[#f9f9f9]'
+              )}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface Props {
+  account: AccountType
+}
+
 export function RecentActivityCard({ account }: Props) {
-  const activities = activityByAccount[account]
+  const activities = activityByAccount[account].slice(0, 4)
+
   const [showExpenditure, setShowExpenditure] = useState(false)
   const [showCashDeposit, setShowCashDeposit] = useState(false)
   const [showCard, setShowCard] = useState(false)
@@ -252,6 +296,15 @@ export function RecentActivityCard({ account }: Props) {
         return sortDir === 'asc' ? balA - balB : balB - balA
       })
     : activities
+
+  function handleTotal() {
+    if (account === 'Cash') setShowCashBreakdown(true)
+    if (account === 'Expenditures') setShowExpenditureBreakdown(true)
+    if (account === 'Card') setShowCardBreakdown(true)
+    if (account === 'Charges') setShowChargesBreakdown(true)
+    if (account === 'Advance') setShowAdvanceBreakdown(true)
+    if (account === 'FX') setShowFXBreakdown(true)
+  }
 
   return (
     <>
@@ -299,50 +352,49 @@ export function RecentActivityCard({ account }: Props) {
         </div>
       </div>
 
-      {/* Table — fixed height, scrollable */}
-      <div className="overflow-y-auto flex-1 min-h-0 flex-shrink-0">
-        {activities.length > 0 ? (
-          <table className="w-full">
-            <thead className="sticky top-0 bg-white">
-              <tr className="border-b border-[#f4f4f4]">
-                <th className="text-left pl-5 pr-3 py-3 text-[11px] font-semibold text-[#bbb] w-10">#</th>
-                <TableHeaders account={account} />
-                {account !== 'Attendants' && <th className="text-right px-5 py-3 text-[11px] font-semibold text-[#bbb]">Amount</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {displayedActivities.map((row) => (
-                <tr
-                  key={row.id}
-                  className={`border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors group${account === 'Attendants' ? ' cursor-pointer' : ''}`}
-                  onClick={account === 'Attendants' && row.type === 'attendants' ? () => setSelectedAttendant(row.name) : undefined}
-                >
-                  <td className="pl-5 pr-3 py-3.5 text-[13px] text-[#bbb] font-medium">{row.id}</td>
-                  <TableCells row={row} />
-                  {account !== 'Attendants' && (
-                    <td className="px-5 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-2 flex-nowrap">
-                        <span className="text-[13px] font-semibold text-[#333] whitespace-nowrap">
-                          J$ {row.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                        </span>
-                        <button className="opacity-0 group-hover:opacity-100 transition-opacity text-[#bbb] hover:text-[#888] flex-shrink-0">
-                          <MoreHorizontal size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  )}
+      <div className="flex-1 min-h-0 overflow-y-auto">
+          {activities.length > 0 ? (
+            <table className="w-full">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b border-[#f4f4f4]">
+                  <th className="text-left pl-5 pr-3 py-3 text-[11px] font-semibold text-[#bbb] w-10">#</th>
+                  <TableHeaders account={account} />
+                  {account !== 'Attendants' && <th className="text-right px-5 py-3 text-[11px] font-semibold text-[#bbb]">Amount</th>}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="flex items-center justify-center py-10">
-            <p className="text-[13px] text-[#ccc] font-medium">No activity recorded</p>
-          </div>
-        )}
+              </thead>
+              <tbody>
+                {displayedActivities.map((row) => (
+                  <tr
+                    key={row.id}
+                    className={`border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors group${account === 'Attendants' ? ' cursor-pointer' : ''}`}
+                    onClick={account === 'Attendants' && row.type === 'attendants' ? () => setSelectedAttendant(row.name) : undefined}
+                  >
+                    <td className="pl-5 pr-3 py-3.5 text-[13px] text-[#bbb] font-medium">{row.id}</td>
+                    <TableCells row={row} />
+                    {account !== 'Attendants' && (
+                      <td className="px-5 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-2 flex-nowrap">
+                          <span className="text-[13px] font-semibold text-[#333] whitespace-nowrap">
+                            J$ {row.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                          </span>
+                          <button className="opacity-0 group-hover:opacity-100 transition-opacity text-[#bbb] hover:text-[#888] flex-shrink-0">
+                            <MoreHorizontal size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-[13px] text-[#ccc] font-medium">No activity recorded</p>
+            </div>
+          )}
       </div>
 
-        <div className="flex items-center justify-between px-5 py-3 border-t border-[#f0f0f0] flex-shrink-0">
+      <div className="flex items-center justify-between px-5 py-3 border-t border-[#f0f0f0] flex-shrink-0">
           <button className="text-[12px] font-semibold text-[#888] hover:text-[#333] transition-colors">
             view all
           </button>
@@ -355,7 +407,6 @@ export function RecentActivityCard({ account }: Props) {
               J$ 0.00
             </button>
           </div>
-        </div>
       </div>
 
       {showExpenditure && (
@@ -392,10 +443,7 @@ export function RecentActivityCard({ account }: Props) {
         <AdvanceBreakdownModal onBack={() => setShowAdvanceBreakdown(false)} onClose={() => setShowAdvanceBreakdown(false)} />
       )}
       {showFXBreakdown && (
-        <FXBreakdownModal
-          onBack={() => setShowFXBreakdown(false)}
-          onClose={() => setShowFXBreakdown(false)}
-        />
+        <FXBreakdownModal onBack={() => setShowFXBreakdown(false)} onClose={() => setShowFXBreakdown(false)} />
       )}
       {selectedAttendant && (
         <AttendantModal
@@ -414,6 +462,7 @@ export function RecentActivityCard({ account }: Props) {
           onClose={() => setShowDeposit(false)}
         />
       )}
+    </div>
     </>
   )
 }
