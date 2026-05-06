@@ -14,20 +14,28 @@ import { CardBreakdownModal } from './CardBreakdownModal'
 import { ChargesBreakdownModal } from './ChargesBreakdownModal'
 import { AdvanceBreakdownModal } from './AdvanceBreakdownModal'
 import { FXBreakdownModal } from './FXBreakdownModal'
-
-const accounts: AccountType[] = ['Cash', 'Expenditures', 'Charges', 'Advance', 'FX', 'Card']
+import { AttendantModal } from './AttendantModal'
+import { ManageAttendantsModal } from './ManageAttendantsModal'
+import { DepositModal } from './DepositModal'
 
 interface BaseRow { id: number; amount: number }
+interface AttendantsRow extends BaseRow { type: 'attendants'; name: string; pump: string; balance: number; clockIn: string }
 interface AttendantRow extends BaseRow { type: 'attendant'; name: string; time: string }
 interface ExpenditureRow extends BaseRow { type: 'expenditure'; requestedBy: string; description: string }
 interface ChargesRow extends BaseRow { type: 'charges'; name: string; fuelType: string; litres: number }
 interface CardRow extends BaseRow { type: 'card'; name: string; bank: string; litres: number }
 interface AdvanceRow extends BaseRow { type: 'advance'; name: string; fuelType: string; litres: number }
 interface FXRow extends BaseRow { type: 'fx'; name: string; fxAmount: number; currency: string }
+interface DepositRow extends BaseRow { type: 'deposit'; name: string; description: string; depositType: string }
 
-type ActivityRow = AttendantRow | ExpenditureRow | ChargesRow | CardRow | AdvanceRow | FXRow
+type ActivityRow = AttendantsRow | AttendantRow | ExpenditureRow | ChargesRow | CardRow | AdvanceRow | FXRow | DepositRow
 
 const activityByAccount: Record<AccountType, ActivityRow[]> = {
+  Attendants: [
+    { type: 'attendants', id: 1, name: 'S. Lawes', pump: 'Pump 1', balance: 150000.0, clockIn: '7:00 AM', amount: 0 },
+    { type: 'attendants', id: 2, name: 'S. Smith', pump: 'Pump 2', balance: 92000.0, clockIn: '7:00 AM', amount: 0 },
+    { type: 'attendants', id: 3, name: 'T. Brisco', pump: 'Pump 3', balance: 210000.0, clockIn: '3:00 PM', amount: 0 },
+  ],
   Cash: [
     { type: 'attendant', id: 1, name: 'S. Lawes', time: '9:00 PM', amount: 150000.0 },
     { type: 'attendant', id: 2, name: 'S. Smith', time: '7:43 PM', amount: 150000.0 },
@@ -55,10 +63,33 @@ const activityByAccount: Record<AccountType, ActivityRow[]> = {
     { type: 'card', id: 1, name: 'S. Smith', bank: 'NCB', litres: 120.5, amount: 23000.0 },
     { type: 'card', id: 2, name: 'T. Brisco', bank: 'Scotiabank', litres: 78.3, amount: 15000.0 },
   ],
+  Deposits: [
+    { type: 'deposit', id: 1, name: 'S. Lawes', description: 'Shift end deposit', depositType: 'Cash', amount: 150000.0 },
+    { type: 'deposit', id: 2, name: 'S. Smith', description: 'Card settlement', depositType: 'Card', amount: 45000.0 },
+    { type: 'deposit', id: 3, name: 'T. Brisco', description: 'FX deposit', depositType: 'FX', amount: 32000.0 },
+  ],
+}
+
+interface Props {
+  account: AccountType
 }
 
 function TableHeaders({ account }: { account: AccountType }) {
   const th = 'text-left px-3 py-3 text-[11px] font-semibold text-[#bbb]'
+  if (account === 'Deposits') return (
+    <>
+      <th className={th}>Name</th>
+      <th className={th}>Description</th>
+      <th className={th}>Type</th>
+    </>
+  )
+  if (account === 'Attendants') return (
+    <>
+      <th className={th}>Attendant</th>
+      <th className={th}>Pump</th>
+      <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Balance</th>
+    </>
+  )
   if (account === 'Expenditures') return (
     <>
       <th className={th}>Requested by</th>
@@ -97,121 +128,106 @@ function TableHeaders({ account }: { account: AccountType }) {
 }
 
 function TableCells({ row }: { row: ActivityRow }) {
+  if (row.type === 'deposit') return (
+    <>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
+      </td>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.description}</p>
+      </td>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.depositType}</p>
+      </td>
+    </>
+  )
+  if (row.type === 'attendants') return (
+    <>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
+        <p className="text-[11px] text-[#bbb] whitespace-nowrap">{row.clockIn}</p>
+      </td>
+      <td className="px-3 py-3.5">
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.pump}</p>
+      </td>
+      <td className="px-3 py-3.5 text-right">
+        <p className="text-[13px] font-semibold text-[#333] whitespace-nowrap">J$ {row.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+      </td>
+    </>
+  )
   if (row.type === 'expenditure') return (
     <>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] font-semibold text-[#222]">{row.requestedBy}</p>
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.requestedBy}</p>
       </td>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] text-[#555]">{row.description}</p>
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.description}</p>
       </td>
     </>
   )
   if (row.type === 'charges') return (
     <>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] font-semibold text-[#222]">{row.name}</p>
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
       </td>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] text-[#555]">{row.fuelType}</p>
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.fuelType}</p>
       </td>
       <td className="px-3 py-3.5 text-right">
-        <p className="text-[13px] text-[#555]">{row.litres.toFixed(2)}</p>
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.litres.toFixed(2)}</p>
       </td>
     </>
   )
   if (row.type === 'advance') return (
     <>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] font-semibold text-[#222]">{row.name}</p>
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
       </td>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] text-[#555]">{row.fuelType}</p>
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.fuelType}</p>
       </td>
       <td className="px-3 py-3.5 text-right">
-        <p className="text-[13px] text-[#555]">{row.litres.toFixed(2)}</p>
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.litres.toFixed(2)}</p>
       </td>
     </>
   )
   if (row.type === 'card') return (
     <>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] font-semibold text-[#222]">{row.name}</p>
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
       </td>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] text-[#555]">{row.bank}</p>
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.bank}</p>
       </td>
       <td className="px-3 py-3.5 text-right">
-        <p className="text-[13px] text-[#555]">{row.litres.toFixed(2)}</p>
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.litres.toFixed(2)}</p>
       </td>
     </>
   )
   if (row.type === 'fx') return (
     <>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] font-semibold text-[#222]">{row.name}</p>
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
       </td>
       <td className="px-3 py-3.5 text-right">
-        <p className="text-[13px] text-[#555]">{row.fxAmount.toFixed(2)}</p>
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.fxAmount.toFixed(2)}</p>
       </td>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] text-[#555]">{row.currency}</p>
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.currency}</p>
       </td>
     </>
   )
-  return (
+  if (row.type === 'attendant') return (
     <td className="px-3 py-3.5">
-      <p className="text-[13px] font-semibold text-[#222]">{row.name}</p>
-      <p className="text-[11px] text-[#bbb]">{row.time}</p>
+      <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
+      <p className="text-[11px] text-[#bbb] whitespace-nowrap">{row.time}</p>
     </td>
   )
+  return null
 }
 
-function AccountDropdown({ account, onChange }: { account: AccountType; onChange: (a: AccountType) => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  return (
-    <div ref={ref} className="relative flex-1 py-3">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 border border-[#ddd] rounded-lg px-3 py-1.5"
-      >
-        <span className="text-[13px] font-semibold text-[#111]">{account}</span>
-        <ChevronDown size={12} className={clsx('text-[#888] transition-transform', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-[#e0e0e0] rounded-xl shadow-md py-1 min-w-[140px]">
-          {accounts.map((a) => (
-            <button
-              key={a}
-              onClick={() => { onChange(a); setOpen(false) }}
-              className={clsx(
-                'w-full text-left px-4 py-2.5 text-[13px] font-semibold transition-colors',
-                a === account ? 'text-[#111] bg-[#f5f5f5]' : 'text-[#555] hover:bg-[#f9f9f9]'
-              )}
-            >
-              {a}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-export function RecentActivityCard() {
-  const [account, setAccount] = useState<AccountType>('Cash')
-  const activities = activityByAccount[account].slice(0, 4)
-
+export function RecentActivityCard({ account }: Props) {
+  const activities = activityByAccount[account]
   const [showExpenditure, setShowExpenditure] = useState(false)
   const [showCashDeposit, setShowCashDeposit] = useState(false)
   const [showCard, setShowCard] = useState(false)
@@ -224,126 +240,107 @@ export function RecentActivityCard() {
   const [showChargesBreakdown, setShowChargesBreakdown] = useState(false)
   const [showAdvanceBreakdown, setShowAdvanceBreakdown] = useState(false)
   const [showFXBreakdown, setShowFXBreakdown] = useState(false)
+  const [selectedAttendant, setSelectedAttendant] = useState<string | null>(null)
+  const [showManageAttendants, setShowManageAttendants] = useState(false)
+  const [showDeposit, setShowDeposit] = useState(false)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
-  function handleAdd() {
-    if (account === 'Expenditures') setShowExpenditure(true)
-    if (account === 'Cash') setShowCashDeposit(true)
-    if (account === 'Card') setShowCard(true)
-    if (account === 'Advance') setShowAdvance(true)
-    if (account === 'Charges') setShowCharge(true)
-    if (account === 'FX') setShowFX(true)
-  }
-
-  function handleTotal() {
-    if (account === 'Cash') setShowCashBreakdown(true)
-    if (account === 'Expenditures') setShowExpenditureBreakdown(true)
-    if (account === 'Card') setShowCardBreakdown(true)
-    if (account === 'Charges') setShowChargesBreakdown(true)
-    if (account === 'Advance') setShowAdvanceBreakdown(true)
-    if (account === 'FX') setShowFXBreakdown(true)
-  }
+  const displayedActivities = account === 'Attendants'
+    ? [...activities].sort((a, b) => {
+        const balA = a.type === 'attendants' ? a.balance : 0
+        const balB = b.type === 'attendants' ? b.balance : 0
+        return sortDir === 'asc' ? balA - balB : balB - balA
+      })
+    : activities
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col h-full">
-        <div className="sm:hidden flex items-center px-5 border-b-2 border-[#f0f0f0]">
-          <AccountDropdown account={account} onChange={setAccount} />
-
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
-              <span className="px-2 py-1.5 hover:bg-[#f4f4f4] border-r border-[#ddd] transition-colors">
-                <ChevronDown size={12} className="text-[#666]" />
-              </span>
-              <span className="px-2 py-1.5 hover:bg-[#f4f4f4] transition-colors">
-                <ChevronUp size={12} className="text-[#666]" />
-              </span>
-            </button>
-            <button
-              onClick={handleAdd}
-              className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]"
-            >
-              <Plus size={13} />
-            </button>
-            <button className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]">
-              <MoreHorizontal size={13} />
-            </button>
-          </div>
+    <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col flex-1 min-h-0">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[#f0f0f0] flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-bold text-[#111]">
+            {account === 'Attendants' ? 'Manage attendants' : account}
+          </span>
+          {account !== 'Attendants' && (
+            <>
+              <span className="text-[#ccc]">|</span>
+              <span className="text-[13px] font-medium text-[#888]">Recent Activity</span>
+            </>
+          )}
         </div>
+        <div className="flex items-center gap-1">
+          <button className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
+            <span onClick={() => account === 'Attendants' && setSortDir('desc')} className="px-2 py-1.5 hover:bg-[#f4f4f4] border-r border-[#ddd] transition-colors cursor-pointer">
+              <ChevronDown size={12} className="text-[#666]" />
+            </span>
+            <span onClick={() => account === 'Attendants' && setSortDir('asc')} className="px-2 py-1.5 hover:bg-[#f4f4f4] transition-colors cursor-pointer">
+              <ChevronUp size={12} className="text-[#666]" />
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              if (account === 'Attendants') setShowManageAttendants(true)
+              if (account === 'Expenditures') setShowExpenditure(true)
+              if (account === 'Cash') setShowCashDeposit(true)
+              if (account === 'Card') setShowCard(true)
+              if (account === 'Advance') setShowAdvance(true)
+              if (account === 'Charges') setShowCharge(true)
+              if (account === 'FX') setShowFX(true)
+              if (account === 'Deposits') setShowDeposit(true)
+            }}
+            className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]"
+          >
+            <Plus size={13} />
+          </button>
+          <button className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]">
+            <MoreHorizontal size={13} />
+          </button>
+        </div>
+      </div>
 
-        <div className="hidden sm:flex items-center px-5 flex-shrink-0">
-          <div className="flex flex-1 min-w-0">
-            {accounts.map((a) => {
-              const isActive = account === a
-              return (
-                <button
-                  key={a}
-                  onClick={() => setAccount(a)}
-                  className={clsx(
-                    'flex-shrink-0 py-4 mr-5 text-[13px] font-semibold transition-colors whitespace-nowrap border-b-2',
-                    isActive ? 'border-[#111] text-[#111]' : 'border-[#f0f0f0] text-[#aaa] hover:text-[#555]'
-                  )}
+      {/* Table — fixed height, scrollable */}
+      <div className="overflow-y-auto flex-1 min-h-0 flex-shrink-0">
+        {activities.length > 0 ? (
+          <table className="w-full">
+            <thead className="sticky top-0 bg-white">
+              <tr className="border-b border-[#f4f4f4]">
+                <th className="text-left pl-5 pr-3 py-3 text-[11px] font-semibold text-[#bbb] w-10">#</th>
+                <TableHeaders account={account} />
+                {account !== 'Attendants' && <th className="text-right px-5 py-3 text-[11px] font-semibold text-[#bbb]">Amount</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {displayedActivities.map((row) => (
+                <tr
+                  key={row.id}
+                  className={`border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors group${account === 'Attendants' ? ' cursor-pointer' : ''}`}
+                  onClick={account === 'Attendants' && row.type === 'attendants' ? () => setSelectedAttendant(row.name) : undefined}
                 >
-                  {a}
-                </button>
-              )
-            })}
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0 pl-2 py-3 border-b-2 border-[#f0f0f0]">
-            <button className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
-              <span className="px-2 py-1.5 hover:bg-[#f4f4f4] border-r border-[#ddd] transition-colors">
-                <ChevronDown size={12} className="text-[#666]" />
-              </span>
-              <span className="px-2 py-1.5 hover:bg-[#f4f4f4] transition-colors">
-                <ChevronUp size={12} className="text-[#666]" />
-              </span>
-            </button>
-            <button
-              onClick={handleAdd}
-              className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]"
-            >
-              <Plus size={13} />
-            </button>
-            <button className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]">
-              <MoreHorizontal size={13} />
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {activities.length > 0 ? (
-            <table className="w-full">
-              <thead className="sticky top-0 bg-white">
-                <tr className="border-b border-[#f4f4f4]">
-                  <th className="text-left pl-5 pr-3 py-3 text-[11px] font-semibold text-[#bbb] w-10">#</th>
-                  <TableHeaders account={account} />
-                  <th className="text-right px-5 py-3 text-[11px] font-semibold text-[#bbb]">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activities.map((row) => (
-                  <tr key={row.id} className="border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors group">
-                    <td className="pl-5 pr-3 py-3.5 text-[13px] text-[#bbb] font-medium">{row.id}</td>
-                    <TableCells row={row} />
+                  <td className="pl-5 pr-3 py-3.5 text-[13px] text-[#bbb] font-medium">{row.id}</td>
+                  <TableCells row={row} />
+                  {account !== 'Attendants' && (
                     <td className="px-5 py-3.5 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="text-[13px] font-semibold text-[#333]">
+                      <div className="flex items-center justify-end gap-2 flex-nowrap">
+                        <span className="text-[13px] font-semibold text-[#333] whitespace-nowrap">
                           J$ {row.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                         </span>
-                        <button className="opacity-0 group-hover:opacity-100 transition-opacity text-[#bbb] hover:text-[#888]">
+                        <button className="opacity-0 group-hover:opacity-100 transition-opacity text-[#bbb] hover:text-[#888] flex-shrink-0">
                           <MoreHorizontal size={14} />
                         </button>
                       </div>
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-[13px] text-[#ccc] font-medium">No activity recorded</p>
-            </div>
-          )}
-        </div>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="flex items-center justify-center py-10">
+            <p className="text-[13px] text-[#ccc] font-medium">No activity recorded</p>
+          </div>
+        )}
+      </div>
 
         <div className="flex items-center justify-between px-5 py-3 border-t border-[#f0f0f0] flex-shrink-0">
           <button className="text-[12px] font-semibold text-[#888] hover:text-[#333] transition-colors">
@@ -395,7 +392,27 @@ export function RecentActivityCard() {
         <AdvanceBreakdownModal onBack={() => setShowAdvanceBreakdown(false)} onClose={() => setShowAdvanceBreakdown(false)} />
       )}
       {showFXBreakdown && (
-        <FXBreakdownModal onBack={() => setShowFXBreakdown(false)} onClose={() => setShowFXBreakdown(false)} />
+        <FXBreakdownModal
+          onBack={() => setShowFXBreakdown(false)}
+          onClose={() => setShowFXBreakdown(false)}
+        />
+      )}
+      {selectedAttendant && (
+        <AttendantModal
+          name={selectedAttendant}
+          onClose={() => setSelectedAttendant(null)}
+        />
+      )}
+      {showManageAttendants && (
+        <ManageAttendantsModal
+          onClose={() => setShowManageAttendants(false)}
+        />
+      )}
+      {showDeposit && (
+        <DepositModal
+          onBack={() => setShowDeposit(false)}
+          onClose={() => setShowDeposit(false)}
+        />
       )}
     </>
   )

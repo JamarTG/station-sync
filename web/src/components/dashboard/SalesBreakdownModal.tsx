@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { CashBreakdownModal } from './CashBreakdownModal'
@@ -9,9 +9,10 @@ import { AdvanceBreakdownModal } from './AdvanceBreakdownModal'
 import { ShortagesBreakdownModal } from './ShortagesBreakdownModal'
 import { OveragesBreakdownModal } from './OveragesBreakdownModal'
 import { FXBreakdownModal } from './FXBreakdownModal'
+import { DepositsBreakdownModal } from './DepositsBreakdownModal'
 
 const fuelGrades = ['87', '90', 'ADO', 'ULSD']
-const accounts = ['CASH', 'CARD', 'FX', 'ADVANCE', 'CHARGES', 'EXPENDITURES']
+const accounts = ['CASH', 'CARD', 'FX', 'ADVANCE', 'CHARGES', 'EXPENDITURES', 'DEPOSITS']
 
 interface Props {
   onClose: () => void
@@ -31,6 +32,14 @@ export function SalesBreakdownModal({ onClose }: Props) {
   const [showShortagesBreakdown, setShowShortagesBreakdown] = useState(false)
   const [showOveragesBreakdown, setShowOveragesBreakdown] = useState(false)
   const [showFXBreakdown, setShowFXBreakdown] = useState(false)
+  const [showDepositsBreakdown, setShowDepositsBreakdown] = useState(false)
+  const [isNarrow, setIsNarrow] = useState(window.innerWidth < 537)
+
+  useEffect(() => {
+    function onResize() { setIsNarrow(window.innerWidth < 537) }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   if (showCashBreakdown) return <CashBreakdownModal onBack={() => setShowCashBreakdown(false)} onClose={onClose} />
   if (showExpenditureBreakdown) return <ExpenditureBreakdownModal onBack={() => setShowExpenditureBreakdown(false)} onClose={onClose} />
@@ -38,6 +47,7 @@ export function SalesBreakdownModal({ onClose }: Props) {
   if (showChargesBreakdown) return <ChargesBreakdownModal onBack={() => setShowChargesBreakdown(false)} onClose={onClose} />
   if (showAdvanceBreakdown) return <AdvanceBreakdownModal onBack={() => setShowAdvanceBreakdown(false)} onClose={onClose} />
   if (showFXBreakdown) return <FXBreakdownModal onBack={() => setShowFXBreakdown(false)} onClose={onClose} />
+  if (showDepositsBreakdown) return <DepositsBreakdownModal onBack={() => setShowDepositsBreakdown(false)} onClose={onClose} />
   if (showShortagesBreakdown) return <ShortagesBreakdownModal onBack={() => setShowShortagesBreakdown(false)} onClose={onClose} />
   if (showOveragesBreakdown) return <OveragesBreakdownModal onBack={() => setShowOveragesBreakdown(false)} onClose={onClose} />
 
@@ -58,10 +68,21 @@ export function SalesBreakdownModal({ onClose }: Props) {
           Go back
         </button>
 
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[36px] font-bold text-[#111] leading-none">Sales</h2>
-          <p className="text-[36px] font-bold text-[#111] leading-none">J$0.00</p>
-        </div>
+        <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Service Station</p>
+        {isNarrow ? (
+          <div className="mb-6">
+            <h2 className="text-[36px] font-bold text-[#111] leading-none mb-3">Sales</h2>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Total</p>
+              <p className="text-[11px] font-bold text-[#111]">J$0.00</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-[36px] font-bold text-[#111] leading-none">Sales</h2>
+            <p className="text-[36px] font-bold text-[#111] leading-none">J$0.00</p>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           <SectionLabel label="Amount Sold" />
@@ -90,6 +111,8 @@ export function SalesBreakdownModal({ onClose }: Props) {
                   <button onClick={() => setShowAdvanceBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">{a}</button>
                 ) : a === 'EXPENDITURES' ? (
                   <button onClick={() => setShowExpenditureBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">{a}</button>
+                ) : a === 'DEPOSITS' ? (
+                  <button onClick={() => setShowDepositsBreakdown(true)} className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors">{a}</button>
                 ) : (
                   <p className="text-[13px] font-semibold text-[#111]">{a}</p>
                 )}

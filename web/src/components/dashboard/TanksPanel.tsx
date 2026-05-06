@@ -12,25 +12,26 @@ const prices: Record<TankGrade, number> = {
 }
 
 interface Props {
-  selected: TankGrade | null
-  onSelect: (grade: TankGrade | null) => void
+  selected: TankGrade
+  onSelect: (grade: TankGrade) => void
 }
 
 export function TanksPanel({ selected, onSelect }: Props) {
   return (
-    <div className="bg-white rounded-2xl border border-[#ebebeb] h-[160px] flex flex-col overflow-hidden">
+    <div className="flex flex-col border-b border-[#e8e8e8] bg-white flex-shrink-0">
+      <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase px-5 pt-4 pb-[39px]">Tanks</p>
       <div className="flex">
         {grades.map((g) => {
           const isActive = selected === g
           return (
             <button
               key={g}
-              onClick={() => onSelect(isActive ? null : g)}
+              onClick={() => onSelect(g)}
               className={clsx(
-                'flex-1 pt-4 pb-3 text-center border-b-2 transition-colors',
+                'px-5 py-3 text-[13px] font-semibold border-b-2 -mb-px transition-colors whitespace-nowrap',
                 isActive
-                  ? 'border-[#111]'
-                  : 'border-[#f0f0f0] hover:border-[#d0d0d0]'
+                  ? 'border-[#111] text-[#111]'
+                  : 'border-transparent text-[#999] hover:text-[#555]'
               )}
             >
               <p className={clsx('text-[13px] font-bold mb-1 leading-none', isActive ? 'text-[#111]' : 'text-[#aaa]')}>

@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { ManageAttendantsModal } from './ManageAttendantsModal'
 
 const fuelGrades = ['87', '90', 'ADO', 'ULSD']
 const depositTypes = ['CASH', 'CARD', 'FX', 'ADVANCE', 'CHARGES']
@@ -20,8 +22,10 @@ function Row({ label }: { label: string }) {
 
 export function AttendantModal({ name, onClose }: Props) {
   useEscapeKey(onClose)
+  const [showManage, setShowManage] = useState(false)
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm"
       onClick={onClose}
@@ -41,7 +45,15 @@ export function AttendantModal({ name, onClose }: Props) {
             </button>
           </div>
           <p className="text-[12px] font-medium text-[#aaa] mb-1">Attendant</p>
-          <h2 className="text-[28px] font-bold text-[#111] mb-7 leading-none">{name}</h2>
+          <div className="flex items-center justify-between mb-7">
+            <h2 className="text-[28px] font-bold text-[#111] leading-none">{name}</h2>
+            <button
+              onClick={() => setShowManage(true)}
+              className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors"
+            >
+              Manage
+            </button>
+          </div>
 
           {/* Amount Sold */}
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">
@@ -73,5 +85,7 @@ export function AttendantModal({ name, onClose }: Props) {
         </div>
       </div>
     </div>
+    {showManage && <ManageAttendantsModal onClose={() => setShowManage(false)} />}
+    </>
   )
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Plus, Minus } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
@@ -24,6 +24,18 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit }: Props) {
   const [haulage, setHaulage] = useState('')
   const [gct, setGct] = useState('')
   const [invoiceNo, setInvoiceNo] = useState('')
+
+  const [isNarrow, setIsNarrow] = useState(window.innerWidth < 650)
+  const [isVeryNarrow, setIsVeryNarrow] = useState(window.innerWidth < 536)
+
+  useEffect(() => {
+    function onResize() {
+      setIsNarrow(window.innerWidth < 650)
+      setIsVeryNarrow(window.innerWidth < 536)
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const ordered = parseFloat(amountOrdered) || 0
   const openingVal = parseFloat(opening) || 0
@@ -60,9 +72,9 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit }: Props) {
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         {/* Invoice no row */}
-        <div className="flex items-end gap-4 mb-6">
+        <div className="mb-6">
           {showInvoiceNo && (
-            <div>
+            <div className="mb-2">
               <label className="text-[13px] font-semibold text-[#888] block mb-2">invoice no</label>
               <input
                 type="text"
@@ -75,7 +87,7 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit }: Props) {
           )}
           <button
             onClick={() => { setShowInvoiceNo((v) => !v); if (showInvoiceNo) setInvoiceNo('') }}
-            className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors pb-2.5"
+            className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
           >
             {showInvoiceNo ? <Minus size={13} /> : <Plus size={13} />}
             {showInvoiceNo ? 'Remove invoice no' : 'Add invoice no'}
@@ -94,33 +106,62 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit }: Props) {
               placeholder="0.00"
               className="border border-[#e0e0e0] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none w-[200px]"
             />
-            <button
-              onClick={() => { setShowRate((v) => !v); if (showRate) setRate('') }}
-              className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
-            >
-              {showRate ? <Minus size={13} /> : <Plus size={13} />}
-              {showRate ? 'Remove rate' : 'Add rate'}
-            </button>
-            <button
-              onClick={() => { setShowHaulage((v) => !v); if (showHaulage) setHaulage('') }}
-              className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
-            >
-              {showHaulage ? <Minus size={13} /> : <Plus size={13} />}
-              {showHaulage ? 'Remove haulage' : 'Add haulage'}
-            </button>
-            <button
-              onClick={() => { setShowGct((v) => !v); if (showGct) setGct('') }}
-              className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
-            >
-              {showGct ? <Minus size={13} /> : <Plus size={13} />}
-              {showGct ? 'Remove GCT' : 'Add GCT'}
-            </button>
+            {!isVeryNarrow && (
+              <>
+                <button
+                  onClick={() => { setShowRate((v) => !v); if (showRate) setRate('') }}
+                  className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
+                >
+                  {showRate ? <Minus size={13} /> : <Plus size={13} />}
+                  {showRate ? 'Remove rate' : 'Add rate'}
+                </button>
+                <button
+                  onClick={() => { setShowHaulage((v) => !v); if (showHaulage) setHaulage('') }}
+                  className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
+                >
+                  {showHaulage ? <Minus size={13} /> : <Plus size={13} />}
+                  {showHaulage ? 'Remove haulage' : 'Add haulage'}
+                </button>
+                <button
+                  onClick={() => { setShowGct((v) => !v); if (showGct) setGct('') }}
+                  className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
+                >
+                  {showGct ? <Minus size={13} /> : <Plus size={13} />}
+                  {showGct ? 'Remove GCT' : 'Add GCT'}
+                </button>
+              </>
+            )}
           </div>
+          {isVeryNarrow && (
+            <div className="flex items-center gap-4 mt-3">
+              <button
+                onClick={() => { setShowRate((v) => !v); if (showRate) setRate('') }}
+                className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
+              >
+                {showRate ? <Minus size={13} /> : <Plus size={13} />}
+                {showRate ? 'Remove rate' : 'Add rate'}
+              </button>
+              <button
+                onClick={() => { setShowHaulage((v) => !v); if (showHaulage) setHaulage('') }}
+                className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
+              >
+                {showHaulage ? <Minus size={13} /> : <Plus size={13} />}
+                {showHaulage ? 'Remove haulage' : 'Add haulage'}
+              </button>
+              <button
+                onClick={() => { setShowGct((v) => !v); if (showGct) setGct('') }}
+                className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
+              >
+                {showGct ? <Minus size={13} /> : <Plus size={13} />}
+                {showGct ? 'Remove GCT' : 'Add GCT'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Optional numeric fields */}
         {(showRate || showHaulage || showGct) && (
-          <div className="flex gap-4 mb-6">
+          <div className={`flex gap-4 mb-6${isNarrow ? ' flex-wrap' : ''}`}>
             {showRate && (
               <div className="flex-1">
                 <label className="text-[13px] font-semibold text-[#888] block mb-2">rate</label>
@@ -164,7 +205,7 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit }: Props) {
         )}
 
         {/* Opening / Closing / Fuel row */}
-        <div className="flex gap-4 mb-6">
+        <div className={`flex gap-4 mb-6${isNarrow ? ' flex-wrap' : ''}`}>
           <div className="flex-1">
             <label className="text-[13px] font-semibold text-[#888] block mb-2">opening</label>
             <input

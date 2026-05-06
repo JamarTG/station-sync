@@ -18,7 +18,8 @@ func Load() (*Config, error) {
 		user := getEnvOrDefault("DB_USER", "postgres")
 		password := os.Getenv("DB_PASSWORD")
 		name := getEnvOrDefault("DB_NAME", "station_sync")
-		dbURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s", user, password, host, port, name)
+		sslmode := getEnvOrDefault("DB_SSLMODE", "disable")
+		dbURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", user, password, host, port, name, sslmode)
 	}
 
 	return &Config{

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { AttendantModal } from './AttendantModal'
@@ -13,6 +13,13 @@ interface Props {
 export function OveragesBreakdownModal({ onBack, onClose }: Props) {
   useEscapeKey(onClose)
   const [selectedAttendant, setSelectedAttendant] = useState<string | null>(null)
+  const [isNarrow, setIsNarrow] = useState(window.innerWidth < 537)
+
+  useEffect(() => {
+    function onResize() { setIsNarrow(window.innerWidth < 537) }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   if (selectedAttendant) {
     return (
@@ -40,10 +47,20 @@ export function OveragesBreakdownModal({ onBack, onClose }: Props) {
           Go back
         </button>
 
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[36px] font-bold text-[#111] leading-none">Overages</h2>
-          <p className="text-[36px] font-bold text-[#111] leading-none">J$0.00</p>
-        </div>
+        {isNarrow ? (
+          <div className="mb-6">
+            <h2 className="text-[36px] font-bold text-[#111] leading-none mb-3">Overages</h2>
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Total</p>
+              <p className="text-[11px] font-bold text-[#111]">J$0.00</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-[36px] font-bold text-[#111] leading-none">Overages</h2>
+            <p className="text-[36px] font-bold text-[#111] leading-none">J$0.00</p>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto">
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Breakdown</p>

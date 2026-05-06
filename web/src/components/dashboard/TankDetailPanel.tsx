@@ -27,52 +27,34 @@ export function TankDetailPanel() {
   }, [grade])
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="h-full flex flex-col">
       {/* Dip readings card */}
-      <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
-        {/* Grade tabs */}
-        <div className="flex items-center border-b border-[#f0f0f0] px-5">
-          {grades.map((g) => {
-            const isActive = grade === g
-            return (
-              <button
-                key={g}
-                onClick={() => setGrade(g)}
-                className={clsx(
-                  'relative flex-shrink-0 py-4 mr-5 text-[13px] font-semibold transition-colors whitespace-nowrap',
-                  isActive ? 'text-[#111]' : 'text-[#aaa] hover:text-[#555]'
-                )}
-              >
-                {g}
-                {isActive && (
-                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#111] translate-y-px" />
-                )}
-              </button>
-            )
-          })}
+      <div className="bg-white rounded-none border border-[#ebebeb] overflow-hidden flex flex-col flex-1">
+        <div className="px-5 py-4 border-b border-[#f0f0f0]">
+          <p className="text-[12px] font-bold text-[#111] tracking-widest">{gradeLabels[grade]}</p>
         </div>
 
         <table className="w-full">
           <thead>
             <tr className="border-b border-[#f0f0f0]">
-              <th className="py-3 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pl-5">
+              <th className="py-2 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pl-5">
                 OPENING
               </th>
-              <th className="py-3 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pr-5">
+              <th className="py-2 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pr-5">
                 CLOSING
               </th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-b border-[#f9f9f9]">
-              <td className="py-4 text-center">
+              <td className="py-3 text-center">
                 <input
                   type="text"
                   placeholder="—"
                   className="w-24 text-center text-[13px] font-medium text-[#333] bg-transparent outline-none placeholder:text-[#ddd] focus:bg-[#f5f5f5] rounded-md px-1 py-0.5 transition-colors"
                 />
               </td>
-              <td className="py-4 text-center">
+              <td className="py-3 text-center">
                 <input
                   type="text"
                   placeholder="—"
@@ -83,7 +65,7 @@ export function TankDetailPanel() {
           </tbody>
         </table>
 
-        <div className="px-5 pt-4 pb-2 border-t border-[#f0f0f0] space-y-3">
+        <div className="px-5 pt-4 pb-2 border-t border-[#f0f0f0] space-y-3 mt-auto">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">
               SUGGESTED LITRES SOLD
@@ -111,7 +93,7 @@ export function TankDetailPanel() {
       </div>
 
       {/* Receival log card */}
-      <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+      <div className="bg-white rounded-none border border-[#ebebeb] p-5 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <p className="text-[12px] font-bold tracking-widest text-[#111]">RECEIVAL LOG</p>
           {hasReceival ? (

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Plus } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
@@ -31,6 +31,13 @@ export function AdvanceModal({ onBack, onClose }: Props) {
     { id: nextId++, amount: '', fuel: '90' },
   ])
   const [attendant, setAttendant] = useState('')
+  const [isNarrow, setIsNarrow] = useState(window.innerWidth < 650)
+
+  useEffect(() => {
+    function onResize() { setIsNarrow(window.innerWidth < 650) }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   function updateRecord(id: number, field: keyof AdvanceRecord, value: string) {
     setRecords((prev) => prev.map((r) => r.id === id ? { ...r, [field]: value } : r))
@@ -78,7 +85,7 @@ export function AdvanceModal({ onBack, onClose }: Props) {
 
         <div className="flex flex-col gap-3 mb-2">
           {records.map((r) => (
-            <div key={r.id} className="flex items-end gap-3">
+            <div key={r.id} className={`flex items-end gap-3${isNarrow ? ' flex-wrap' : ''}`}>
               <div className="flex-1">
                 {r.id === records[0].id && (
                   <label className="text-[13px] font-semibold text-[#888] block mb-2">amount</label>
