@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Plus } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
 
 const banks = ['NCB', 'Scotiabank', 'JMMB', 'Sagicor', 'FirstGlobal']
 
@@ -27,6 +28,7 @@ export function CardDepositModal({ onBack, onClose, isEditing, initialData }: Pr
   ])
   const [depositedBy, setDepositedBy] = useState(initialData?.depositedBy ?? '')
   const [description, setDescription] = useState(initialData?.description ?? '')
+  const [touchedTransNo, setTouchedTransNo] = useState<Record<number, boolean>>({})
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 650)
 
   useEffect(() => {
@@ -96,52 +98,55 @@ export function CardDepositModal({ onBack, onClose, isEditing, initialData }: Pr
         </div>
 
         <div className="flex flex-col gap-3 mb-2">
-          {records.map((r) => (
-            <div key={r.id} className={`flex items-end gap-3${isNarrow ? ' flex-wrap' : ''}`}>
-              <div className="flex-1">
-                {r.id === records[0].id && (
-                  <label className="text-[13px] font-semibold text-[#888] block mb-2">amount</label>
-                )}
-                <div className="flex items-center border border-[#e0e0e0] rounded-xl px-4 py-2.5 gap-2">
-                  <span className="text-[13px] font-bold text-[#aaa]">J$</span>
+          {records.map((r) => {
+            const showTransError = touchedTransNo[r.id] && isDuplicateTransNo(r)
+            return (
+              <div key={r.id} className={`flex items-end gap-3${isNarrow ? ' flex-wrap' : ''}`}>
+                <div className="flex-1">
+                  {r.id === records[0].id && (
+                    <label className="text-[13px] font-semibold text-[#888] block mb-2">amount</label>
+                  )}
+                  <div className="flex items-center border border-[#e0e0e0] rounded-xl px-4 py-2.5 gap-2">
+                    <span className="text-[13px] font-bold text-[#aaa]">J$</span>
+                    <input
+                      type="text"
+                      value={fmtInput(r.amount)}
+                      onChange={(e) => updateRecord(r.id, 'amount', parseInput(e.target.value))}
+                      placeholder="0.00"
+                      className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent min-w-0"
+                    />
+                  </div>
+                </div>
+                <div>
+                  {r.id === records[0].id && (
+                    <label className="text-[13px] font-semibold text-[#888] block mb-2">bank</label>
+                  )}
+                  <select
+                    value={r.bank}
+                    onChange={(e) => updateRecord(r.id, 'bank', e.target.value)}
+                    className="border border-[#e0e0e0] rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[#333] bg-white focus:outline-none cursor-pointer min-w-[120px]"
+                  >
+                    {banks.map((b) => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  {r.id === records[0].id && (
+                    <label className="text-[13px] font-semibold text-[#888] block mb-2">trans #</label>
+                  )}
                   <input
-                    type="number"
-                    min={0}
-                    value={r.amount}
-                    onChange={(e) => updateRecord(r.id, 'amount', e.target.value)}
-                    placeholder="0.00"
-                    className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent min-w-0"
+                    type="text"
+                    value={r.transNo}
+                    onChange={(e) => updateRecord(r.id, 'transNo', e.target.value)}
+                    onBlur={() => setTouchedTransNo((prev) => ({ ...prev, [r.id]: true }))}
+                    placeholder="—"
+                    className={`border rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none w-[100px] ${showTransError ? 'border-red-400 bg-red-50' : 'border-[#e0e0e0]'}`}
                   />
                 </div>
               </div>
-              <div>
-                {r.id === records[0].id && (
-                  <label className="text-[13px] font-semibold text-[#888] block mb-2">bank</label>
-                )}
-                <select
-                  value={r.bank}
-                  onChange={(e) => updateRecord(r.id, 'bank', e.target.value)}
-                  className="border border-[#e0e0e0] rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[#333] bg-white focus:outline-none cursor-pointer min-w-[120px]"
-                >
-                  {banks.map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                {r.id === records[0].id && (
-                  <label className="text-[13px] font-semibold text-[#888] block mb-2">trans #</label>
-                )}
-                <input
-                  type="text"
-                  value={r.transNo}
-                  onChange={(e) => updateRecord(r.id, 'transNo', e.target.value)}
-                  placeholder="—"
-                  className={`border rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none w-[100px] ${isDuplicateTransNo(r) ? 'border-red-400 bg-red-50' : 'border-[#e0e0e0]'}`}
-                />
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         <button
@@ -157,7 +162,7 @@ export function CardDepositModal({ onBack, onClose, isEditing, initialData }: Pr
         <div className="mb-6">
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Total</p>
           <p className="text-[32px] font-bold text-[#111] leading-none tracking-tight">
-            <span className="text-[18px] font-bold text-[#aaa] mr-1">J$</span>{total.toFixed(2)}
+            <span className="text-[18px] font-bold text-[#aaa] mr-1">J$</span>{fmtNum(total)}
           </p>
         </div>
 

@@ -3,9 +3,13 @@ import clsx from 'clsx'
 import { ChevronDown } from 'lucide-react'
 import { useFuels, useFuelSummary } from '../../hooks/useApi'
 import type { Pump, FuelSummary } from '../../lib/api'
-import { PumpDetailPanel } from './PumpDetailPanel'
+import { PumpDetailPanel, type NozzleRow } from './PumpDetailPanel'
 import { FuelReceivalModal } from './FuelReceivalModal'
 import { EditFuelReceivalModal } from './EditFuelReceivalModal'
+import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
+
+const NOZZLE_COUNT = 12
+const emptyNozzles = (): NozzleRow[] => Array.from({ length: NOZZLE_COUNT }, () => ({ opening: '', closing: '' }))
 
 type View = 'pumps' | 'tanks'
 type TankGrade = '87' | '90' | 'ADO' | 'ULSD'
@@ -84,9 +88,34 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
   const activeFuelName = selectedFuelName ?? summaries[0]?.fuelType ?? fuels[0]?.name ?? null
 
   const [grade, setGrade] = useState<TankGrade>('87')
+  const [tankTouched, setTankTouched] = useState<Record<string, boolean>>({})
   const [hasReceival, setHasReceival] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+
+  // Nozzle readings keyed by fuel type, tank dip readings keyed by grade
+  const [nozzleReadings, setNozzleReadings] = useState<Record<string, NozzleRow[]>>({})
+  const [tankReadings, setTankReadings] = useState<Record<string, { opening: string; closing: string }>>({})
+
+  function getNozzles(fuelType: string): NozzleRow[] {
+    return nozzleReadings[fuelType] ?? emptyNozzles()
+  }
+
+  function setNozzles(fuelType: string, rows: NozzleRow[]) {
+    setNozzleReadings((prev) => ({ ...prev, [fuelType]: rows }))
+  }
+
+  function pumpTotalForGrade(fuelType: string): number {
+    return getNozzles(fuelType).reduce((sum, n) => {
+      const o = parseFloat(n.opening)
+      const c = parseFloat(n.closing)
+      return !isNaN(o) && !isNaN(c) && c >= o ? sum + (c - o) : sum
+    }, 0)
+  }
+
+  function hasPumpDataForGrade(fuelType: string): boolean {
+    return getNozzles(fuelType).some((n) => n.opening !== '' || n.closing !== '')
+  }
 
   useEffect(() => {
     setHasReceival(false)
@@ -186,36 +215,64 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
 
         <div className="flex-1 min-h-0 overflow-y-auto">
           {view === 'pumps' && (
-            <PumpDetailPanel pump={pump} shiftId={shiftId} fuelType={activeFuelName} summaries={summaries} />
+            <PumpDetailPanel
+              pump={pump}
+              shiftId={shiftId}
+              fuelType={activeFuelName}
+              pricePerLitre={summaries.find((s) => s.fuelType === activeFuelName)?.pricePerLitre}
+              nozzles={getNozzles(activeFuelName ?? '')}
+              onChange={(rows) => setNozzles(activeFuelName ?? '', rows)}
+            />
           )}
 
-          {view === 'tanks' && (
+          {view === 'tanks' && (() => {
+            const tr = tankReadings[grade] ?? { opening: '', closing: '' }
+            const tOpen = parseFloat(tr.opening)
+            const tClose = parseFloat(tr.closing)
+            const tankHasData = tr.opening !== '' || tr.closing !== ''
+            const tankError = tankTouched[grade] && !isNaN(tOpen) && !isNaN(tClose) && tClose > tOpen
+            const suggestedLitres = !isNaN(tOpen) && !isNaN(tClose) && tOpen >= tClose ? tOpen - tClose : null
+            const actualLitres = hasPumpDataForGrade(grade) ? pumpTotalForGrade(grade) : null
+            const variance = suggestedLitres != null && actualLitres != null ? suggestedLitres - actualLitres : null
+            const wetStockPct = variance != null && actualLitres != null && actualLitres > 0
+              ? (variance / actualLitres) * 100
+              : null
+
+            return (
             <>
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[#f0f0f0]">
-                    <th className="py-3 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pl-5">
-                      OPENING
-                    </th>
-                    <th className="py-3 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pr-5">
-                      CLOSING
-                    </th>
+                    <th className="py-3 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pl-5">OPENING</th>
+                    <th className="py-3 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pr-5">CLOSING</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className="border-b border-[#f9f9f9]">
+                  <tr className={clsx('border-b border-[#f9f9f9]', tankError && 'bg-red-50')}>
                     <td className="py-4 text-center">
                       <input
                         type="text"
+                        value={fmtInput(tr.opening)}
+                        onChange={(e) => setTankReadings((prev) => ({ ...prev, [grade]: { ...tr, opening: parseInput(e.target.value) } }))}
+                        onBlur={() => setTankTouched((prev) => ({ ...prev, [grade]: true }))}
                         placeholder="—"
-                        className="w-24 text-center text-[13px] font-medium text-[#333] bg-transparent outline-none placeholder:text-[#ddd] focus:bg-[#f5f5f5] rounded-md px-1 py-0.5 transition-colors"
+                        className={clsx(
+                          'w-24 text-center text-[13px] font-medium bg-transparent outline-none placeholder:text-[#ddd] focus:bg-[#f5f5f5] rounded-md px-1 py-0.5 transition-colors',
+                          tankError ? 'text-red-500' : 'text-[#333]'
+                        )}
                       />
                     </td>
                     <td className="py-4 text-center">
                       <input
                         type="text"
+                        value={fmtInput(tr.closing)}
+                        onChange={(e) => setTankReadings((prev) => ({ ...prev, [grade]: { ...tr, closing: parseInput(e.target.value) } }))}
+                        onBlur={() => setTankTouched((prev) => ({ ...prev, [grade]: true }))}
                         placeholder="—"
-                        className="w-24 text-center text-[13px] font-medium text-[#333] bg-transparent outline-none placeholder:text-[#ddd] focus:bg-[#f5f5f5] rounded-md px-1 py-0.5 transition-colors"
+                        className={clsx(
+                          'w-24 text-center text-[13px] font-medium bg-transparent outline-none placeholder:text-[#ddd] focus:bg-[#f5f5f5] rounded-md px-1 py-0.5 transition-colors',
+                          tankError ? 'text-red-500' : 'text-[#333]'
+                        )}
                       />
                     </td>
                   </tr>
@@ -224,28 +281,32 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
 
               <div className="px-5 pt-4 pb-2 border-t border-[#f0f0f0] space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">
-                    SUGGESTED LITRES SOLD
+                  <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">SUGGESTED LITRES SOLD</span>
+                  <span className="text-[12px] font-bold text-[#333]">
+                    {suggestedLitres != null ? fmtNum(suggestedLitres) : <span className="text-[#bbb]">---</span>}
                   </span>
-                  <span className="text-[12px] font-bold text-[#bbb]">---</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">
-                    ACTUAL LITRES SOLD
+                  <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">ACTUAL LITRES SOLD</span>
+                  <span className="text-[12px] font-bold text-[#333]">
+                    {actualLitres != null ? fmtNum(actualLitres) : <span className="text-[#bbb]">---</span>}
                   </span>
-                  <span className="text-[12px] font-bold text-[#bbb]">---</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">VARIANCE</span>
-                  <span className="text-[12px] font-bold text-[#bbb]">---</span>
+                  <span className={clsx('text-[12px] font-bold', variance != null ? (variance < 0 ? 'text-red-500' : 'text-[#333]') : 'text-[#bbb]')}>
+                    {variance != null ? fmtNum(variance) : '---'}
+                  </span>
                 </div>
               </div>
 
               <div className="px-5 pt-2 pb-4 border-t border-[#f0f0f0]">
-                <p className="text-[10px] font-semibold tracking-widest text-[#aaa] mb-1">
-                  WET STOCK SUMMARY
+                <p className="text-[10px] font-semibold tracking-widest text-[#aaa] mb-1">WET STOCK SUMMARY</p>
+                <p className={clsx('text-[28px] font-bold leading-none tracking-tight', wetStockPct != null && wetStockPct < 0 ? 'text-red-500' : 'text-[#111]')}>
+                  {wetStockPct != null
+                    ? `${wetStockPct >= 0 ? '+' : ''}${wetStockPct.toFixed(2)}%`
+                    : tankHasData || hasPumpDataForGrade(grade) ? '—' : '+0.00%'}
                 </p>
-                <p className="text-[28px] font-bold text-[#111] leading-none tracking-tight">+0.00%</p>
               </div>
 
               <div className="border-t border-[#ebebeb] px-5 py-4">
@@ -281,7 +342,8 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
                 <p className="text-[28px] font-bold text-[#111] leading-none">0.00</p>
               </div>
             </>
-          )}
+            )
+          })()}
         </div>
       </div>
 

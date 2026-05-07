@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
-import { PumpsPanel, type Fuel } from '../components/dashboard/PumpsPanel'
-import { PumpDetailPanel } from '../components/dashboard/PumpDetailPanel'
+import { PumpsPanel, fuelPrices, type Fuel } from '../components/dashboard/PumpsPanel'
+import { PumpDetailPanel, type NozzleRow } from '../components/dashboard/PumpDetailPanel'
 import { TanksPanel, type TankGrade } from '../components/dashboard/TanksPanel'
 import { TankDetailPanel } from '../components/dashboard/TankDetailPanel'
+
+const NOZZLE_COUNT = 12
+const emptyNozzles = (): NozzleRow[] =>
+  Array.from({ length: NOZZLE_COUNT }, () => ({ opening: '', closing: '' }))
 import { AccountsPanel, type AccountType } from '../components/dashboard/AccountsPanel'
 import { TotalSalesCard } from '../components/dashboard/TotalSalesCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
@@ -31,6 +35,26 @@ export function DashboardPage() {
   const [calibrationModal, setCalibrationModal] = useState<'pumps' | 'tanks' | null>(null)
   const [showEditPrices, setShowEditPrices] = useState(false)
   const [showConvenienceBreakdown, setShowConvenienceBreakdown] = useState(false)
+
+  const [nozzleReadings, setNozzleReadings] = useState<Record<string, NozzleRow[]>>({})
+  const [tankReadings, setTankReadings] = useState<Record<string, { opening: string; closing: string }>>({})
+
+  function getNozzles(fuelType: string): NozzleRow[] {
+    return nozzleReadings[fuelType] ?? emptyNozzles()
+  }
+  function setNozzles(fuelType: string, rows: NozzleRow[]) {
+    setNozzleReadings((prev) => ({ ...prev, [fuelType]: rows }))
+  }
+  function pumpTotalForGrade(fuelType: string): number {
+    return getNozzles(fuelType).reduce((sum, n) => {
+      const o = parseFloat(n.opening)
+      const c = parseFloat(n.closing)
+      return !isNaN(o) && !isNaN(c) && c >= o ? sum + (c - o) : sum
+    }, 0)
+  }
+  function hasPumpDataForGrade(fuelType: string): boolean {
+    return getNozzles(fuelType).some((n) => n.opening !== '' || n.closing !== '')
+  }
 
   useEffect(() => {
     function onResize() {
@@ -111,7 +135,14 @@ export function DashboardPage() {
               <PumpsPanel selected={selectedFuel} onSelect={setSelectedFuel} onEditPrice={() => setShowEditPrices(true)} />
               <div className="flex-1 overflow-hidden flex flex-col">
                 {selectedFuel && firstPump && (
-                  <PumpDetailPanel pump={firstPump} shiftId={shift?.id} fuelType={selectedFuel.name} />
+                  <PumpDetailPanel
+                    pump={firstPump}
+                    shiftId={shift?.id}
+                    fuelType={selectedFuel.name}
+                    nozzles={getNozzles(selectedFuel.name)}
+                    onChange={(rows) => setNozzles(selectedFuel.name, rows)}
+                    pricePerLitre={fuelPrices[selectedFuel.name]}
+                  />
                 )}
               </div>
             </>
@@ -128,7 +159,12 @@ export function DashboardPage() {
             <>
               <TanksPanel selected={selectedTank} onSelect={setSelectedTank} />
               <div className="flex-1 overflow-hidden flex flex-col">
-                <TankDetailPanel />
+                  <TankDetailPanel
+                    grade={selectedTank}
+                    tankReading={tankReadings[selectedTank] ?? { opening: '', closing: '' }}
+                    onReadingChange={(r) => setTankReadings((prev) => ({ ...prev, [selectedTank]: r }))}
+                    actualLitresSold={hasPumpDataForGrade(selectedTank) ? pumpTotalForGrade(selectedTank) : null}
+                  />
               </div>
             </>
           )}
@@ -163,7 +199,14 @@ export function DashboardPage() {
                 </div>
                 <div className="h-[850px]">
                   {selectedFuel && firstPump && (
-                    <PumpDetailPanel pump={firstPump} shiftId={shift?.id} fuelType={selectedFuel.name} />
+                    <PumpDetailPanel
+                    pump={firstPump}
+                    shiftId={shift?.id}
+                    fuelType={selectedFuel.name}
+                    nozzles={getNozzles(selectedFuel.name)}
+                    onChange={(rows) => setNozzles(selectedFuel.name, rows)}
+                    pricePerLitre={fuelPrices[selectedFuel.name]}
+                  />
                   )}
                 </div>
               </>
@@ -199,7 +242,12 @@ export function DashboardPage() {
                   <TanksPanel selected={selectedTank} onSelect={setSelectedTank} />
                 </div>
                 <div className="flex-1 overflow-y-auto">
-                  <TankDetailPanel />
+                    <TankDetailPanel
+                    grade={selectedTank}
+                    tankReading={tankReadings[selectedTank] ?? { opening: '', closing: '' }}
+                    onReadingChange={(r) => setTankReadings((prev) => ({ ...prev, [selectedTank]: r }))}
+                    actualLitresSold={hasPumpDataForGrade(selectedTank) ? pumpTotalForGrade(selectedTank) : null}
+                  />
                 </div>
               </>
             )}

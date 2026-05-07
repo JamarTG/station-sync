@@ -1,5 +1,7 @@
 import { Link, useRouterState } from '@tanstack/react-router'
+import { AlertCircle } from 'lucide-react'
 import clsx from 'clsx'
+import { StationSyncLogo } from './StationSyncLogo'
 
 const navItems = [{ label: 'Dashboard', to: '/' }]
 
@@ -40,6 +42,7 @@ interface Props {
 }
 
 export function Sidebar({ isOpen, onClose }: Props) {
+
   return (
     <aside
       className={clsx(
@@ -53,11 +56,7 @@ export function Sidebar({ isOpen, onClose }: Props) {
       )}
     >
       <div className="p-5 pb-4">
-        <div className="w-8 h-8 grid grid-cols-2 gap-[3px]">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="bg-[#111] rounded-[2px]" />
-          ))}
-        </div>
+        <StationSyncLogo size={32} />
       </div>
 
       <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
@@ -85,17 +84,14 @@ export function Sidebar({ isOpen, onClose }: Props) {
       </nav>
 
       <div className="p-3 border-t border-[#ebebeb]">
-        <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#f4f4f4] cursor-pointer transition-colors">
-          <div className="w-8 h-8 rounded-full bg-[#e8e8e8] flex items-center justify-center text-xs font-bold text-[#555] flex-shrink-0">
-            AL
-          </div>
-          <div className="min-w-0">
-            <p className="text-[12px] font-semibold text-[#111] truncate">A. Lewis</p>
-            <p className="text-[11px] text-[#999] truncate">Supervisor</p>
-          </div>
-          <button className="ml-auto text-[#bbb] hover:text-[#888] text-xs">···</button>
-        </div>
+        <button
+          className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium text-[#888] hover:text-[#111] hover:bg-[#f4f4f4] transition-colors text-left"
+        >
+          <AlertCircle size={14} className="flex-shrink-0" />
+          Report a bug
+        </button>
       </div>
+
     </aside>
   )
 }

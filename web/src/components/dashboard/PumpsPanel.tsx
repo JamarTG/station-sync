@@ -5,7 +5,7 @@ import type { Fuel } from '../../lib/api'
 
 export type { Fuel }
 
-const prices: Record<string, number> = {
+export const fuelPrices: Record<string, number> = {
   '87': 190.90,
   '90': 190.90,
   'ADO': 190.90,
@@ -27,7 +27,7 @@ export function PumpsPanel({ selected, onSelect, onEditPrice }: Props) {
     }
   }, [fuels])
 
-  const price = selected ? prices[selected.name] : null
+  const price = selected ? fuelPrices[selected.name] : null
 
   return (
     <div className="flex flex-col border-b border-[#e8e8e8] bg-white flex-shrink-0">

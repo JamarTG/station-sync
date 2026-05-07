@@ -23,18 +23,21 @@ import { CashDepositEntryModal } from './CashDepositEntryModal'
 import { CardDepositModal } from './CardDepositModal'
 import { FXDepositModal } from './FXDepositModal'
 import { ChequeDepositModal } from './ChequeDepositModal'
+import { ViewDetailsModal } from './ViewDetailsModal'
+import { ReceiptModal } from './ReceiptModal'
+import { ExpenditureReceiptModal } from './ExpenditureReceiptModal'
+import { CardSlipModal } from './CardSlipModal'
 
-const accounts: AccountType[] = ['Cash', 'Expenditures', 'Charges', 'Advance', 'FX', 'Card']
 
 export interface BaseRow { id: number; amount: number }
 export interface AttendantsRow extends BaseRow { type: 'attendants'; name: string; pump: string; balance: number; clockIn: string }
-export interface AttendantRow extends BaseRow { type: 'attendant'; name: string; time: string }
-export interface ExpenditureRow extends BaseRow { type: 'expenditure'; requestedBy: string; description: string }
+export interface AttendantRow extends BaseRow { type: 'attendant'; name: string; time: string; supervisor?: string; denominations?: Record<number, number> }
+export interface ExpenditureRow extends BaseRow { type: 'expenditure'; requestedBy: string; description: string; denominations?: Record<number, number> }
 export interface ChargesRow extends BaseRow { type: 'charges'; name: string; fuelType: string; litres: number }
 export interface CardRow extends BaseRow { type: 'card'; name: string; bank: string; litres: number }
 export interface AdvanceRow extends BaseRow { type: 'advance'; name: string; fuelType: string; litres: number }
 export interface FXRow extends BaseRow { type: 'fx'; name: string; fxAmount: number; currency: string }
-export interface DepositRow extends BaseRow { type: 'deposit'; name: string; description: string; depositType: string; fxAmount?: number; currency?: string }
+export interface DepositRow extends BaseRow { type: 'deposit'; name: string; description: string; depositType: string; supervisor?: string; fxAmount?: number; currency?: string }
 
 export type ActivityRow = AttendantsRow | AttendantRow | ExpenditureRow | ChargesRow | CardRow | AdvanceRow | FXRow | DepositRow
 
@@ -45,19 +48,19 @@ const activityByAccount: Record<AccountType, ActivityRow[]> = {
     { type: 'attendants', id: 3, name: 'T. Brisco', pump: 'Pump 3', balance: 210000.0, clockIn: '3:00 PM', amount: 0 },
   ],
   Cash: [
-    { type: 'attendant', id: 1, name: 'S. Lawes', time: '9:00 PM', amount: 150000.0 },
-    { type: 'attendant', id: 2, name: 'S. Smith', time: '7:43 PM', amount: 150000.0 },
-    { type: 'attendant', id: 3, name: 'T. Brisco', time: '4:32 PM', amount: 150000.0 },
-    { type: 'attendant', id: 4, name: 'T. Brisco', time: '4:32 PM', amount: 150000.0 },
-    { type: 'attendant', id: 5, name: 'T. Brisco', time: '4:32 PM', amount: 150000.0 },
+    { type: 'attendant', id: 1, name: 'S. Lawes', time: '9:00 PM', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 25, 2000: 10, 1000: 5 } },
+    { type: 'attendant', id: 2, name: 'S. Smith', time: '7:43 PM', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 20, 2000: 15, 1000: 10 } },
+    { type: 'attendant', id: 3, name: 'T. Brisco', time: '4:32 PM', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 28, 1000: 8, 500: 4 } },
+    { type: 'attendant', id: 4, name: 'T. Brisco', time: '4:32 PM', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 30 } },
+    { type: 'attendant', id: 5, name: 'T. Brisco', time: '4:32 PM', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 26, 2000: 5, 1000: 10 } },
   ],
   Charges: [
     { type: 'charges', id: 1, name: 'T. Brisco', fuelType: '87', litres: 45.2, amount: 8608.08 },
     { type: 'charges', id: 2, name: 'A. Lewis', fuelType: 'ADO', litres: 30.0, amount: 5727.0 },
   ],
   Expenditures: [
-    { type: 'expenditure', id: 1, requestedBy: 'A. Lewis', description: 'Office supplies', amount: 5000.0 },
-    { type: 'expenditure', id: 2, requestedBy: 'T. Brisco', description: 'Equipment repair', amount: 12000.0 },
+    { type: 'expenditure', id: 1, requestedBy: 'A. Lewis', description: 'Office supplies', amount: 5000.0, denominations: { 5000: 1 } },
+    { type: 'expenditure', id: 2, requestedBy: 'T. Brisco', description: 'Equipment repair', amount: 12000.0, denominations: { 5000: 2, 2000: 1 } },
   ],
   Advance: [
     { type: 'advance', id: 1, name: 'T. Brisco', fuelType: '87', litres: 45.2, amount: 8608.08 },
@@ -72,9 +75,9 @@ const activityByAccount: Record<AccountType, ActivityRow[]> = {
     { type: 'card', id: 2, name: 'T. Brisco', bank: 'Scotiabank', litres: 78.3, amount: 15000.0 },
   ],
   Deposits: [
-    { type: 'deposit', id: 1, name: 'S. Lawes', description: 'Shift end deposit', depositType: 'Cash', amount: 150000.0 },
-    { type: 'deposit', id: 2, name: 'S. Smith', description: 'Card settlement', depositType: 'Card', amount: 45000.0 },
-    { type: 'deposit', id: 3, name: 'T. Brisco', description: 'FX deposit', depositType: 'FX', amount: 32000.0, fxAmount: 200, currency: 'EUR' },
+    { type: 'deposit', id: 1, name: 'S. Lawes', description: 'Shift end deposit', depositType: 'Cash', supervisor: 'A. Lewis', amount: 150000.0 },
+    { type: 'deposit', id: 2, name: 'S. Smith', description: 'Card settlement', depositType: 'Card', supervisor: 'A. Lewis', amount: 45000.0 },
+    { type: 'deposit', id: 3, name: 'T. Brisco', description: 'FX deposit', depositType: 'FX', supervisor: 'A. Lewis', amount: 32000.0, fxAmount: 200, currency: 'EUR' },
   ],
 }
 
@@ -230,46 +233,6 @@ function TableCells({ row }: { row: ActivityRow }) {
   return null
 }
 
-function AccountDropdown({ account, onChange }: { account: AccountType; onChange: (a: AccountType) => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  return (
-    <div ref={ref} className="relative flex-1 py-3">
-      <button
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1.5 border border-[#ddd] rounded-lg px-3 py-1.5"
-      >
-        <span className="text-[13px] font-semibold text-[#111]">{account}</span>
-        <ChevronDown size={12} className={clsx('text-[#888] transition-transform', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-20 bg-white border border-[#e0e0e0] rounded-xl shadow-md py-1 min-w-[140px]">
-          {accounts.map((a) => (
-            <button
-              key={a}
-              onClick={() => { onChange(a); setOpen(false) }}
-              className={clsx(
-                'w-full text-left px-4 py-2.5 text-[13px] font-semibold transition-colors',
-                a === account ? 'text-[#111] bg-[#f5f5f5]' : 'text-[#555] hover:bg-[#f9f9f9]'
-              )}
-            >
-              {a}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 interface Props {
   account: AccountType
@@ -336,6 +299,9 @@ export function RecentActivityCard({ account }: Props) {
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null)
   const [dropdownAnchor, setDropdownAnchor] = useState<DOMRect | null>(null)
   const [editingRow, setEditingRow] = useState<ActivityRow | null>(null)
+  const [viewingRow, setViewingRow] = useState<ActivityRow | null>(null)
+  const [receiptRow, setReceiptRow] = useState<ActivityRow | null>(null)
+  const [slipRow, setSlipRow] = useState<CardRow | null>(null)
 
   const [showExpenditure, setShowExpenditure] = useState(false)
   const [showCashDeposit, setShowCashDeposit] = useState(false)
@@ -460,7 +426,13 @@ export function RecentActivityCard({ account }: Props) {
                                 account={account}
                                 anchor={dropdownAnchor}
                                 onClose={() => { setOpenDropdownId(null); setDropdownAnchor(null) }}
-                                onAction={(action) => { if (action === 'Edit') setEditingRow(row) }}
+                                onAction={(action) => {
+                                  if (action === 'Edit') setEditingRow(row)
+                                  if (action === 'View details') setViewingRow(row)
+                                  if (action === 'Print receipt') setReceiptRow(row)
+                                  if (action === 'View receipt') setReceiptRow(row)
+                                  if (action === 'View slip' && row.type === 'card') setSlipRow(row)
+                                }}
                               />
                             )}
                           </div>
@@ -628,6 +600,21 @@ export function RecentActivityCard({ account }: Props) {
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
         />
+      )}
+      {viewingRow && viewingRow.type !== 'attendants' && (
+        <ViewDetailsModal row={viewingRow} onClose={() => setViewingRow(null)} />
+      )}
+      {receiptRow?.type === 'attendant' && (
+        <ReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} />
+      )}
+      {receiptRow?.type === 'deposit' && (
+        <ReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} />
+      )}
+      {receiptRow?.type === 'expenditure' && (
+        <ExpenditureReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} />
+      )}
+      {slipRow && (
+        <CardSlipModal row={slipRow} onClose={() => setSlipRow(null)} />
       )}
     </div>
     </>

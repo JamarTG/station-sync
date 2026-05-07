@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Plus } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
 
 const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'TTD']
 
@@ -112,10 +113,9 @@ export function FXDepositModal({ onBack, onClose, isEditing, initialData }: Prop
                   <div className="flex items-center border border-[#e0e0e0] rounded-xl px-4 py-2.5 gap-2">
                     <span className="text-[13px] font-bold text-[#aaa]">$</span>
                     <input
-                      type="number"
-                      min={0}
-                      value={r.amount}
-                      onChange={(e) => updateRecord(r.id, 'amount', e.target.value)}
+                      type="text"
+                      value={fmtInput(r.amount)}
+                      onChange={(e) => updateRecord(r.id, 'amount', parseInput(e.target.value))}
                       placeholder="0.00"
                       className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent min-w-0"
                     />
@@ -142,7 +142,7 @@ export function FXDepositModal({ onBack, onClose, isEditing, initialData }: Prop
                   {i === 0 && <div className="mb-2 h-[18px]" />}
                   <p className="py-2.5 text-[22px] font-bold text-[#111] leading-none">
                     <span className="text-[13px] font-bold text-[#aaa] mr-0.5">J$</span>
-                    {jmd.toFixed(2)}
+                    {fmtNum(jmd)}
                   </p>
                 </div>
               </div>
@@ -163,7 +163,7 @@ export function FXDepositModal({ onBack, onClose, isEditing, initialData }: Prop
         <div className="mb-6">
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Total</p>
           <p className="text-[32px] font-bold text-[#111] leading-none tracking-tight">
-            <span className="text-[18px] font-bold text-[#aaa] mr-1">J$</span>{total.toFixed(2)}
+            <span className="text-[18px] font-bold text-[#aaa] mr-1">J$</span>{fmtNum(total)}
           </p>
         </div>
 

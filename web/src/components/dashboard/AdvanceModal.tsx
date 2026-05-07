@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Plus } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
 
 const fuelGrades = ['87', '90', 'ADO', 'ULSD']
 const attendants = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
@@ -94,10 +95,9 @@ export function AdvanceModal({ onBack, onClose, isEditing, initialData }: Props)
                 <div className="flex items-center border border-[#e0e0e0] rounded-xl px-4 py-2.5 gap-2">
                   <span className="text-[13px] font-bold text-[#aaa]">J$</span>
                   <input
-                    type="number"
-                    min={0}
-                    value={r.amount}
-                    onChange={(e) => updateRecord(r.id, 'amount', e.target.value)}
+                    type="text"
+                    value={fmtInput(r.amount)}
+                    onChange={(e) => updateRecord(r.id, 'amount', parseInput(e.target.value))}
                     placeholder="0.00"
                     className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent"
                   />
@@ -135,13 +135,13 @@ export function AdvanceModal({ onBack, onClose, isEditing, initialData }: Props)
           <div>
             <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Total</p>
             <p className="text-[32px] font-bold text-[#111] leading-none tracking-tight">
-              <span className="text-[18px] font-bold text-[#aaa] mr-1">J$</span>{total.toFixed(2)}
+              <span className="text-[18px] font-bold text-[#aaa] mr-1">J$</span>{fmtNum(total)}
             </p>
           </div>
           <div>
             <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Litres</p>
             <p className="text-[32px] font-bold text-[#111] leading-none tracking-tight">
-              {litres.toFixed(2)}
+              {fmtNum(litres)}
             </p>
           </div>
         </div>

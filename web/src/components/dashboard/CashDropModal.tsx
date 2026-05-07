@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { fmtInput, parseInput } from '../../lib/fmt'
 
 const denominations = [5000, 2000, 1000, 500, 100, 50, 20, 10, 5, 1]
 const attendants = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
@@ -54,10 +55,9 @@ export function CashDepositModal({ initialAttendant, onBack, onClose, isEditing 
               <tr key={d} className="border-b border-[#e0e0e0] last:border-b-0">
                 <td className="border-r border-[#e0e0e0] px-3 py-2 w-1/2">
                   <input
-                    type="number"
-                    min={0}
-                    value={counts[d] ?? ''}
-                    onChange={(e) => setCounts((prev) => ({ ...prev, [d]: e.target.value }))}
+                    type="text"
+                    value={fmtInput(counts[d] ?? '')}
+                    onChange={(e) => setCounts((prev) => ({ ...prev, [d]: parseInput(e.target.value) }))}
                     className="w-full text-[13px] font-medium text-[#333] focus:outline-none bg-transparent"
                     placeholder=""
                   />

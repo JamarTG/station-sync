@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Plus, Minus } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
 
 const fuelGrades = ['87', '90', 'ADO', 'ULSD']
 
@@ -102,10 +103,9 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit, isEditing }: Prop
           <label className="text-[13px] font-semibold text-[#888] block mb-2">amount ordered</label>
           <div className="flex items-center gap-4">
             <input
-              type="number"
-              min={0}
-              value={amountOrdered}
-              onChange={(e) => setAmountOrdered(e.target.value)}
+              type="text"
+              value={fmtInput(amountOrdered)}
+              onChange={(e) => setAmountOrdered(parseInput(e.target.value))}
               placeholder="0.00"
               className="border border-[#e0e0e0] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none w-[200px]"
             />
@@ -169,10 +169,9 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit, isEditing }: Prop
               <div className="flex-1">
                 <label className="text-[13px] font-semibold text-[#888] block mb-2">rate</label>
                 <input
-                  type="number"
-                  min={0}
-                  value={rate}
-                  onChange={(e) => setRate(e.target.value)}
+                  type="text"
+                  value={fmtInput(rate)}
+                  onChange={(e) => setRate(parseInput(e.target.value))}
                   placeholder="0.00"
                   className="w-full border border-[#e0e0e0] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none"
                 />
@@ -182,10 +181,9 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit, isEditing }: Prop
               <div className="flex-1">
                 <label className="text-[13px] font-semibold text-[#888] block mb-2">haulage</label>
                 <input
-                  type="number"
-                  min={0}
-                  value={haulage}
-                  onChange={(e) => setHaulage(e.target.value)}
+                  type="text"
+                  value={fmtInput(haulage)}
+                  onChange={(e) => setHaulage(parseInput(e.target.value))}
                   placeholder="0.00"
                   className="w-full border border-[#e0e0e0] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none"
                 />
@@ -195,10 +193,9 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit, isEditing }: Prop
               <div className="flex-1">
                 <label className="text-[13px] font-semibold text-[#888] block mb-2">GCT</label>
                 <input
-                  type="number"
-                  min={0}
-                  value={gct}
-                  onChange={(e) => setGct(e.target.value)}
+                  type="text"
+                  value={fmtInput(gct)}
+                  onChange={(e) => setGct(parseInput(e.target.value))}
                   placeholder="0.00"
                   className="w-full border border-[#e0e0e0] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none"
                 />
@@ -212,10 +209,9 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit, isEditing }: Prop
           <div className="flex-1">
             <label className="text-[13px] font-semibold text-[#888] block mb-2">opening</label>
             <input
-              type="number"
-              min={0}
-              value={opening}
-              onChange={(e) => setOpening(e.target.value)}
+              type="text"
+              value={fmtInput(opening)}
+              onChange={(e) => setOpening(parseInput(e.target.value))}
               placeholder="0.00"
               className="w-full border border-[#e0e0e0] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none"
             />
@@ -223,10 +219,9 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit, isEditing }: Prop
           <div className="flex-1">
             <label className="text-[13px] font-semibold text-[#888] block mb-2">closing</label>
             <input
-              type="number"
-              min={0}
-              value={closing}
-              onChange={(e) => setClosing(e.target.value)}
+              type="text"
+              value={fmtInput(closing)}
+              onChange={(e) => setClosing(parseInput(e.target.value))}
               placeholder="0.00"
               className="w-full border border-[#e0e0e0] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none"
             />
@@ -249,7 +244,7 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit, isEditing }: Prop
 
         <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Variance</p>
         <p className="text-[36px] font-bold text-[#111] leading-none tracking-tight mb-6">
-          {variance.toFixed(2)}
+          {fmtNum(variance)}
         </p>
 
         <div className="mb-8">

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { MoreHorizontal } from 'lucide-react'
 import { EndShiftModal } from './EndShiftModal'
 import { ReportIssueModal } from './ReportIssueModal'
 import { RecordModal } from './RecordModal'
@@ -19,28 +20,61 @@ export function ActionBar() {
   const [dropAttendant, setDropAttendant] = useState('')
   const [showEndShift, setShowEndShift] = useState(false)
   const [showReportIssue, setShowReportIssue] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const moreRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const btnClass = 'px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'
 
   return (
     <>
       <div className="flex items-center gap-2 flex-wrap">
-        <button
-          onClick={() => setRecordView('select')}
-          className="px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors"
-        >
+        <button onClick={() => setRecordView('select')} className={btnClass}>
           Record a ...
         </button>
-        <button
-          onClick={() => setShowEndShift(true)}
-          className="px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors"
-        >
+
+        {/* Visible at ≥416px */}
+        <button onClick={() => setShowEndShift(true)} className={`hidden min-[416px]:block ${btnClass}`}>
           End shift
         </button>
-        <button
-          onClick={() => setShowReportIssue(true)}
-          className="px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors"
-        >
+        <button onClick={() => setShowReportIssue(true)} className={`hidden min-[416px]:block ${btnClass}`}>
           Report an issue
         </button>
+
+        {/* Collapsed ... menu at <416px */}
+        <div ref={moreRef} className="relative min-[416px]:hidden">
+          <button
+            onClick={() => setMoreOpen((o) => !o)}
+            className={btnClass}
+          >
+            <MoreHorizontal size={15} />
+          </button>
+          {moreOpen && (
+            <div className="absolute left-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[160px] z-50">
+              <button
+                onClick={() => { setMoreOpen(false); setShowEndShift(true) }}
+                className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors"
+              >
+                End shift
+              </button>
+              <button
+                onClick={() => { setMoreOpen(false); setShowReportIssue(true) }}
+                className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors"
+              >
+                Report an issue
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {recordView === 'select' && (

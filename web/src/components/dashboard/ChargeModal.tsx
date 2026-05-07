@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
 
 const fuelGrades = ['87', '90', 'ADO', 'ULSD']
 const attendants = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
@@ -75,10 +76,9 @@ export function ChargeModal({ onBack, onClose, isEditing, initialData }: Props) 
           <div className="flex items-center border border-[#e0e0e0] rounded-xl px-4 py-3 gap-2">
             <span className="text-[15px] font-bold text-[#aaa]">J$</span>
             <input
-              type="number"
-              min={0}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              type="text"
+              value={fmtInput(amount)}
+              onChange={(e) => setAmount(parseInput(e.target.value))}
               placeholder="0"
               className="flex-1 text-[15px] font-semibold text-[#333] focus:outline-none bg-transparent"
             />
@@ -87,7 +87,7 @@ export function ChargeModal({ onBack, onClose, isEditing, initialData }: Props) 
 
         <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Litres</p>
         <p className="text-[36px] font-bold text-[#111] leading-none tracking-tight mb-6">
-          {litres.toFixed(2)}
+          {fmtNum(litres)}
         </p>
 
         <div className="mb-6">

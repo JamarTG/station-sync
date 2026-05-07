@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { fmtInput, parseInput } from '../../lib/fmt'
 
 const fuelGrades = ['87', '90', 'ADO', 'ULSD']
 
@@ -20,7 +21,7 @@ export function EditFuelPricesModal({ onClose }: Props) {
   const [prices, setPrices] = useState<Record<string, string>>(defaultPrices)
 
   function updatePrice(fuel: string, value: string) {
-    setPrices((prev) => ({ ...prev, [fuel]: value }))
+    setPrices((prev) => ({ ...prev, [fuel]: parseInput(value) }))
   }
 
   return (
@@ -63,9 +64,8 @@ export function EditFuelPricesModal({ onClose }: Props) {
                 <div className="flex items-center border border-[#e0e0e0] rounded-xl px-4 py-2.5 gap-2">
                   <span className="text-[13px] font-bold text-[#aaa]">J$</span>
                   <input
-                    type="number"
-                    min={0}
-                    value={prices[fuel]}
+                    type="text"
+                    value={fmtInput(prices[fuel])}
                     onChange={(e) => updatePrice(fuel, e.target.value)}
                     placeholder="0.00"
                     className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent min-w-0"

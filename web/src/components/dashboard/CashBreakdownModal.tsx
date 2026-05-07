@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { fmtInput, parseInput } from '../../lib/fmt'
 
 const largeDenominations = [5000, 2000, 1000, 500, 100, 50]
 const smallDenominations = [20, 10, 5, 1]
@@ -61,10 +62,9 @@ export function CashBreakdownModal({ onBack, onClose }: Props) {
         <div key={d} className="flex items-center justify-between py-2 gap-4">
           <p className="text-[13px] font-semibold text-[#111] w-16 flex-shrink-0">${d.toLocaleString()}</p>
           <input
-            type="number"
-            min={0}
-            value={editCounts[d] ?? ''}
-            onChange={(e) => setEditCounts((prev) => ({ ...prev, [d]: e.target.value }))}
+            type="text"
+            value={fmtInput(editCounts[d] ?? '')}
+            onChange={(e) => setEditCounts((prev) => ({ ...prev, [d]: parseInput(e.target.value) }))}
             placeholder="0"
             className="w-20 border border-[#e0e0e0] rounded-lg px-3 py-1.5 text-[13px] font-semibold text-[#333] focus:outline-none text-center"
           />

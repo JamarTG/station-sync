@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowLeft, X, Plus, Minus } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { CardSettlementReviewModal, type CardTransaction } from './CardSettlementReviewModal'
+import { fmtInput, parseInput } from '../../lib/fmt'
 
 const allDenominations = [5000, 2000, 1000, 500, 100, 50, 20, 10, 5, 1]
 const zeroCounts = Object.fromEntries(allDenominations.map((d) => [d, 0]))
@@ -54,6 +55,7 @@ export function EndShiftModal({ onClose }: Props) {
   const [cardTransactions, setCardTransactions] = useState<Record<string, CardTransaction[]>>(initialCardData)
   const [settlementTotals, setSettlementTotals] = useState<Record<string, string>>({})
   const [settlementFiles, setSettlementFiles] = useState<Record<string, File | null>>({})
+  const [settlementTouched, setSettlementTouched] = useState<Record<string, boolean>>({})
   const [reviewBank, setReviewBank] = useState<string | null>(null)
 
   const cardTotal = banks.reduce((sum, bank) => sum + (cardTransactions[bank] ?? []).reduce((s, t) => s + t.amount, 0), 0)
@@ -106,7 +108,7 @@ export function EndShiftModal({ onClose }: Props) {
           {/* ── Step 1: Password ── */}
           {step === 'password' && (
             <>
-              <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">End shift</h2>
+              <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">End the shift</h2>
               <p className="text-[14px] text-[#888] font-medium mb-8">Enter your password to continue</p>
 
               <div className="mb-6">
@@ -130,6 +132,12 @@ export function EndShiftModal({ onClose }: Props) {
                   className="w-full border border-[#e0e0e0] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none"
                   autoFocus
                 />
+              </div>
+
+              <div className="flex justify-end mb-4">
+                <button type="button" className="text-[12px] font-semibold text-[#aaa] hover:text-[#555] transition-colors">
+                  Forgot your password?
+                </button>
               </div>
 
               <button
@@ -203,10 +211,10 @@ export function EndShiftModal({ onClose }: Props) {
                           <td className="px-4 py-2.5 text-center">
                             {isEditingCounts ? (
                               <input
-                                type="number"
+                                type="text"
                                 min={0}
-                                value={editCounts[d] ?? ''}
-                                onChange={(e) => setEditCounts((prev) => ({ ...prev, [d]: e.target.value }))}
+                                value={fmtInput(editCounts[d] ?? '')}
+                                onChange={(e) => setEditCounts((prev) => ({ ...prev, [d]: parseInput(e.target.value) }))}
                                 placeholder="0"
                                 className="w-16 text-center text-[13px] font-medium text-[#333] bg-transparent outline-none placeholder:text-[#ddd] focus:bg-[#f5f5f5] rounded-md px-1 py-0.5 transition-colors"
                               />
@@ -247,7 +255,7 @@ export function EndShiftModal({ onClose }: Props) {
                   const txns = cardTransactions[bank] ?? []
                   const bankTotal = txns.reduce((sum, t) => sum + t.amount, 0)
                   const settlementVal = parseFloat(settlementTotals[bank] ?? '')
-                  const hasMismatch = !isNaN(settlementVal) && settlementVal !== bankTotal
+                  const hasMismatch = settlementTouched[bank] && !isNaN(settlementVal) && settlementVal !== bankTotal
 
                   return (
                     <div key={bank}>
@@ -259,10 +267,10 @@ export function EndShiftModal({ onClose }: Props) {
                       <div className="mb-3">
                         <label className="text-[13px] font-semibold text-[#888] block mb-2">settlement total</label>
                         <input
-                          type="number"
-                          min={0}
-                          value={settlementTotals[bank] ?? ''}
-                          onChange={(e) => setSettlementTotals((prev) => ({ ...prev, [bank]: e.target.value }))}
+                          type="text"
+                          value={fmtInput(settlementTotals[bank] ?? '')}
+                          onChange={(e) => setSettlementTotals((prev) => ({ ...prev, [bank]: parseInput(e.target.value) }))}
+                          onBlur={() => setSettlementTouched((prev) => ({ ...prev, [bank]: true }))}
                           placeholder="0.00"
                           className={`w-full border rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none ${hasMismatch ? 'border-red-300 bg-red-50' : 'border-[#e0e0e0]'}`}
                         />
