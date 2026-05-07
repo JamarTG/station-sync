@@ -9,9 +9,10 @@ interface Props {
   initialAttendant: string
   onBack: () => void
   onClose: () => void
+  isEditing?: boolean
 }
 
-export function CashDepositModal({ initialAttendant, onBack, onClose }: Props) {
+export function CashDepositModal({ initialAttendant, onBack, onClose, isEditing }: Props) {
   useEscapeKey(onClose)
   const [counts, setCounts] = useState<Record<number, string>>({})
   const [attendant, setAttendant] = useState(initialAttendant || attendants[0])
@@ -31,23 +32,19 @@ export function CashDepositModal({ initialAttendant, onBack, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
-            <ArrowLeft size={13} />
-            Go back
-          </button>
-          <button
-            onClick={onClose}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
+          {!isEditing ? (
+            <button onClick={onBack} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
+              <ArrowLeft size={13} />
+              Go back
+            </button>
+          ) : <div />}
+          <button onClick={onClose} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
             <X size={13} />
             Cancel
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">Record cash drop</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit a Cash Drop' : 'Record cash drop'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <p className="text-[13px] font-semibold text-[#888] mb-2">amount</p>

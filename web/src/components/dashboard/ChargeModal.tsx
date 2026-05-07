@@ -15,14 +15,16 @@ const pricePerLitre: Record<string, number> = {
 interface Props {
   onBack: () => void
   onClose: () => void
+  isEditing?: boolean
+  initialData?: { name: string; fuelType: string; amount: number }
 }
 
-export function ChargeModal({ onBack, onClose }: Props) {
+export function ChargeModal({ onBack, onClose, isEditing, initialData }: Props) {
   useEscapeKey(onClose)
-  const [fuelGrade, setFuelGrade] = useState('')
-  const [amount, setAmount] = useState('')
-  const [collectedBy, setCollectedBy] = useState('')
-  const [attendant, setAttendant] = useState('')
+  const [fuelGrade, setFuelGrade] = useState(initialData?.fuelType ?? '')
+  const [amount, setAmount] = useState(initialData?.amount ? String(initialData.amount) : '')
+  const [collectedBy, setCollectedBy] = useState(initialData?.name ?? '')
+  const [attendant, setAttendant] = useState(initialData?.name ?? '')
 
   const numAmount = parseFloat(amount) || 0
   const litres = fuelGrade && pricePerLitre[fuelGrade]
@@ -39,23 +41,19 @@ export function ChargeModal({ onBack, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
-            <ArrowLeft size={13} />
-            Go back
-          </button>
-          <button
-            onClick={onClose}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
+          {!isEditing ? (
+            <button onClick={onBack} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
+              <ArrowLeft size={13} />
+              Go back
+            </button>
+          ) : <div />}
+          <button onClick={onClose} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
             <X size={13} />
             Cancel
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">Record charge</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit a Charge' : 'Record charge'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <div className="mb-6">

@@ -8,9 +8,10 @@ interface Props {
   onBack: () => void
   onClose: () => void
   onSubmit?: () => void
+  isEditing?: boolean
 }
 
-export function FuelReceivalModal({ onBack, onClose, onSubmit }: Props) {
+export function FuelReceivalModal({ onBack, onClose, onSubmit, isEditing }: Props) {
   useEscapeKey(onClose)
   const [amountOrdered, setAmountOrdered] = useState('')
   const [opening, setOpening] = useState('')
@@ -52,13 +53,15 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
-            <ArrowLeft size={13} />
-            Go back
-          </button>
+          {!isEditing ? (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+            >
+              <ArrowLeft size={13} />
+              Go back
+            </button>
+          ) : <div />}
           <button
             onClick={onClose}
             className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
@@ -68,7 +71,7 @@ export function FuelReceivalModal({ onBack, onClose, onSubmit }: Props) {
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">Record fuel receival</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit fuel receival' : 'Record fuel receival'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         {/* Invoice no row */}

@@ -7,13 +7,15 @@ const denominations = [5000, 2000, 1000, 500, 100, 50, 20, 10, 5, 1]
 interface Props {
   onBack: () => void
   onClose: () => void
+  isEditing?: boolean
+  initialData?: { depositedBy: string; description: string }
 }
 
-export function CashDepositEntryModal({ onBack, onClose }: Props) {
+export function CashDepositEntryModal({ onBack, onClose, isEditing, initialData }: Props) {
   useEscapeKey(onClose)
   const [counts, setCounts] = useState<Record<number, string>>({})
-  const [description, setDescription] = useState('')
-  const [depositedBy, setDepositedBy] = useState('')
+  const [description, setDescription] = useState(initialData?.description ?? '')
+  const [depositedBy, setDepositedBy] = useState(initialData?.depositedBy ?? '')
 
   const total = denominations.reduce((sum, d) => {
     const n = parseInt(counts[d] ?? '', 10)
@@ -30,13 +32,15 @@ export function CashDepositEntryModal({ onBack, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
-            <ArrowLeft size={13} />
-            Go back
-          </button>
+          {!isEditing ? (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+            >
+              <ArrowLeft size={13} />
+              Go back
+            </button>
+          ) : <div />}
           <button
             onClick={onClose}
             className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
@@ -46,7 +50,7 @@ export function CashDepositEntryModal({ onBack, onClose }: Props) {
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">Record cash deposit</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit cash deposit' : 'Record cash deposit'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <p className="text-[13px] font-semibold text-[#888] mb-2">description</p>

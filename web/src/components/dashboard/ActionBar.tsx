@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { MoreHorizontal, Circle } from 'lucide-react'
+import { EndShiftModal } from './EndShiftModal'
+import { ReportIssueModal } from './ReportIssueModal'
 import { RecordModal } from './RecordModal'
 import { DropModal } from './DropModal'
 import { CashDepositModal } from './CashDropModal'
@@ -16,6 +17,8 @@ type RecordView = 'select' | 'drop' | 'cash-deposit' | 'expenditure' | 'charge' 
 export function ActionBar() {
   const [recordView, setRecordView] = useState<RecordView>(null)
   const [dropAttendant, setDropAttendant] = useState('')
+  const [showEndShift, setShowEndShift] = useState(false)
+  const [showReportIssue, setShowReportIssue] = useState(false)
 
   return (
     <>
@@ -26,17 +29,17 @@ export function ActionBar() {
         >
           Record a ...
         </button>
-        <button className="hidden min-[474px]:block px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors">
-          Export
+        <button
+          onClick={() => setShowEndShift(true)}
+          className="px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors"
+        >
+          End shift
         </button>
-        <button className="px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors">
-          Start a new shift
-        </button>
-        <button className="hidden min-[474px]:flex w-9 h-9 border border-[#ddd] rounded-xl items-center justify-center bg-white hover:bg-[#f9f9f9] transition-colors text-[#888]">
-          <Circle size={16} />
-        </button>
-        <button className="w-9 h-9 border border-[#ddd] rounded-xl flex items-center justify-center bg-white hover:bg-[#f9f9f9] transition-colors text-[#888]">
-          <MoreHorizontal size={16} />
+        <button
+          onClick={() => setShowReportIssue(true)}
+          className="px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors"
+        >
+          Report an issue
         </button>
       </div>
 
@@ -108,6 +111,12 @@ export function ActionBar() {
           onBack={() => setRecordView('select')}
           onClose={() => setRecordView(null)}
         />
+      )}
+      {showEndShift && (
+        <EndShiftModal onClose={() => setShowEndShift(false)} />
+      )}
+      {showReportIssue && (
+        <ReportIssueModal onClose={() => setShowReportIssue(false)} />
       )}
     </>
   )

@@ -22,16 +22,18 @@ interface FXRecord {
 interface Props {
   onBack: () => void
   onClose: () => void
+  isEditing?: boolean
+  initialData?: { name: string; currency: string; fxAmount: number }
 }
 
 let nextId = 1
 
-export function FXModal({ onBack, onClose }: Props) {
+export function FXModal({ onBack, onClose, isEditing, initialData }: Props) {
   useEscapeKey(onClose)
   const [records, setRecords] = useState<FXRecord[]>([
-    { id: nextId++, amount: '', currency: 'USD' },
+    { id: nextId++, amount: initialData?.fxAmount ? String(initialData.fxAmount) : '', currency: initialData?.currency ?? 'USD' },
   ])
-  const [attendant, setAttendant] = useState('')
+  const [attendant, setAttendant] = useState(initialData?.name ?? '')
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 650)
 
   useEffect(() => {
@@ -65,23 +67,19 @@ export function FXModal({ onBack, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
-            <ArrowLeft size={13} />
-            Go back
-          </button>
-          <button
-            onClick={onClose}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
+          {!isEditing ? (
+            <button onClick={onBack} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
+              <ArrowLeft size={13} />
+              Go back
+            </button>
+          ) : <div />}
+          <button onClick={onClose} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
             <X size={13} />
             Cancel
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">Record fx</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit an FX Record' : 'Record fx'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <div className="flex flex-col gap-3 mb-2">

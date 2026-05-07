@@ -21,17 +21,19 @@ interface FXDepositRecord {
 interface Props {
   onBack: () => void
   onClose: () => void
+  isEditing?: boolean
+  initialData?: { depositedBy: string; description: string; fxAmount: number; currency: string }
 }
 
 let nextId = 1
 
-export function FXDepositModal({ onBack, onClose }: Props) {
+export function FXDepositModal({ onBack, onClose, isEditing, initialData }: Props) {
   useEscapeKey(onClose)
   const [records, setRecords] = useState<FXDepositRecord[]>([
-    { id: nextId++, amount: '', currency: 'USD' },
+    { id: nextId++, amount: initialData?.fxAmount ? String(initialData.fxAmount) : '', currency: initialData?.currency ?? 'USD' },
   ])
-  const [depositedBy, setDepositedBy] = useState('')
-  const [description, setDescription] = useState('')
+  const [depositedBy, setDepositedBy] = useState(initialData?.depositedBy ?? '')
+  const [description, setDescription] = useState(initialData?.description ?? '')
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 650)
 
   useEffect(() => {
@@ -65,13 +67,15 @@ export function FXDepositModal({ onBack, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
-            <ArrowLeft size={13} />
-            Go back
-          </button>
+          {!isEditing ? (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+            >
+              <ArrowLeft size={13} />
+              Go back
+            </button>
+          ) : <div />}
           <button
             onClick={onClose}
             className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
@@ -81,7 +85,7 @@ export function FXDepositModal({ onBack, onClose }: Props) {
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">Record FX deposit</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit FX deposit' : 'Record FX deposit'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <div className="mb-6">

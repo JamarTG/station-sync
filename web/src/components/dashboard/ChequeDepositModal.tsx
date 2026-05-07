@@ -14,17 +14,19 @@ interface ChequeRecord {
 interface Props {
   onBack: () => void
   onClose: () => void
+  isEditing?: boolean
+  initialData?: { depositedBy: string; description: string; amount: number }
 }
 
 let nextId = 1
 
-export function ChequeDepositModal({ onBack, onClose }: Props) {
+export function ChequeDepositModal({ onBack, onClose, isEditing, initialData }: Props) {
   useEscapeKey(onClose)
   const [records, setRecords] = useState<ChequeRecord[]>([
-    { id: nextId++, amount: '', bank: 'NCB', chequeNo: '' },
+    { id: nextId++, amount: initialData?.amount ? String(initialData.amount) : '', bank: 'NCB', chequeNo: '' },
   ])
-  const [depositedBy, setDepositedBy] = useState('')
-  const [description, setDescription] = useState('')
+  const [depositedBy, setDepositedBy] = useState(initialData?.depositedBy ?? '')
+  const [description, setDescription] = useState(initialData?.description ?? '')
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 572)
 
   useEffect(() => {
@@ -61,13 +63,15 @@ export function ChequeDepositModal({ onBack, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
-            <ArrowLeft size={13} />
-            Go back
-          </button>
+          {!isEditing ? (
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+            >
+              <ArrowLeft size={13} />
+              Go back
+            </button>
+          ) : <div />}
           <button
             onClick={onClose}
             className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
@@ -77,7 +81,7 @@ export function ChequeDepositModal({ onBack, onClose }: Props) {
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">Record cheque deposit</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit cheque deposit' : 'Record cheque deposit'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <div className="mb-6">

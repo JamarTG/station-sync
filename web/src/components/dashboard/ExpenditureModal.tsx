@@ -8,13 +8,15 @@ const requesters = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
 interface Props {
   onBack: () => void
   onClose: () => void
+  isEditing?: boolean
+  initialData?: { requestedBy: string; description: string }
 }
 
-export function ExpenditureModal({ onBack, onClose }: Props) {
+export function ExpenditureModal({ onBack, onClose, isEditing, initialData }: Props) {
   useEscapeKey(onClose)
   const [counts, setCounts] = useState<Record<number, string>>({})
-  const [description, setDescription] = useState('')
-  const [requestedBy, setRequestedBy] = useState('')
+  const [description, setDescription] = useState(initialData?.description ?? '')
+  const [requestedBy, setRequestedBy] = useState(initialData?.requestedBy ?? '')
 
   const total = denominations.reduce((sum, d) => {
     const n = parseInt(counts[d] ?? '', 10)
@@ -31,23 +33,19 @@ export function ExpenditureModal({ onBack, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
-            <ArrowLeft size={13} />
-            Go back
-          </button>
-          <button
-            onClick={onClose}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
+          {!isEditing ? (
+            <button onClick={onBack} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
+              <ArrowLeft size={13} />
+              Go back
+            </button>
+          ) : <div />}
+          <button onClick={onClose} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
             <X size={13} />
             Cancel
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">Record expenditure</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit an Expenditure' : 'Record expenditure'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <p className="text-[13px] font-semibold text-[#888] mb-2">description</p>

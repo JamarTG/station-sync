@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import clsx from 'clsx'
 import { FuelReceivalModal } from './FuelReceivalModal'
-import { EditFuelReceivalModal } from './EditFuelReceivalModal'
 
 type TankGrade = '87' | '90' | 'ADO' | 'ULSD'
 
@@ -134,7 +133,9 @@ export function TankDetailPanel() {
         />
       )}
       {showEdit && (
-        <EditFuelReceivalModal
+        <FuelReceivalModal
+          isEditing
+          onBack={() => setShowEdit(false)}
           onClose={() => setShowEdit(false)}
           onSubmit={() => setShowEdit(false)}
         />

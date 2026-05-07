@@ -3,37 +3,30 @@ import { ArrowLeft, X, Plus } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 
 const banks = ['NCB', 'Scotiabank', 'JMMB', 'Sagicor', 'FirstGlobal']
-const fuelGrades = ['87', '90', 'ADO', 'ULSD']
 const attendants = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
-
-const pricePerLitre: Record<string, number> = {
-  '87': 190.5,
-  '90': 205.0,
-  'ADO': 190.86,
-  'ULSD': 210.0,
-}
 
 interface CardRecord {
   id: number
   amount: string
   bank: string
-  fuel: string
   transNo: string
 }
 
 interface Props {
   onBack: () => void
   onClose: () => void
+  isEditing?: boolean
+  initialData?: { name: string; bank: string; amount: number }
 }
 
 let nextId = 1
 
-export function CardModal({ onBack, onClose }: Props) {
+export function CardModal({ onBack, onClose, isEditing, initialData }: Props) {
   useEscapeKey(onClose)
   const [records, setRecords] = useState<CardRecord[]>([
-    { id: nextId++, amount: '', bank: 'NCB', fuel: '90', transNo: '' },
+    { id: nextId++, amount: initialData?.amount ? String(initialData.amount) : '', bank: initialData?.bank ?? 'NCB', transNo: '' },
   ])
-  const [attendant, setAttendant] = useState('')
+  const [attendant, setAttendant] = useState(initialData?.name ?? '')
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 650)
 
   useEffect(() => {
@@ -47,7 +40,7 @@ export function CardModal({ onBack, onClose }: Props) {
   }
 
   function addRecord() {
-    setRecords((prev) => [...prev, { id: nextId++, amount: '', bank: 'NCB', fuel: '90', transNo: '' }])
+    setRecords((prev) => [...prev, { id: nextId++, amount: '', bank: 'NCB', transNo: '' }])
   }
 
   function isDuplicateTransNo(record: CardRecord) {
@@ -59,11 +52,6 @@ export function CardModal({ onBack, onClose }: Props) {
 
   const hasDuplicates = records.some(isDuplicateTransNo)
   const total = records.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0)
-  const litres = records.reduce((sum, r) => {
-    const amt = parseFloat(r.amount) || 0
-    const price = pricePerLitre[r.fuel]
-    return sum + (price ? amt / price : 0)
-  }, 0)
 
   return (
     <div
@@ -75,23 +63,19 @@ export function CardModal({ onBack, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
-            <ArrowLeft size={13} />
-            Go back
-          </button>
-          <button
-            onClick={onClose}
-            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
-          >
+          {!isEditing ? (
+            <button onClick={onBack} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
+              <ArrowLeft size={13} />
+              Go back
+            </button>
+          ) : <div />}
+          <button onClick={onClose} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
             <X size={13} />
             Cancel
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">Record card</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit a Card Record' : 'Record card'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <div className="flex flex-col gap-3 mb-2">
@@ -111,11 +95,6 @@ export function CardModal({ onBack, onClose }: Props) {
                     placeholder="0.00"
                     className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent min-w-0"
                   />
-                  {r.fuel && pricePerLitre[r.fuel] && (parseFloat(r.amount) || 0) > 0 && (
-                    <span className="text-[12px] text-[#bbb] font-medium flex-shrink-0">
-                      {((parseFloat(r.amount) || 0) / pricePerLitre[r.fuel]).toFixed(2)}L
-                    </span>
-                  )}
                 </div>
               </div>
               <div>
@@ -129,20 +108,6 @@ export function CardModal({ onBack, onClose }: Props) {
                 >
                   {banks.map((b) => (
                     <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                {r.id === records[0].id && (
-                  <label className="text-[13px] font-semibold text-[#888] block mb-2">fuel</label>
-                )}
-                <select
-                  value={r.fuel}
-                  onChange={(e) => updateRecord(r.id, 'fuel', e.target.value)}
-                  className="border border-[#e0e0e0] rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[#333] bg-white focus:outline-none cursor-pointer min-w-[90px]"
-                >
-                  {fuelGrades.map((g) => (
-                    <option key={g} value={g}>{g}</option>
                   ))}
                 </select>
               </div>
@@ -177,12 +142,6 @@ export function CardModal({ onBack, onClose }: Props) {
             <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Total</p>
             <p className="text-[32px] font-bold text-[#111] leading-none tracking-tight">
               <span className="text-[18px] font-bold text-[#aaa] mr-1">J$</span>{total.toFixed(2)}
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Litres</p>
-            <p className="text-[32px] font-bold text-[#111] leading-none tracking-tight">
-              {litres.toFixed(2)}
             </p>
           </div>
         </div>

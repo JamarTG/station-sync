@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, ChevronUp, Plus, MoreHorizontal } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { ChevronDown, ChevronUp, Plus, MoreHorizontal, Eye, Pencil, Trash2, Printer, FileText } from 'lucide-react'
 import clsx from 'clsx'
 import type { AccountType } from './AccountsPanel'
 import { ExpenditureModal } from './ExpenditureModal'
@@ -17,20 +18,25 @@ import { FXBreakdownModal } from './FXBreakdownModal'
 import { AttendantModal } from './AttendantModal'
 import { ManageAttendantsModal } from './ManageAttendantsModal'
 import { DepositModal } from './DepositModal'
+import { DepositsBreakdownModal } from './DepositsBreakdownModal'
+import { CashDepositEntryModal } from './CashDepositEntryModal'
+import { CardDepositModal } from './CardDepositModal'
+import { FXDepositModal } from './FXDepositModal'
+import { ChequeDepositModal } from './ChequeDepositModal'
 
 const accounts: AccountType[] = ['Cash', 'Expenditures', 'Charges', 'Advance', 'FX', 'Card']
 
-interface BaseRow { id: number; amount: number }
-interface AttendantsRow extends BaseRow { type: 'attendants'; name: string; pump: string; balance: number; clockIn: string }
-interface AttendantRow extends BaseRow { type: 'attendant'; name: string; time: string }
-interface ExpenditureRow extends BaseRow { type: 'expenditure'; requestedBy: string; description: string }
-interface ChargesRow extends BaseRow { type: 'charges'; name: string; fuelType: string; litres: number }
-interface CardRow extends BaseRow { type: 'card'; name: string; bank: string; litres: number }
-interface AdvanceRow extends BaseRow { type: 'advance'; name: string; fuelType: string; litres: number }
-interface FXRow extends BaseRow { type: 'fx'; name: string; fxAmount: number; currency: string }
-interface DepositRow extends BaseRow { type: 'deposit'; name: string; description: string; depositType: string }
+export interface BaseRow { id: number; amount: number }
+export interface AttendantsRow extends BaseRow { type: 'attendants'; name: string; pump: string; balance: number; clockIn: string }
+export interface AttendantRow extends BaseRow { type: 'attendant'; name: string; time: string }
+export interface ExpenditureRow extends BaseRow { type: 'expenditure'; requestedBy: string; description: string }
+export interface ChargesRow extends BaseRow { type: 'charges'; name: string; fuelType: string; litres: number }
+export interface CardRow extends BaseRow { type: 'card'; name: string; bank: string; litres: number }
+export interface AdvanceRow extends BaseRow { type: 'advance'; name: string; fuelType: string; litres: number }
+export interface FXRow extends BaseRow { type: 'fx'; name: string; fxAmount: number; currency: string }
+export interface DepositRow extends BaseRow { type: 'deposit'; name: string; description: string; depositType: string; fxAmount?: number; currency?: string }
 
-type ActivityRow = AttendantsRow | AttendantRow | ExpenditureRow | ChargesRow | CardRow | AdvanceRow | FXRow | DepositRow
+export type ActivityRow = AttendantsRow | AttendantRow | ExpenditureRow | ChargesRow | CardRow | AdvanceRow | FXRow | DepositRow
 
 const activityByAccount: Record<AccountType, ActivityRow[]> = {
   Attendants: [
@@ -68,7 +74,7 @@ const activityByAccount: Record<AccountType, ActivityRow[]> = {
   Deposits: [
     { type: 'deposit', id: 1, name: 'S. Lawes', description: 'Shift end deposit', depositType: 'Cash', amount: 150000.0 },
     { type: 'deposit', id: 2, name: 'S. Smith', description: 'Card settlement', depositType: 'Card', amount: 45000.0 },
-    { type: 'deposit', id: 3, name: 'T. Brisco', description: 'FX deposit', depositType: 'FX', amount: 32000.0 },
+    { type: 'deposit', id: 3, name: 'T. Brisco', description: 'FX deposit', depositType: 'FX', amount: 32000.0, fxAmount: 200, currency: 'EUR' },
   ],
 }
 
@@ -269,8 +275,67 @@ interface Props {
   account: AccountType
 }
 
+function rowMenuOptions(account: AccountType) {
+  const base = [
+    { label: 'View details', icon: Eye },
+    { label: 'Edit', icon: Pencil },
+    { label: 'Delete', icon: Trash2, danger: true },
+  ]
+  if (account === 'Cash') return [{ label: 'Print receipt', icon: Printer }, ...base]
+  if (account === 'Card') return [{ label: 'View slip', icon: FileText }, ...base]
+  if (account === 'Deposits') return [{ label: 'Print receipt', icon: Printer }, ...base]
+  if (account === 'Expenditures') return [{ label: 'View receipt', icon: FileText }, ...base]
+  return base
+}
+
+interface RowDropdownProps {
+  account: AccountType
+  onClose: () => void
+  onAction: (action: string) => void
+  anchor: DOMRect
+}
+
+function RowDropdown({ account, onClose, onAction, anchor }: RowDropdownProps) {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [onClose])
+
+  const options = rowMenuOptions(account)
+
+  return createPortal(
+    <div
+      ref={ref}
+      style={{ position: 'fixed', top: anchor.bottom + 4, right: window.innerWidth - anchor.right, zIndex: 9999 }}
+      className="bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[160px]"
+    >
+      {options.map(({ label, icon: Icon, danger }) => (
+        <button
+          key={label}
+          onClick={(e) => { e.stopPropagation(); onAction(label); onClose() }}
+          className={clsx(
+            'w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-semibold transition-colors text-left',
+            danger ? 'text-red-500 hover:bg-red-50' : 'text-[#333] hover:bg-[#f9f9f9]'
+          )}
+        >
+          <Icon size={13} className="flex-shrink-0" />
+          {label}
+        </button>
+      ))}
+    </div>,
+    document.body
+  )
+}
+
 export function RecentActivityCard({ account }: Props) {
-  const activities = activityByAccount[account].slice(0, 4)
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null)
+  const [dropdownAnchor, setDropdownAnchor] = useState<DOMRect | null>(null)
+  const [editingRow, setEditingRow] = useState<ActivityRow | null>(null)
 
   const [showExpenditure, setShowExpenditure] = useState(false)
   const [showCashDeposit, setShowCashDeposit] = useState(false)
@@ -287,15 +352,14 @@ export function RecentActivityCard({ account }: Props) {
   const [selectedAttendant, setSelectedAttendant] = useState<string | null>(null)
   const [showManageAttendants, setShowManageAttendants] = useState(false)
   const [showDeposit, setShowDeposit] = useState(false)
+  const [showDepositsBreakdown, setShowDepositsBreakdown] = useState(false)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
-  const displayedActivities = account === 'Attendants'
-    ? [...activities].sort((a, b) => {
-        const balA = a.type === 'attendants' ? a.balance : 0
-        const balB = b.type === 'attendants' ? b.balance : 0
-        return sortDir === 'asc' ? balA - balB : balB - balA
-      })
-    : activities
+  const displayedActivities = [...activityByAccount[account]].sort((a, b) => {
+    const valA = a.type === 'attendants' ? a.balance : a.amount
+    const valB = b.type === 'attendants' ? b.balance : b.amount
+    return sortDir === 'asc' ? valA - valB : valB - valA
+  }).slice(0, 4)
 
   function handleTotal() {
     if (account === 'Cash') setShowCashBreakdown(true)
@@ -304,6 +368,7 @@ export function RecentActivityCard({ account }: Props) {
     if (account === 'Charges') setShowChargesBreakdown(true)
     if (account === 'Advance') setShowAdvanceBreakdown(true)
     if (account === 'FX') setShowFXBreakdown(true)
+    if (account === 'Deposits') setShowDepositsBreakdown(true)
   }
 
   return (
@@ -324,10 +389,10 @@ export function RecentActivityCard({ account }: Props) {
         </div>
         <div className="flex items-center gap-1">
           <button className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
-            <span onClick={() => account === 'Attendants' && setSortDir('desc')} className="px-2 py-1.5 hover:bg-[#f4f4f4] border-r border-[#ddd] transition-colors cursor-pointer">
+            <span onClick={() => setSortDir('desc')} className={clsx('px-2 py-1.5 hover:bg-[#f4f4f4] border-r border-[#ddd] transition-colors cursor-pointer', sortDir === 'desc' && 'bg-[#f4f4f4]')}>
               <ChevronDown size={12} className="text-[#666]" />
             </span>
-            <span onClick={() => account === 'Attendants' && setSortDir('asc')} className="px-2 py-1.5 hover:bg-[#f4f4f4] transition-colors cursor-pointer">
+            <span onClick={() => setSortDir('asc')} className={clsx('px-2 py-1.5 hover:bg-[#f4f4f4] transition-colors cursor-pointer', sortDir === 'asc' && 'bg-[#f4f4f4]')}>
               <ChevronUp size={12} className="text-[#666]" />
             </span>
           </button>
@@ -346,14 +411,11 @@ export function RecentActivityCard({ account }: Props) {
           >
             <Plus size={13} />
           </button>
-          <button className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]">
-            <MoreHorizontal size={13} />
-          </button>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-          {activities.length > 0 ? (
+          {displayedActivities.length > 0 ? (
             <table className="w-full">
               <thead className="sticky top-0 bg-white">
                 <tr className="border-b border-[#f4f4f4]">
@@ -377,9 +439,31 @@ export function RecentActivityCard({ account }: Props) {
                           <span className="text-[13px] font-semibold text-[#333] whitespace-nowrap">
                             J$ {row.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                           </span>
-                          <button className="opacity-0 group-hover:opacity-100 transition-opacity text-[#bbb] hover:text-[#888] flex-shrink-0">
-                            <MoreHorizontal size={14} />
-                          </button>
+                          <div className="flex-shrink-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (openDropdownId === row.id) {
+                                  setOpenDropdownId(null)
+                                  setDropdownAnchor(null)
+                                } else {
+                                  setOpenDropdownId(row.id)
+                                  setDropdownAnchor(e.currentTarget.getBoundingClientRect())
+                                }
+                              }}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-[#bbb] hover:text-[#888]"
+                            >
+                              <MoreHorizontal size={14} />
+                            </button>
+                            {openDropdownId === row.id && dropdownAnchor && (
+                              <RowDropdown
+                                account={account}
+                                anchor={dropdownAnchor}
+                                onClose={() => { setOpenDropdownId(null); setDropdownAnchor(null) }}
+                                onAction={(action) => { if (action === 'Edit') setEditingRow(row) }}
+                              />
+                            )}
+                          </div>
                         </div>
                       </td>
                     )}
@@ -399,7 +483,7 @@ export function RecentActivityCard({ account }: Props) {
             view all
           </button>
           <div className="flex items-center gap-4">
-            <span className="text-[12px] text-[#bbb] font-medium">{activities.length}</span>
+            <span className="text-[12px] text-[#bbb] font-medium">{displayedActivities.length}</span>
             <button
               onClick={handleTotal}
               className="text-[13px] font-bold text-[#333] hover:text-[#111] transition-colors"
@@ -460,6 +544,89 @@ export function RecentActivityCard({ account }: Props) {
         <DepositModal
           onBack={() => setShowDeposit(false)}
           onClose={() => setShowDeposit(false)}
+        />
+      )}
+      {showDepositsBreakdown && (
+        <DepositsBreakdownModal onBack={() => setShowDepositsBreakdown(false)} onClose={() => setShowDepositsBreakdown(false)} />
+      )}
+      {editingRow?.type === 'attendant' && (
+        <CashDepositModal
+          initialAttendant={editingRow.name}
+          isEditing
+          onBack={() => setEditingRow(null)}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+      {editingRow?.type === 'expenditure' && (
+        <ExpenditureModal
+          initialData={{ requestedBy: editingRow.requestedBy, description: editingRow.description }}
+          isEditing
+          onBack={() => setEditingRow(null)}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+      {editingRow?.type === 'charges' && (
+        <ChargeModal
+          initialData={{ name: editingRow.name, fuelType: editingRow.fuelType, amount: editingRow.amount }}
+          isEditing
+          onBack={() => setEditingRow(null)}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+      {editingRow?.type === 'card' && (
+        <CardModal
+          initialData={{ name: editingRow.name, bank: editingRow.bank, amount: editingRow.amount }}
+          isEditing
+          onBack={() => setEditingRow(null)}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+      {editingRow?.type === 'advance' && (
+        <AdvanceModal
+          initialData={{ name: editingRow.name, fuelType: editingRow.fuelType, amount: editingRow.amount }}
+          isEditing
+          onBack={() => setEditingRow(null)}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+      {editingRow?.type === 'fx' && (
+        <FXModal
+          initialData={{ name: editingRow.name, currency: editingRow.currency, fxAmount: editingRow.fxAmount }}
+          isEditing
+          onBack={() => setEditingRow(null)}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+      {editingRow?.type === 'deposit' && editingRow.depositType === 'Cash' && (
+        <CashDepositEntryModal
+          isEditing
+          initialData={{ depositedBy: editingRow.name, description: editingRow.description }}
+          onBack={() => setEditingRow(null)}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+      {editingRow?.type === 'deposit' && editingRow.depositType === 'Card' && (
+        <CardDepositModal
+          isEditing
+          initialData={{ depositedBy: editingRow.name, description: editingRow.description, amount: editingRow.amount }}
+          onBack={() => setEditingRow(null)}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+      {editingRow?.type === 'deposit' && editingRow.depositType === 'FX' && (
+        <FXDepositModal
+          isEditing
+          initialData={{ depositedBy: editingRow.name, description: editingRow.description, fxAmount: editingRow.fxAmount ?? 0, currency: editingRow.currency ?? 'USD' }}
+          onBack={() => setEditingRow(null)}
+          onClose={() => setEditingRow(null)}
+        />
+      )}
+      {editingRow?.type === 'deposit' && editingRow.depositType === 'Cheque' && (
+        <ChequeDepositModal
+          isEditing
+          initialData={{ depositedBy: editingRow.name, description: editingRow.description, amount: editingRow.amount }}
+          onBack={() => setEditingRow(null)}
+          onClose={() => setEditingRow(null)}
         />
       )}
     </div>
