@@ -4,9 +4,10 @@ import { StationSyncLogo } from '../components/StationSyncLogo'
 
 interface Props {
   onLogin: () => void
+  onGoToSignUp: () => void
 }
 
-export function LoginPage({ onLogin }: Props) {
+export function LoginPage({ onLogin, onGoToSignUp }: Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -120,7 +121,7 @@ export function LoginPage({ onLogin }: Props) {
 
           <p className="text-center text-[13px] text-white/50 font-medium mt-6">
             Don't have an account?{' '}
-            <button className="text-white font-bold hover:underline transition-colors">Sign up</button>
+            <button onClick={onGoToSignUp} className="text-white font-bold hover:underline transition-colors">Sign up</button>
           </p>
         </div>
 

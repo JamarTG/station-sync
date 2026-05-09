@@ -8,5 +8,9 @@ export default defineConfig({
     proxy: {
       '/v1': 'http://localhost:8080',
     },
+    allowedHosts: [
+      'localhost',
+      '9ee2-72-252-149-207.ngrok-free.app',
+    ]
   },
 })

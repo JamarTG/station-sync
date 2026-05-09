@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { MoreHorizontal } from 'lucide-react'
 import { EndShiftModal } from './EndShiftModal'
+import { NewShiftLoginModal } from './NewShiftLoginModal'
 import { ReportIssueModal } from './ReportIssueModal'
 import { RecordModal } from './RecordModal'
 import { DropModal } from './DropModal'
@@ -15,10 +16,18 @@ import { DepositModal } from './DepositModal'
 
 type RecordView = 'select' | 'drop' | 'cash-deposit' | 'expenditure' | 'charge' | 'card' | 'advance' | 'fuel-receival' | 'fx' | 'deposit' | null
 
-export function ActionBar() {
+interface Props {
+  shiftEnded?: boolean
+  canEndShift?: boolean
+  onShiftEnd?: () => void
+  onNewShift?: () => void
+}
+
+export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewShift }: Props) {
   const [recordView, setRecordView] = useState<RecordView>(null)
   const [dropAttendant, setDropAttendant] = useState('')
   const [showEndShift, setShowEndShift] = useState(false)
+  const [showNewShiftLogin, setShowNewShiftLogin] = useState(false)
   const [showReportIssue, setShowReportIssue] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
@@ -38,13 +47,20 @@ export function ActionBar() {
   return (
     <>
       <div className="flex items-center gap-2 flex-wrap">
-        <button onClick={() => setRecordView('select')} className={btnClass}>
-          Record a ...
-        </button>
+        {!shiftEnded && (
+          <button onClick={() => setRecordView('select')} className={btnClass}>
+            Record a ...
+          </button>
+        )}
 
         {/* Visible at ≥416px */}
-        <button onClick={() => setShowEndShift(true)} className={`hidden min-[416px]:block ${btnClass}`}>
-          End shift
+        <button
+          onClick={() => shiftEnded ? setShowNewShiftLogin(true) : canEndShift ? setShowEndShift(true) : undefined}
+          disabled={!shiftEnded && !canEndShift}
+          title={!shiftEnded && !canEndShift ? 'Enter all pump nozzle readings before ending the shift' : undefined}
+          className={`hidden min-[416px]:block ${btnClass} disabled:opacity-40 disabled:cursor-not-allowed`}
+        >
+          {shiftEnded ? 'Start a new shift' : 'End shift'}
         </button>
         <button onClick={() => setShowReportIssue(true)} className={`hidden min-[416px]:block ${btnClass}`}>
           Report an issue
@@ -61,10 +77,11 @@ export function ActionBar() {
           {moreOpen && (
             <div className="absolute left-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[160px] z-50">
               <button
-                onClick={() => { setMoreOpen(false); setShowEndShift(true) }}
-                className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors"
+                onClick={() => { setMoreOpen(false); shiftEnded ? setShowNewShiftLogin(true) : canEndShift ? setShowEndShift(true) : undefined }}
+                disabled={!shiftEnded && !canEndShift}
+                className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                End shift
+                {shiftEnded ? 'Start a new shift' : 'End shift'}
               </button>
               <button
                 onClick={() => { setMoreOpen(false); setShowReportIssue(true) }}
@@ -147,10 +164,13 @@ export function ActionBar() {
         />
       )}
       {showEndShift && (
-        <EndShiftModal onClose={() => setShowEndShift(false)} />
+        <EndShiftModal onClose={() => setShowEndShift(false)} onConfirm={onShiftEnd} />
       )}
       {showReportIssue && (
         <ReportIssueModal onClose={() => setShowReportIssue(false)} />
+      )}
+      {showNewShiftLogin && (
+        <NewShiftLoginModal onClose={() => setShowNewShiftLogin(false)} onConfirm={() => { onNewShift?.(); setShowNewShiftLogin(false) }} />
       )}
     </>
   )

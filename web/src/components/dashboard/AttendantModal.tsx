@@ -2,27 +2,42 @@ import { useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { ManageAttendantsModal } from './ManageAttendantsModal'
+import { activityByAccount } from './RecentActivityCard'
+
+const fmt = (n: number) => `J$ ${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
 const fuelGrades = ['87', '90', 'ADO', 'ULSD']
-const depositTypes = ['CASH', 'CARD', 'FX', 'ADVANCE', 'CHARGES']
+
+const depositSources = [
+  { label: 'CASH', key: 'Cash' },
+  { label: 'CARD', key: 'Card' },
+  { label: 'FX', key: 'FX' },
+  { label: 'ADVANCE', key: 'Advance' },
+  { label: 'CHARGES', key: 'Charges' },
+] as const
 
 interface Props {
   name: string
   onClose: () => void
+  sales?: number
+  gradeSales?: Record<string, number>
 }
 
-function Row({ label }: { label: string }) {
-  return (
-    <div className="flex items-center justify-between py-2.5">
-      <span className="text-[13px] font-medium text-[#222]">{label}</span>
-      <span className="text-[13px] font-medium text-[#bbb]">--</span>
-    </div>
-  )
-}
-
-export function AttendantModal({ name, onClose }: Props) {
+export function AttendantModal({ name, onClose, sales, gradeSales }: Props) {
   useEscapeKey(onClose)
   const [showManage, setShowManage] = useState(false)
+
+  const depositBreakdown = depositSources.map(({ label, key }) => {
+    const rows = activityByAccount[key]
+    const amount = rows.reduce((s, r) => {
+      if (r.type === 'expenditure' || r.type === 'attendants' || r.type === 'deposit') return s
+      return r.name === name ? s + r.amount : s
+    }, 0)
+    return { label, amount }
+  })
+  const totalDeposited = depositBreakdown.reduce((s, d) => s + d.amount, 0)
+  const hasSales = sales != null && sales > 0
+  const balance = hasSales ? totalDeposited - sales! : null
 
   return (
     <>
@@ -55,32 +70,51 @@ export function AttendantModal({ name, onClose }: Props) {
             </button>
           </div>
 
-          {/* Amount Sold */}
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">
-            Amount Sold
-          </p>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Amount Sold</p>
           <div className="divide-y divide-[#f0f0f0] mb-6">
-            {fuelGrades.map((g) => <Row key={g} label={g} />)}
+            {fuelGrades.map((g) => {
+              const val = gradeSales?.[g] ?? 0
+              return (
+                <div key={g} className="flex items-center justify-between py-2.5">
+                  <span className="text-[13px] font-medium text-[#222]">{g}</span>
+                  <span className={`text-[13px] font-medium ${val > 0 ? 'text-[#333]' : 'text-[#bbb]'}`}>
+                    {val > 0 ? fmt(val) : '--'}
+                  </span>
+                </div>
+              )
+            })}
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-[13px] font-semibold text-[#222] uppercase tracking-wide">Total</span>
+              <span className={`text-[13px] font-semibold ${hasSales ? 'text-[#333]' : 'text-[#bbb]'}`}>
+                {hasSales ? fmt(sales!) : '--'}
+              </span>
+            </div>
           </div>
 
-          {/* Amount Deposited */}
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">
-            Amount Deposited
-          </p>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Amount Deposited</p>
           <div className="divide-y divide-[#f0f0f0] mb-7">
-            {depositTypes.map((d) => <Row key={d} label={d} />)}
+            {depositBreakdown.map(({ label, amount }) => (
+              <div key={label} className="flex items-center justify-between py-2.5">
+                <span className="text-[13px] font-medium text-[#222]">{label}</span>
+                <span className={`text-[13px] font-medium ${amount > 0 ? 'text-[#333]' : 'text-[#bbb]'}`}>
+                  {amount > 0 ? fmt(amount) : '--'}
+                </span>
+              </div>
+            ))}
           </div>
 
-          {/* Total */}
-          <p className="text-[13px] font-semibold text-[#888] mb-1">Total</p>
-          <p className="text-[36px] font-bold text-[#111] leading-none tracking-tight mb-5">
-            J$0.00
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Total Deposited</p>
+          <p className={`text-[36px] font-bold leading-none tracking-tight mb-5 ${totalDeposited > 0 ? 'text-[#111]' : 'text-[#bbb]'}`}>
+            {totalDeposited > 0 ? fmt(totalDeposited) : 'J$ 0.00'}
           </p>
 
-          {/* Balance */}
           <div className="pt-4 border-t border-[#ebebeb] flex items-center justify-between">
             <span className="text-[13px] font-semibold text-[#888]">Balance</span>
-            <span className="text-[13px] font-bold text-[#333]">J$0.00</span>
+            <span className={`text-[13px] font-bold ${balance == null || balance === 0 ? 'text-[#bbb]' : balance < 0 ? 'text-red-500' : 'text-green-600'}`}>
+              {balance == null || balance === 0
+                ? '--'
+                : `${balance < 0 ? '-' : '+'}${fmt(Math.abs(balance))}`}
+            </span>
           </div>
         </div>
       </div>

@@ -7,15 +7,16 @@ const navItems = [{ label: 'Dashboard', to: '/' }]
 
 const convenienceItems = [
   { label: 'Sales', to: '/convenience/sales' },
-  { label: 'Accounts', to: '/convenience/accounts' },
-  { label: 'Reports', to: '/convenience/reports' },
+  { label: 'Staff', to: '/convenience/staff' },
+  { label: 'Schedule', to: '/convenience/schedule' },
 ]
 
 const stationItems = [
-  { label: 'Accounts', to: '/station/accounts' },
+  { label: 'Sales', to: '/station/sales' },
   { label: 'Reports', to: '/station/reports' },
   { label: 'Staff', to: '/station/staff' },
   { label: 'Schedule', to: '/station/schedule' },
+  { label: 'Charges', to: '/station/charges' },
 ]
 
 function NavLink({ to, label, onClick }: { to: string; label: string; onClick?: () => void }) {
@@ -28,7 +29,7 @@ function NavLink({ to, label, onClick }: { to: string; label: string; onClick?: 
       onClick={onClick}
       className={clsx(
         'block px-4 py-2 text-[13px] font-medium rounded-md transition-colors',
-        isActive ? 'text-[#111] font-semibold' : 'text-[#888] hover:text-[#111]'
+        isActive ? 'text-[#111] font-semibold ring-1 ring-[#ddd]' : 'text-[#888] hover:text-[#111]'
       )}
     >
       {label}
@@ -66,19 +67,19 @@ export function Sidebar({ isOpen, onClose }: Props) {
 
         <div className="pt-4 pb-1 px-4">
           <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">
-            Convenience Store
+            Service Station
           </p>
         </div>
-        {convenienceItems.map((item) => (
+        {stationItems.map((item) => (
           <NavLink key={item.to} {...item} onClick={onClose} />
         ))}
 
         <div className="pt-4 pb-1 px-4">
           <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">
-            Service Station
+            Convenience Store
           </p>
         </div>
-        {stationItems.map((item) => (
+        {convenienceItems.map((item) => (
           <NavLink key={item.to} {...item} onClick={onClose} />
         ))}
       </nav>

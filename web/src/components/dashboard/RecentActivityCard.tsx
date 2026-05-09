@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
+import { totalRecordedForAttendant } from '../../lib/attendantBalances'
 import { createPortal } from 'react-dom'
-import { ChevronDown, ChevronUp, Plus, MoreHorizontal, Eye, Pencil, Trash2, Printer, FileText } from 'lucide-react'
+import { ChevronDown, ChevronUp, Plus, MoreHorizontal, Eye, Pencil, Trash2, Printer, FileText, Search, X } from 'lucide-react'
 import clsx from 'clsx'
 import type { AccountType } from './AccountsPanel'
 import { ExpenditureModal } from './ExpenditureModal'
@@ -26,7 +27,6 @@ import { ChequeDepositModal } from './ChequeDepositModal'
 import { ViewDetailsModal } from './ViewDetailsModal'
 import { ReceiptModal } from './ReceiptModal'
 import { ExpenditureReceiptModal } from './ExpenditureReceiptModal'
-import { CardSlipModal } from './CardSlipModal'
 
 
 export interface BaseRow { id: number; amount: number }
@@ -34,14 +34,14 @@ export interface AttendantsRow extends BaseRow { type: 'attendants'; name: strin
 export interface AttendantRow extends BaseRow { type: 'attendant'; name: string; time: string; supervisor?: string; denominations?: Record<number, number> }
 export interface ExpenditureRow extends BaseRow { type: 'expenditure'; requestedBy: string; description: string; denominations?: Record<number, number> }
 export interface ChargesRow extends BaseRow { type: 'charges'; name: string; fuelType: string; litres: number }
-export interface CardRow extends BaseRow { type: 'card'; name: string; bank: string; litres: number }
+export interface CardRow extends BaseRow { type: 'card'; name: string; bank: string; transNo: string }
 export interface AdvanceRow extends BaseRow { type: 'advance'; name: string; fuelType: string; litres: number }
 export interface FXRow extends BaseRow { type: 'fx'; name: string; fxAmount: number; currency: string }
-export interface DepositRow extends BaseRow { type: 'deposit'; name: string; description: string; depositType: string; supervisor?: string; fxAmount?: number; currency?: string }
+export interface DepositRow extends BaseRow { type: 'deposit'; name: string; description: string; depositType: string; supervisor?: string; fxAmount?: number; currency?: string; denominations?: Record<number, number> }
 
 export type ActivityRow = AttendantsRow | AttendantRow | ExpenditureRow | ChargesRow | CardRow | AdvanceRow | FXRow | DepositRow
 
-const activityByAccount: Record<AccountType, ActivityRow[]> = {
+export const activityByAccount: Record<AccountType, ActivityRow[]> = {
   Attendants: [
     { type: 'attendants', id: 1, name: 'S. Lawes', pump: 'Pump 1', balance: 150000.0, clockIn: '7:00 AM', amount: 0 },
     { type: 'attendants', id: 2, name: 'S. Smith', pump: 'Pump 2', balance: 92000.0, clockIn: '7:00 AM', amount: 0 },
@@ -71,11 +71,11 @@ const activityByAccount: Record<AccountType, ActivityRow[]> = {
     { type: 'fx', id: 2, name: 'T. Brisco', fxAmount: 200, currency: 'EUR', amount: 32000 },
   ],
   Card: [
-    { type: 'card', id: 1, name: 'S. Smith', bank: 'NCB', litres: 120.5, amount: 23000.0 },
-    { type: 'card', id: 2, name: 'T. Brisco', bank: 'Scotiabank', litres: 78.3, amount: 15000.0 },
+    { type: 'card', id: 1, name: 'S. Smith', bank: 'NCB', transNo: 'TXN-00123', amount: 23000.0 },
+    { type: 'card', id: 2, name: 'T. Brisco', bank: 'Scotiabank', transNo: 'TXN-00124', amount: 15000.0 },
   ],
   Deposits: [
-    { type: 'deposit', id: 1, name: 'S. Lawes', description: 'Shift end deposit', depositType: 'Cash', supervisor: 'A. Lewis', amount: 150000.0 },
+    { type: 'deposit', id: 1, name: 'S. Lawes', description: 'Shift end deposit', depositType: 'Cash', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 30 } },
     { type: 'deposit', id: 2, name: 'S. Smith', description: 'Card settlement', depositType: 'Card', supervisor: 'A. Lewis', amount: 45000.0 },
     { type: 'deposit', id: 3, name: 'T. Brisco', description: 'FX deposit', depositType: 'FX', supervisor: 'A. Lewis', amount: 32000.0, fxAmount: 200, currency: 'EUR' },
   ],
@@ -94,6 +94,7 @@ function TableHeaders({ account }: { account: AccountType }) {
     <>
       <th className={th}>Attendant</th>
       <th className={th}>Pump</th>
+      <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Amount Sold</th>
       <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Balance</th>
     </>
   )
@@ -114,7 +115,7 @@ function TableHeaders({ account }: { account: AccountType }) {
     <>
       <th className={th}>Attendant</th>
       <th className={th}>Bank</th>
-      <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Litres</th>
+      <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Trans #</th>
     </>
   )
   if (account === 'Advance') return (
@@ -134,7 +135,7 @@ function TableHeaders({ account }: { account: AccountType }) {
   return <th className={th}>Attendant</th>
 }
 
-function TableCells({ row }: { row: ActivityRow }) {
+function TableCells({ row, attendantSales }: { row: ActivityRow; attendantSales?: Record<string, number> }) {
   if (row.type === 'deposit') return (
     <>
       <td className="px-3 py-3.5">
@@ -148,20 +149,32 @@ function TableCells({ row }: { row: ActivityRow }) {
       </td>
     </>
   )
-  if (row.type === 'attendants') return (
-    <>
-      <td className="px-3 py-3.5">
-        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
-        <p className="text-[11px] text-[#bbb] whitespace-nowrap">{row.clockIn}</p>
-      </td>
-      <td className="px-3 py-3.5">
-        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.pump}</p>
-      </td>
-      <td className="px-3 py-3.5 text-right">
-        <p className="text-[13px] font-semibold text-[#333] whitespace-nowrap">J$ {row.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-      </td>
-    </>
-  )
+  if (row.type === 'attendants') {
+    const sales = attendantSales?.[row.name] ?? 0
+    const balance = totalRecordedForAttendant(row.name) - sales
+    const balanceFmt = `J$ ${Math.abs(balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+    return (
+      <>
+        <td className="px-3 py-3.5">
+          <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
+          <p className="text-[11px] text-[#bbb] whitespace-nowrap">{row.clockIn}</p>
+        </td>
+        <td className="px-3 py-3.5">
+          <p className="text-[13px] text-[#555] whitespace-nowrap">{row.pump}</p>
+        </td>
+        <td className="px-3 py-3.5 text-right">
+          <p className={`text-[13px] font-semibold whitespace-nowrap ${sales > 0 ? 'text-[#333]' : 'text-[#bbb]'}`}>
+            {sales > 0 ? `J$ ${sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
+          </p>
+        </td>
+        <td className="px-3 py-3.5 text-right">
+          <p className={`text-[13px] font-semibold whitespace-nowrap ${sales === 0 || balance === 0 ? 'text-[#bbb]' : balance < 0 ? 'text-red-500' : 'text-green-600'}`}>
+            {sales === 0 || balance === 0 ? '—' : `${balance < 0 ? '-' : '+'}${balanceFmt}`}
+          </p>
+        </td>
+      </>
+    )
+  }
   if (row.type === 'expenditure') return (
     <>
       <td className="px-3 py-3.5">
@@ -207,7 +220,7 @@ function TableCells({ row }: { row: ActivityRow }) {
         <p className="text-[13px] text-[#555] whitespace-nowrap">{row.bank}</p>
       </td>
       <td className="px-3 py-3.5 text-right">
-        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.litres.toFixed(2)}</p>
+        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.transNo}</p>
       </td>
     </>
   )
@@ -236,6 +249,9 @@ function TableCells({ row }: { row: ActivityRow }) {
 
 interface Props {
   account: AccountType
+  readOnly?: boolean
+  attendantSales?: Record<string, number>
+  attendantGradeSales?: Record<string, Record<string, number>>
 }
 
 function rowMenuOptions(account: AccountType) {
@@ -245,7 +261,7 @@ function rowMenuOptions(account: AccountType) {
     { label: 'Delete', icon: Trash2, danger: true },
   ]
   if (account === 'Cash') return [{ label: 'Print receipt', icon: Printer }, ...base]
-  if (account === 'Card') return [{ label: 'View slip', icon: FileText }, ...base]
+  if (account === 'Card') return base
   if (account === 'Deposits') return [{ label: 'Print receipt', icon: Printer }, ...base]
   if (account === 'Expenditures') return [{ label: 'View receipt', icon: FileText }, ...base]
   return base
@@ -295,13 +311,12 @@ function RowDropdown({ account, onClose, onAction, anchor }: RowDropdownProps) {
   )
 }
 
-export function RecentActivityCard({ account }: Props) {
+export function RecentActivityCard({ account, readOnly, attendantSales, attendantGradeSales }: Props) {
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null)
   const [dropdownAnchor, setDropdownAnchor] = useState<DOMRect | null>(null)
   const [editingRow, setEditingRow] = useState<ActivityRow | null>(null)
   const [viewingRow, setViewingRow] = useState<ActivityRow | null>(null)
   const [receiptRow, setReceiptRow] = useState<ActivityRow | null>(null)
-  const [slipRow, setSlipRow] = useState<CardRow | null>(null)
 
   const [showExpenditure, setShowExpenditure] = useState(false)
   const [showCashDeposit, setShowCashDeposit] = useState(false)
@@ -320,12 +335,41 @@ export function RecentActivityCard({ account }: Props) {
   const [showDeposit, setShowDeposit] = useState(false)
   const [showDepositsBreakdown, setShowDepositsBreakdown] = useState(false)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const displayedActivities = [...activityByAccount[account]].sort((a, b) => {
+  useEffect(() => { setIsSearching(false); setSearchQuery('') }, [account])
+
+  function rowMatchesSearch(r: ActivityRow, q: string): boolean {
+    const s = q.toLowerCase()
+    const amt = r.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })
+    const base = amt.includes(s)
+    if (r.type === 'attendant') return base || r.name.toLowerCase().includes(s) || r.time.toLowerCase().includes(s) || (r.supervisor ?? '').toLowerCase().includes(s)
+    if (r.type === 'expenditure') return base || r.requestedBy.toLowerCase().includes(s) || r.description.toLowerCase().includes(s)
+    if (r.type === 'charges') return base || r.name.toLowerCase().includes(s) || r.fuelType.toLowerCase().includes(s)
+    if (r.type === 'card') return base || r.name.toLowerCase().includes(s) || r.bank.toLowerCase().includes(s) || r.transNo.toLowerCase().includes(s)
+    if (r.type === 'advance') return base || r.name.toLowerCase().includes(s) || r.fuelType.toLowerCase().includes(s)
+    if (r.type === 'fx') return base || r.name.toLowerCase().includes(s) || r.currency.toLowerCase().includes(s)
+    if (r.type === 'deposit') return base || r.name.toLowerCase().includes(s) || r.description.toLowerCase().includes(s) || r.depositType.toLowerCase().includes(s)
+    return base
+  }
+
+  const allActivities = activityByAccount[account]
+  const displayedActivities = [...allActivities].sort((a, b) => {
     const valA = a.type === 'attendants' ? a.balance : a.amount
     const valB = b.type === 'attendants' ? b.balance : b.amount
     return sortDir === 'asc' ? valA - valB : valB - valA
-  }).slice(0, 4)
+  }).filter((r) => !searchQuery || rowMatchesSearch(r, searchQuery)).slice(0, isSearching ? undefined : 4)
+
+  const accountTotal = allActivities.reduce((sum, r) => {
+    if (r.type === 'attendants') {
+      const sales = attendantSales?.[r.name] ?? 0
+      if (sales === 0) return sum
+      const balance = totalRecordedForAttendant(r.name) - sales
+      return balance === 0 ? sum : sum + balance
+    }
+    return sum + r.amount
+  }, 0)
 
   function handleTotal() {
     if (account === 'Cash') setShowCashBreakdown(true)
@@ -353,31 +397,58 @@ export function RecentActivityCard({ account }: Props) {
             </>
           )}
         </div>
-        <div className="flex items-center gap-1">
-          <button className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
-            <span onClick={() => setSortDir('desc')} className={clsx('px-2 py-1.5 hover:bg-[#f4f4f4] border-r border-[#ddd] transition-colors cursor-pointer', sortDir === 'desc' && 'bg-[#f4f4f4]')}>
-              <ChevronDown size={12} className="text-[#666]" />
-            </span>
-            <span onClick={() => setSortDir('asc')} className={clsx('px-2 py-1.5 hover:bg-[#f4f4f4] transition-colors cursor-pointer', sortDir === 'asc' && 'bg-[#f4f4f4]')}>
-              <ChevronUp size={12} className="text-[#666]" />
-            </span>
-          </button>
-          <button
-            onClick={() => {
-              if (account === 'Attendants') setShowManageAttendants(true)
-              if (account === 'Expenditures') setShowExpenditure(true)
-              if (account === 'Cash') setShowCashDeposit(true)
-              if (account === 'Card') setShowCard(true)
-              if (account === 'Advance') setShowAdvance(true)
-              if (account === 'Charges') setShowCharge(true)
-              if (account === 'FX') setShowFX(true)
-              if (account === 'Deposits') setShowDeposit(true)
-            }}
-            className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]"
-          >
-            <Plus size={13} />
-          </button>
-        </div>
+        {isSearching ? (
+          <div className="flex items-center gap-1">
+            <input
+              autoFocus
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search..."
+              className="h-7 px-2.5 border border-[#ddd] rounded-lg text-[13px] text-[#333] placeholder-[#bbb] outline-none focus:border-[#aaa] w-36"
+            />
+            <button
+              onClick={() => { setIsSearching(false); setSearchQuery('') }}
+              className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#888]"
+            >
+              <X size={13} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <button className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
+              <span onClick={() => setSortDir('desc')} className={clsx('px-2 py-1.5 hover:bg-[#f4f4f4] border-r border-[#ddd] transition-colors cursor-pointer', sortDir === 'desc' && 'bg-[#f4f4f4]')}>
+                <ChevronDown size={12} className="text-[#666]" />
+              </span>
+              <span onClick={() => setSortDir('asc')} className={clsx('px-2 py-1.5 hover:bg-[#f4f4f4] transition-colors cursor-pointer', sortDir === 'asc' && 'bg-[#f4f4f4]')}>
+                <ChevronUp size={12} className="text-[#666]" />
+              </span>
+            </button>
+            <button
+              onClick={() => {
+                if (account === 'Attendants') setShowManageAttendants(true)
+                if (account === 'Expenditures') setShowExpenditure(true)
+                if (account === 'Cash') setShowCashDeposit(true)
+                if (account === 'Card') setShowCard(true)
+                if (account === 'Advance') setShowAdvance(true)
+                if (account === 'Charges') setShowCharge(true)
+                if (account === 'FX') setShowFX(true)
+                if (account === 'Deposits') setShowDeposit(true)
+              }}
+              className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]"
+            >
+              <Plus size={13} />
+            </button>
+            {account !== 'Attendants' && (
+              <button
+                onClick={() => setIsSearching(true)}
+                className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]"
+              >
+                <Search size={13} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
@@ -394,48 +465,53 @@ export function RecentActivityCard({ account }: Props) {
                 {displayedActivities.map((row) => (
                   <tr
                     key={row.id}
-                    className={`border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors group${account === 'Attendants' ? ' cursor-pointer' : ''}`}
-                    onClick={account === 'Attendants' && row.type === 'attendants' ? () => setSelectedAttendant(row.name) : undefined}
+                    className={`border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors group cursor-pointer`}
+                    onClick={
+                      account === 'Attendants' && row.type === 'attendants' ? () => setSelectedAttendant(row.name)
+                      : row.type !== 'attendants' ? () => setViewingRow(row)
+                      : undefined
+                    }
                   >
                     <td className="pl-5 pr-3 py-3.5 text-[13px] text-[#bbb] font-medium">{row.id}</td>
-                    <TableCells row={row} />
+                    <TableCells row={row} attendantSales={attendantSales} />
                     {account !== 'Attendants' && (
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-2 flex-nowrap">
                           <span className="text-[13px] font-semibold text-[#333] whitespace-nowrap">
                             J$ {row.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                           </span>
-                          <div className="flex-shrink-0">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (openDropdownId === row.id) {
-                                  setOpenDropdownId(null)
-                                  setDropdownAnchor(null)
-                                } else {
-                                  setOpenDropdownId(row.id)
-                                  setDropdownAnchor(e.currentTarget.getBoundingClientRect())
-                                }
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity text-[#bbb] hover:text-[#888]"
-                            >
-                              <MoreHorizontal size={14} />
-                            </button>
-                            {openDropdownId === row.id && dropdownAnchor && (
-                              <RowDropdown
-                                account={account}
-                                anchor={dropdownAnchor}
-                                onClose={() => { setOpenDropdownId(null); setDropdownAnchor(null) }}
-                                onAction={(action) => {
-                                  if (action === 'Edit') setEditingRow(row)
-                                  if (action === 'View details') setViewingRow(row)
-                                  if (action === 'Print receipt') setReceiptRow(row)
-                                  if (action === 'View receipt') setReceiptRow(row)
-                                  if (action === 'View slip' && row.type === 'card') setSlipRow(row)
+                          {!readOnly && (
+                            <div className="flex-shrink-0">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (openDropdownId === row.id) {
+                                    setOpenDropdownId(null)
+                                    setDropdownAnchor(null)
+                                  } else {
+                                    setOpenDropdownId(row.id)
+                                    setDropdownAnchor(e.currentTarget.getBoundingClientRect())
+                                  }
                                 }}
-                              />
-                            )}
-                          </div>
+                                className="opacity-0 group-hover:opacity-100 transition-opacity text-[#bbb] hover:text-[#888]"
+                              >
+                                <MoreHorizontal size={14} />
+                              </button>
+                              {openDropdownId === row.id && dropdownAnchor && (
+                                <RowDropdown
+                                  account={account}
+                                  anchor={dropdownAnchor}
+                                  onClose={() => { setOpenDropdownId(null); setDropdownAnchor(null) }}
+                                  onAction={(action) => {
+                                    if (action === 'Edit') setEditingRow(row)
+                                    if (action === 'View details') setViewingRow(row)
+                                    if (action === 'Print receipt') setReceiptRow(row)
+                                    if (action === 'View receipt') setReceiptRow(row)
+                                  }}
+                                />
+                              )}
+                            </div>
+                          )}
                         </div>
                       </td>
                     )}
@@ -460,7 +536,7 @@ export function RecentActivityCard({ account }: Props) {
               onClick={handleTotal}
               className="text-[13px] font-bold text-[#333] hover:text-[#111] transition-colors"
             >
-              J$ 0.00
+              J$ {accountTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             </button>
           </div>
       </div>
@@ -505,6 +581,8 @@ export function RecentActivityCard({ account }: Props) {
         <AttendantModal
           name={selectedAttendant}
           onClose={() => setSelectedAttendant(null)}
+          sales={attendantSales?.[selectedAttendant]}
+          gradeSales={attendantGradeSales?.[selectedAttendant]}
         />
       )}
       {showManageAttendants && (
@@ -569,6 +647,7 @@ export function RecentActivityCard({ account }: Props) {
           onClose={() => setEditingRow(null)}
         />
       )}
+
       {editingRow?.type === 'deposit' && editingRow.depositType === 'Cash' && (
         <CashDepositEntryModal
           isEditing
@@ -602,7 +681,11 @@ export function RecentActivityCard({ account }: Props) {
         />
       )}
       {viewingRow && viewingRow.type !== 'attendants' && (
-        <ViewDetailsModal row={viewingRow} onClose={() => setViewingRow(null)} />
+        <ViewDetailsModal
+          row={viewingRow}
+          onClose={() => setViewingRow(null)}
+          onEdit={() => { setEditingRow(viewingRow); setViewingRow(null) }}
+        />
       )}
       {receiptRow?.type === 'attendant' && (
         <ReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} />
@@ -612,9 +695,6 @@ export function RecentActivityCard({ account }: Props) {
       )}
       {receiptRow?.type === 'expenditure' && (
         <ExpenditureReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} />
-      )}
-      {slipRow && (
-        <CardSlipModal row={slipRow} onClose={() => setSlipRow(null)} />
       )}
     </div>
     </>

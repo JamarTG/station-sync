@@ -11,7 +11,7 @@ import { AccountsPanel, type AccountType } from '../components/dashboard/Account
 import { TotalSalesCard } from '../components/dashboard/TotalSalesCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
-import { usePumps, useShiftForDate } from '../hooks/useApi'
+import { usePumps, useShiftForDate, useFuels } from '../hooks/useApi'
 import { ArrowLeft } from 'lucide-react'
 import { EditFuelPricesModal } from '../components/dashboard/EditFuelPricesModal'
 import { ConvenienceStoreBreakdownModal } from '../components/dashboard/ConvenienceStoreBreakdownModal'
@@ -35,6 +35,7 @@ export function DashboardPage() {
   const [calibrationModal, setCalibrationModal] = useState<'pumps' | 'tanks' | null>(null)
   const [showEditPrices, setShowEditPrices] = useState(false)
   const [showConvenienceBreakdown, setShowConvenienceBreakdown] = useState(false)
+  const [shiftEnded, setShiftEnded] = useState(false)
 
   const [nozzleReadings, setNozzleReadings] = useState<Record<string, NozzleRow[]>>({})
   const [tankReadings, setTankReadings] = useState<Record<string, { opening: string; closing: string }>>({})
@@ -55,6 +56,52 @@ export function DashboardPage() {
   function hasPumpDataForGrade(fuelType: string): boolean {
     return getNozzles(fuelType).some((n) => n.opening !== '' || n.closing !== '')
   }
+  function allNozzlesComplete(fuelType: string): boolean {
+    return getNozzles(fuelType).every((n) => n.opening !== '' && n.closing !== '')
+  }
+
+  const allFuelGrades = Object.keys(fuelPrices)
+
+  const attendantPumpMap: Record<string, number> = {
+    'S. Lawes': 1,
+    'S. Smith': 2,
+    'T. Brisco': 3,
+  }
+  const attendantGradeSalesMap: Record<string, Record<string, number>> = Object.fromEntries(
+    Object.entries(attendantPumpMap).map(([name, pump]) => [
+      name,
+      Object.fromEntries(
+        allFuelGrades.map((fuel) => {
+          const nozzle = getNozzles(fuel)[pump - 1]
+          const o = parseFloat(nozzle?.opening ?? '')
+          const c = parseFloat(nozzle?.closing ?? '')
+          const litres = !isNaN(o) && !isNaN(c) && c >= o ? c - o : 0
+          return [fuel, litres * (fuelPrices[fuel] ?? 0)]
+        })
+      ),
+    ])
+  )
+  const attendantSales = Object.fromEntries(
+    Object.entries(attendantGradeSalesMap).map(([name, grades]) => [
+      name,
+      Object.values(grades).reduce((s, v) => s + v, 0),
+    ])
+  )
+  const totalSalesAcrossPumps = allFuelGrades.reduce((sum, grade) => {
+    if (!allNozzlesComplete(grade)) return sum
+    return sum + pumpTotalForGrade(grade) * (fuelPrices[grade] ?? 0)
+  }, 0)
+  const totalLitresAcrossPumps = allFuelGrades.reduce((sum, grade) => {
+    if (!allNozzlesComplete(grade)) return sum
+    return sum + pumpTotalForGrade(grade)
+  }, 0)
+  const hasSalesData = allFuelGrades.some((g) => allNozzlesComplete(g) && hasPumpDataForGrade(g))
+  const gradeSales: Record<string, number | null> = Object.fromEntries(
+    allFuelGrades.map((grade) => [
+      grade,
+      allNozzlesComplete(grade) ? pumpTotalForGrade(grade) * (fuelPrices[grade] ?? 0) : null,
+    ])
+  )
 
   useEffect(() => {
     function onResize() {
@@ -67,7 +114,19 @@ export function DashboardPage() {
   const today = new Date().toISOString().slice(0, 10)
   const { data: shift } = useShiftForDate(today)
   const { data: pumps = [] } = usePumps()
+  const { data: fuels = [] } = useFuels()
   const firstPump = pumps[0]
+
+  function handleFuelSelect(fuel: Fuel) {
+    setSelectedFuel(fuel)
+    setSelectedTank(fuel.name as TankGrade)
+  }
+
+  function handleTankSelect(grade: TankGrade) {
+    setSelectedTank(grade)
+    const match = fuels.find((f) => f.name === grade)
+    if (match) setSelectedFuel(match)
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -75,11 +134,11 @@ export function DashboardPage() {
       {/* Main scrollable content */}
       <div className="flex-[2] min-w-0 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
         <div className="p-6 flex flex-col gap-5">
-          <ActionBar />
+          <ActionBar shiftEnded={shiftEnded} canEndShift={allFuelGrades.every((g) => allNozzlesComplete(g) && (tankReadings[g]?.opening ?? '') !== '' && (tankReadings[g]?.closing ?? '') !== '')} onShiftEnd={() => setShiftEnded(true)} onNewShift={() => setShiftEnded(false)} />
 
           <div>
             <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Service Station</p>
-            <TotalSalesCard />
+            <TotalSalesCard totalSales={hasSalesData ? totalSalesAcrossPumps : 0} totalLitres={hasSalesData ? totalLitresAcrossPumps : 0} attendantSales={attendantSales} gradeSales={gradeSales} attendantGradeSales={attendantGradeSalesMap} />
           </div>
 
           {isNarrow && (
@@ -106,7 +165,7 @@ export function DashboardPage() {
 
           <div className="bg-white rounded-2xl overflow-hidden border border-[#ebebeb] h-[300px] flex flex-col">
             <AccountsPanel selected={selectedAccount} onSelect={setSelectedAccount} />
-            <RecentActivityCard account={selectedAccount} />
+            <RecentActivityCard account={selectedAccount} readOnly={shiftEnded} attendantSales={attendantSales} attendantGradeSales={attendantGradeSalesMap} />
           </div>
 
           <div>
@@ -132,7 +191,7 @@ export function DashboardPage() {
             <NotConfigured label="Pumps" />
           ) : (
             <>
-              <PumpsPanel selected={selectedFuel} onSelect={setSelectedFuel} onEditPrice={() => setShowEditPrices(true)} />
+              <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} onEditPrice={() => setShowEditPrices(true)} />
               <div className="flex-1 overflow-hidden flex flex-col">
                 {selectedFuel && firstPump && (
                   <PumpDetailPanel
@@ -142,6 +201,7 @@ export function DashboardPage() {
                     nozzles={getNozzles(selectedFuel.name)}
                     onChange={(rows) => setNozzles(selectedFuel.name, rows)}
                     pricePerLitre={fuelPrices[selectedFuel.name]}
+                    readOnly={shiftEnded}
                   />
                 )}
               </div>
@@ -157,13 +217,14 @@ export function DashboardPage() {
             <NotConfigured label="Tanks" />
           ) : (
             <>
-              <TanksPanel selected={selectedTank} onSelect={setSelectedTank} />
+              <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />
               <div className="flex-1 overflow-hidden flex flex-col">
                   <TankDetailPanel
                     grade={selectedTank}
                     tankReading={tankReadings[selectedTank] ?? { opening: '', closing: '' }}
                     onReadingChange={(r) => setTankReadings((prev) => ({ ...prev, [selectedTank]: r }))}
                     actualLitresSold={hasPumpDataForGrade(selectedTank) ? pumpTotalForGrade(selectedTank) : null}
+                    readOnly={shiftEnded}
                   />
               </div>
             </>
@@ -195,7 +256,7 @@ export function DashboardPage() {
             ) : (
               <>
                 <div className="border-b border-[#f0f0f0]">
-                  <PumpsPanel selected={selectedFuel} onSelect={setSelectedFuel} onEditPrice={() => setShowEditPrices(true)} />
+                  <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} onEditPrice={() => setShowEditPrices(true)} />
                 </div>
                 <div className="h-[850px]">
                   {selectedFuel && firstPump && (
@@ -206,6 +267,7 @@ export function DashboardPage() {
                     nozzles={getNozzles(selectedFuel.name)}
                     onChange={(rows) => setNozzles(selectedFuel.name, rows)}
                     pricePerLitre={fuelPrices[selectedFuel.name]}
+                    readOnly={shiftEnded}
                   />
                   )}
                 </div>
@@ -239,7 +301,7 @@ export function DashboardPage() {
             ) : (
               <>
                 <div className="border-b border-[#f0f0f0] flex-shrink-0">
-                  <TanksPanel selected={selectedTank} onSelect={setSelectedTank} />
+                  <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     <TankDetailPanel
@@ -247,6 +309,7 @@ export function DashboardPage() {
                     tankReading={tankReadings[selectedTank] ?? { opening: '', closing: '' }}
                     onReadingChange={(r) => setTankReadings((prev) => ({ ...prev, [selectedTank]: r }))}
                     actualLitresSold={hasPumpDataForGrade(selectedTank) ? pumpTotalForGrade(selectedTank) : null}
+                    readOnly={shiftEnded}
                   />
                 </div>
               </>

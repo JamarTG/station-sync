@@ -40,7 +40,7 @@ export function TopBar({ onMenuClick, onLogout }: Props) {
         </button>
       </div>
 
-      <h1 className="hidden min-[668px]:block absolute left-1/2 -translate-x-1/2 text-[14px] font-bold tracking-widest text-[#111] uppercase">
+      <h1 className="hidden min-[668px]:block max-[1087px]:!hidden absolute left-1/2 -translate-x-1/2 text-[14px] font-bold tracking-widest text-[#111] uppercase">
         Pechon Street
       </h1>
 

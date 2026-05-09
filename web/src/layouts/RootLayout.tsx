@@ -3,13 +3,28 @@ import { Outlet } from '@tanstack/react-router'
 import { Sidebar } from '../components/Sidebar'
 import { TopBar } from '../components/TopBar'
 import { LoginPage } from '../pages/LoginPage'
+import { SignUpPage } from '../pages/SignUpPage'
 
 export function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [authView, setAuthView] = useState<'login' | 'signup'>('login')
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   if (!isLoggedIn) {
-    return <LoginPage onLogin={() => setIsLoggedIn(true)} />
+    if (authView === 'signup') {
+      return (
+        <SignUpPage
+          onSignUp={() => setIsLoggedIn(true)}
+          onGoToLogin={() => setAuthView('login')}
+        />
+      )
+    }
+    return (
+      <LoginPage
+        onLogin={() => setIsLoggedIn(true)}
+        onGoToSignUp={() => setAuthView('signup')}
+      />
+    )
   }
 
   return (

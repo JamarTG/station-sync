@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { DepositsDepositedByDetailModal } from './DepositsDepositedByDetailModal'
+import { activityByAccount, type DepositRow } from './RecentActivityCard'
 
 const depositsData: Record<string, { depositType: string; description: string; amount: number }[]> = {
   'S. Lawes': [
@@ -15,7 +16,7 @@ const depositsData: Record<string, { depositType: string; description: string; a
   ],
 }
 
-const depositedByList = Object.keys(depositsData)
+const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
 interface Props {
   onBack: () => void
@@ -26,6 +27,11 @@ export function DepositsBreakdownModal({ onBack, onClose }: Props) {
   useEscapeKey(onClose)
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null)
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 537)
+  const depositorMap = activityByAccount.Deposits.filter((r): r is DepositRow => r.type === 'deposit')
+    .reduce<Record<string, number>>((acc, r) => { acc[r.name] = (acc[r.name] ?? 0) + r.amount; return acc }, {})
+  const depositedByList = Object.keys(depositorMap)
+  const personTotal = (p: string) => depositorMap[p] ?? 0
+  const total = activityByAccount.Deposits.reduce((s, r) => s + r.amount, 0)
 
   useEffect(() => {
     function onResize() { setIsNarrow(window.innerWidth < 537) }
@@ -66,13 +72,13 @@ export function DepositsBreakdownModal({ onBack, onClose }: Props) {
             <h2 className="text-[36px] font-bold text-[#111] leading-none mb-3">Deposits</h2>
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Total</p>
-              <p className="text-[11px] font-bold text-[#111]">J$0.00</p>
+              <p className="text-[11px] font-bold text-[#111]">{fmt(total)}</p>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[36px] font-bold text-[#111] leading-none">Deposits</h2>
-            <p className="text-[36px] font-bold text-[#111] leading-none">J$0.00</p>
+            <p className="text-[36px] font-bold text-[#111] leading-none">{fmt(total)}</p>
           </div>
         )}
 
@@ -87,7 +93,7 @@ export function DepositsBreakdownModal({ onBack, onClose }: Props) {
               >
                 {person}
               </button>
-              <p className="text-[13px] font-semibold text-[#bbb]">--</p>
+              <p className="text-[13px] font-semibold text-[#333]">{fmt(personTotal(person))}</p>
             </div>
           ))}
         </div>

@@ -25,9 +25,10 @@ type Step = 'password' | 'cash' | 'card' | 'summary'
 
 interface Props {
   onClose: () => void
+  onConfirm?: () => void
 }
 
-export function EndShiftModal({ onClose }: Props) {
+export function EndShiftModal({ onClose, onConfirm }: Props) {
   useEscapeKey(onClose)
   const [step, setStep] = useState<Step>('password')
   const [password, setPassword] = useState('')
@@ -392,7 +393,7 @@ export function EndShiftModal({ onClose }: Props) {
                 </div>
               </div>
 
-              <button onClick={onClose} className="w-full py-4 rounded-2xl bg-[#111] text-[15px] font-semibold text-white hover:bg-[#222] transition-colors">
+              <button onClick={() => { onConfirm?.(); onClose() }} className="w-full py-4 rounded-2xl bg-[#111] text-[15px] font-semibold text-white hover:bg-[#222] transition-colors">
                 End Shift
               </button>
             </>

@@ -10,9 +10,10 @@ interface Props {
   tankReading: { opening: string; closing: string }
   onReadingChange: (r: { opening: string; closing: string }) => void
   actualLitresSold: number | null
+  readOnly?: boolean
 }
 
-export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLitresSold }: Props) {
+export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLitresSold, readOnly }: Props) {
   const [hasReceival, setHasReceival] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
@@ -30,7 +31,7 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
   const hasData = tankReading.opening !== '' || tankReading.closing !== ''
   const tankError = touched && !isNaN(tOpen) && !isNaN(tClose) && tClose > tOpen
   const suggestedLitres = !isNaN(tOpen) && !isNaN(tClose) && tOpen >= tClose ? tOpen - tClose : null
-  const variance = suggestedLitres != null && actualLitresSold != null ? suggestedLitres - actualLitresSold : null
+  const variance = suggestedLitres != null && actualLitresSold != null ? actualLitresSold - suggestedLitres : null
   const wetStockPct =
     variance != null && actualLitresSold != null && actualLitresSold > 0
       ? (variance / actualLitresSold) * 100
@@ -52,12 +53,14 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
                 <input
                   type="text"
                   value={fmtInput(tankReading.opening)}
-                  onChange={(e) => onReadingChange({ ...tankReading, opening: parseInput(e.target.value) })}
-                  onBlur={() => setTouched(true)}
+                  onChange={(e) => !readOnly && onReadingChange({ ...tankReading, opening: parseInput(e.target.value) })}
+                  onBlur={() => !readOnly && setTouched(true)}
                   placeholder="—"
+                  readOnly={readOnly}
                   className={clsx(
-                    'w-24 text-center text-[13px] font-medium bg-transparent outline-none placeholder:text-[#ddd] focus:bg-[#f5f5f5] rounded-md px-1 py-0.5 transition-colors',
-                    tankError ? 'text-red-500' : 'text-[#333]'
+                    'w-24 text-center text-[13px] font-medium bg-transparent outline-none placeholder:text-[#ddd] rounded-md px-1 py-0.5 transition-colors',
+                    readOnly ? 'cursor-default text-[#aaa]' : 'focus:bg-[#f5f5f5]',
+                    tankError ? 'text-red-500' : !readOnly && 'text-[#333]'
                   )}
                 />
               </td>
@@ -65,12 +68,14 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
                 <input
                   type="text"
                   value={fmtInput(tankReading.closing)}
-                  onChange={(e) => onReadingChange({ ...tankReading, closing: parseInput(e.target.value) })}
-                  onBlur={() => setTouched(true)}
+                  onChange={(e) => !readOnly && onReadingChange({ ...tankReading, closing: parseInput(e.target.value) })}
+                  onBlur={() => !readOnly && setTouched(true)}
                   placeholder="—"
+                  readOnly={readOnly}
                   className={clsx(
-                    'w-24 text-center text-[13px] font-medium bg-transparent outline-none placeholder:text-[#ddd] focus:bg-[#f5f5f5] rounded-md px-1 py-0.5 transition-colors',
-                    tankError ? 'text-red-500' : 'text-[#333]'
+                    'w-24 text-center text-[13px] font-medium bg-transparent outline-none placeholder:text-[#ddd] rounded-md px-1 py-0.5 transition-colors',
+                    readOnly ? 'cursor-default text-[#aaa]' : 'focus:bg-[#f5f5f5]',
+                    tankError ? 'text-red-500' : !readOnly && 'text-[#333]'
                   )}
                 />
               </td>
@@ -101,7 +106,7 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
 
         <div className="px-5 pt-2 pb-5">
           <p className="text-[10px] font-semibold tracking-widest text-[#aaa] mb-1">WET STOCK SUMMARY</p>
-          <p className={clsx('text-[28px] font-bold leading-none tracking-tight', wetStockPct != null && wetStockPct < 0 ? 'text-red-500' : 'text-[#111]')}>
+          <p className={clsx('text-[28px] font-bold leading-none tracking-tight', wetStockPct == null ? 'text-[#111]' : wetStockPct > 1 ? 'text-blue-500' : wetStockPct > -0.5 ? 'text-yellow-500' : wetStockPct < -0.5 ? 'text-red-500' : 'text-[#111]')}>
             {wetStockPct != null
               ? `${wetStockPct >= 0 ? '+' : ''}${wetStockPct.toFixed(2)}%`
               : hasData || actualLitresSold != null ? '—' : '+0.00%'}
@@ -112,7 +117,7 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
       <div className="bg-white rounded-none border border-[#ebebeb] p-5 flex-shrink-0">
         <div className="flex items-center justify-between mb-4">
           <p className="text-[12px] font-bold tracking-widest text-[#111]">RECEIVAL LOG</p>
-          {hasReceival ? (
+          {!readOnly && (hasReceival ? (
             <button onClick={() => setShowEdit(true)} className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
               Edit
             </button>
@@ -120,7 +125,7 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
             <button onClick={() => setShowAdd(true)} className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
               Add
             </button>
-          )}
+          ))}
         </div>
         <div className="space-y-3 mb-4">
           <div className="flex items-center justify-between">

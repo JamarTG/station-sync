@@ -1,10 +1,11 @@
-import { X } from 'lucide-react'
+import { X, Pencil } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import type { ActivityRow } from './RecentActivityCard'
 
 interface Props {
   row: ActivityRow
   onClose: () => void
+  onEdit?: () => void
 }
 
 function typeLabel(row: ActivityRow): string {
@@ -70,7 +71,7 @@ function fmt(amount: number) {
   return `J$ ${amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 }
 
-export function ViewDetailsModal({ row, onClose }: Props) {
+export function ViewDetailsModal({ row, onClose, onEdit }: Props) {
   useEscapeKey(onClose)
 
   return (
@@ -82,7 +83,7 @@ export function ViewDetailsModal({ row, onClose }: Props) {
         className="bg-white rounded-3xl w-full max-w-[520px] p-8 shadow-xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-end mb-8">
+        <div className="flex items-center justify-between mb-8">
           <button
             onClick={onClose}
             className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
@@ -90,6 +91,15 @@ export function ViewDetailsModal({ row, onClose }: Props) {
             <X size={13} />
             Close
           </button>
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+            >
+              <Pencil size={13} />
+              Edit
+            </button>
+          )}
         </div>
 
         <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">{typeLabel(row)}</p>
@@ -132,7 +142,7 @@ export function ViewDetailsModal({ row, onClose }: Props) {
             <>
               <Field label="Attendant" value={row.name} />
               <Field label="Bank" value={row.bank} />
-              <Field label="Litres" value={row.litres.toFixed(2)} />
+              <Field label="Trans #" value={row.transNo} />
               <Field label="Amount" value={fmt(row.amount)} />
             </>
           )}
@@ -159,6 +169,11 @@ export function ViewDetailsModal({ row, onClose }: Props) {
               <Field label="Type" value={row.depositType} />
               <Field label="Amount" value={fmt(row.amount)} />
             </>
+          )}
+          {row.type === 'deposit' && row.depositType === 'Cash' && row.denominations && (
+            <div className="py-4">
+              <DenominationBreakdown denominations={row.denominations} />
+            </div>
           )}
         </div>
       </div>

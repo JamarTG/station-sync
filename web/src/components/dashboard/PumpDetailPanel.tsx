@@ -24,9 +24,10 @@ interface Props {
   pricePerLitre?: number
   nozzles: NozzleRow[]
   onChange: (nozzles: NozzleRow[]) => void
+  readOnly?: boolean
 }
 
-export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange }: Props) {
+export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, readOnly }: Props) {
   const label = fuelType ? (gradeLabels[fuelType] ?? fuelType) : '—'
   const [touched, setTouched] = useState<Record<number, boolean>>({})
 
@@ -88,12 +89,14 @@ export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange }: 
                     <input
                       type="text"
                       value={fmtInput(n.opening)}
-                      onChange={(e) => updateNozzle(i, 'opening', e.target.value)}
-                      onBlur={() => markTouched(i)}
+                      onChange={(e) => !readOnly && updateNozzle(i, 'opening', e.target.value)}
+                      onBlur={() => !readOnly && markTouched(i)}
                       placeholder="—"
+                      readOnly={readOnly}
                       className={clsx(
-                        'w-20 text-center text-[12px] font-medium bg-transparent outline-none placeholder:text-[#ddd] focus:bg-[#f5f5f5] rounded-md px-1 py-0.5 transition-colors',
-                        hasError ? 'text-red-500' : 'text-[#333]'
+                        'w-20 text-center text-[12px] font-medium bg-transparent outline-none placeholder:text-[#ddd] rounded-md px-1 py-0.5 transition-colors',
+                        readOnly ? 'cursor-default text-[#aaa]' : 'focus:bg-[#f5f5f5]',
+                        hasError ? 'text-red-500' : !readOnly && 'text-[#333]'
                       )}
                     />
                   </td>
@@ -101,12 +104,14 @@ export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange }: 
                     <input
                       type="text"
                       value={fmtInput(n.closing)}
-                      onChange={(e) => updateNozzle(i, 'closing', e.target.value)}
-                      onBlur={() => markTouched(i)}
+                      onChange={(e) => !readOnly && updateNozzle(i, 'closing', e.target.value)}
+                      onBlur={() => !readOnly && markTouched(i)}
                       placeholder="—"
+                      readOnly={readOnly}
                       className={clsx(
-                        'w-20 text-center text-[12px] font-medium bg-transparent outline-none placeholder:text-[#ddd] focus:bg-[#f5f5f5] rounded-md px-1 py-0.5 transition-colors',
-                        hasError ? 'text-red-500' : 'text-[#333]'
+                        'w-20 text-center text-[12px] font-medium bg-transparent outline-none placeholder:text-[#ddd] rounded-md px-1 py-0.5 transition-colors',
+                        readOnly ? 'cursor-default text-[#aaa]' : 'focus:bg-[#f5f5f5]',
+                        hasError ? 'text-red-500' : !readOnly && 'text-[#333]'
                       )}
                     />
                   </td>

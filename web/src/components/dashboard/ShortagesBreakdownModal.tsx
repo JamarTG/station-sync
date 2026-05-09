@@ -3,17 +3,22 @@ import { ArrowLeft } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { AttendantModal } from './AttendantModal'
 
-const attendants = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
+const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
 interface Props {
   onBack: () => void
   onClose: () => void
+  balances?: Record<string, number>
+  attendantSales?: Record<string, number>
+  attendantGradeSales?: Record<string, Record<string, number>>
 }
 
-export function ShortagesBreakdownModal({ onBack, onClose }: Props) {
+export function ShortagesBreakdownModal({ onBack, onClose, balances = {}, attendantSales, attendantGradeSales }: Props) {
   useEscapeKey(onClose)
   const [selectedAttendant, setSelectedAttendant] = useState<string | null>(null)
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 537)
+  const shortages = Object.entries(balances).filter(([, b]) => b < 0)
+  const total = shortages.reduce((s, [, b]) => s + Math.abs(b), 0)
 
   useEffect(() => {
     function onResize() { setIsNarrow(window.innerWidth < 537) }
@@ -26,6 +31,8 @@ export function ShortagesBreakdownModal({ onBack, onClose }: Props) {
       <AttendantModal
         name={selectedAttendant}
         onClose={() => setSelectedAttendant(null)}
+        sales={attendantSales?.[selectedAttendant]}
+        gradeSales={attendantGradeSales?.[selectedAttendant]}
       />
     )
   }
@@ -52,28 +59,30 @@ export function ShortagesBreakdownModal({ onBack, onClose }: Props) {
             <h2 className="text-[36px] font-bold text-[#111] leading-none mb-3">Shortages</h2>
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Total</p>
-              <p className="text-[11px] font-bold text-[#111]">J$0.00</p>
+              <p className="text-[11px] font-bold text-red-500">{fmt(total)}</p>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[36px] font-bold text-[#111] leading-none">Shortages</h2>
-            <p className="text-[36px] font-bold text-[#111] leading-none">J$0.00</p>
+            <p className="text-[36px] font-bold text-red-500 leading-none">{fmt(total)}</p>
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto">
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Breakdown</p>
 
-          {attendants.map((a) => (
-            <div key={a} className="flex items-center justify-between py-2">
+          {shortages.length === 0 ? (
+            <p className="text-[13px] font-medium text-[#bbb] py-4">No shortages recorded</p>
+          ) : shortages.map(([name, balance]) => (
+            <div key={name} className="flex items-center justify-between py-2">
               <button
-                onClick={() => setSelectedAttendant(a)}
+                onClick={() => setSelectedAttendant(name)}
                 className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
               >
-                {a}
+                {name}
               </button>
-              <p className="text-[13px] font-semibold text-[#bbb]">--</p>
+              <p className="text-[13px] font-semibold text-red-500">-{fmt(Math.abs(balance))}</p>
             </div>
           ))}
         </div>
@@ -82,7 +91,7 @@ export function ShortagesBreakdownModal({ onBack, onClose }: Props) {
 
         <div className="flex items-center justify-between pt-4">
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Count</p>
-          <p className="text-[13px] font-semibold text-[#333]">{attendants.length} Attendants</p>
+          <p className="text-[13px] font-semibold text-[#333]">{shortages.length} Attendants</p>
         </div>
       </div>
     </div>

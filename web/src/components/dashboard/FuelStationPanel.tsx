@@ -302,7 +302,7 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
 
               <div className="px-5 pt-2 pb-4 border-t border-[#f0f0f0]">
                 <p className="text-[10px] font-semibold tracking-widest text-[#aaa] mb-1">WET STOCK SUMMARY</p>
-                <p className={clsx('text-[28px] font-bold leading-none tracking-tight', wetStockPct != null && wetStockPct < 0 ? 'text-red-500' : 'text-[#111]')}>
+                <p className={clsx('text-[28px] font-bold leading-none tracking-tight', wetStockPct == null ? 'text-[#111]' : wetStockPct > 1 ? 'text-blue-500' : wetStockPct > -0.5 ? 'text-yellow-500' : wetStockPct < -0.5 ? 'text-red-500' : 'text-[#111]')}>
                   {wetStockPct != null
                     ? `${wetStockPct >= 0 ? '+' : ''}${wetStockPct.toFixed(2)}%`
                     : tankHasData || hasPumpDataForGrade(grade) ? '—' : '+0.00%'}
