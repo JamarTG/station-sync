@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { MoreHorizontal } from 'lucide-react'
-import { EndShiftModal } from './EndShiftModal'
 import { NewShiftLoginModal } from './NewShiftLoginModal'
+import { useAuth } from '../../lib/authContext'
 import { ReportIssueModal } from './ReportIssueModal'
 import { RecordModal } from './RecordModal'
 import { DropModal } from './DropModal'
@@ -24,9 +24,9 @@ interface Props {
 }
 
 export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewShift }: Props) {
+  const { logout } = useAuth()
   const [recordView, setRecordView] = useState<RecordView>(null)
   const [dropAttendant, setDropAttendant] = useState('')
-  const [showEndShift, setShowEndShift] = useState(false)
   const [showNewShiftLogin, setShowNewShiftLogin] = useState(false)
   const [showReportIssue, setShowReportIssue] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -42,6 +42,11 @@ export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewSh
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  function handleEndShift() {
+    onShiftEnd?.()
+    logout()
+  }
+
   const btnClass = 'px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'
 
   return (
@@ -55,7 +60,7 @@ export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewSh
 
         {/* Visible at ≥416px */}
         <button
-          onClick={() => shiftEnded ? setShowNewShiftLogin(true) : canEndShift ? setShowEndShift(true) : undefined}
+          onClick={() => shiftEnded ? setShowNewShiftLogin(true) : canEndShift ? handleEndShift() : undefined}
           disabled={!shiftEnded && !canEndShift}
           title={!shiftEnded && !canEndShift ? 'Enter all pump nozzle readings before ending the shift' : undefined}
           className={`hidden min-[416px]:block ${btnClass} disabled:opacity-40 disabled:cursor-not-allowed`}
@@ -77,7 +82,7 @@ export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewSh
           {moreOpen && (
             <div className="absolute left-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[160px] z-50">
               <button
-                onClick={() => { setMoreOpen(false); shiftEnded ? setShowNewShiftLogin(true) : canEndShift ? setShowEndShift(true) : undefined }}
+                onClick={() => { setMoreOpen(false); shiftEnded ? setShowNewShiftLogin(true) : canEndShift ? handleEndShift() : undefined }}
                 disabled={!shiftEnded && !canEndShift}
                 className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
@@ -162,9 +167,6 @@ export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewSh
           onBack={() => setRecordView('select')}
           onClose={() => setRecordView(null)}
         />
-      )}
-      {showEndShift && (
-        <EndShiftModal onClose={() => setShowEndShift(false)} onConfirm={onShiftEnd} />
       )}
       {showReportIssue && (
         <ReportIssueModal onClose={() => setShowReportIssue(false)} />

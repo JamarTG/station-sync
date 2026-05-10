@@ -526,19 +526,17 @@ export function RecentActivityCard({ account, readOnly, attendantSales, attendan
           )}
       </div>
 
-      <div className="flex items-center justify-between px-5 py-3 border-t border-[#f0f0f0] flex-shrink-0">
-          <button className="text-[12px] font-semibold text-[#888] hover:text-[#333] transition-colors">
+      <div className="grid grid-cols-3 items-center px-5 py-3 border-t border-[#f0f0f0] flex-shrink-0">
+          <button
+            onClick={handleTotal}
+            className="text-[13px] font-bold text-[#333] hover:text-[#111] transition-colors text-left"
+          >
+            J$ {accountTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+          </button>
+          <span className="text-[12px] text-[#bbb] font-medium text-center">{displayedActivities.length}</span>
+          <button className="text-[12px] font-semibold text-[#888] hover:text-[#333] transition-colors text-right">
             view all
           </button>
-          <div className="flex items-center gap-4">
-            <span className="text-[12px] text-[#bbb] font-medium">{displayedActivities.length}</span>
-            <button
-              onClick={handleTotal}
-              className="text-[13px] font-bold text-[#333] hover:text-[#111] transition-colors"
-            >
-              J$ {accountTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            </button>
-          </div>
       </div>
 
       {showExpenditure && (

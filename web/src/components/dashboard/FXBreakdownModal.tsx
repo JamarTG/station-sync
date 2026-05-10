@@ -1,17 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
-import { FXAttendantDetailModal } from './FXAttendantDetailModal'
 import { activityByAccount, type FXRow } from './RecentActivityCard'
-
-const fxData: Record<string, { currency: string; amount: number; rate: number }[]> = {
-  'S. Smith': [
-    { currency: 'USD', amount: 500, rate: 150 },
-  ],
-  'T. Brisco': [
-    { currency: 'EUR', amount: 200, rate: 160 },
-  ],
-}
 
 const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
@@ -22,7 +12,6 @@ interface Props {
 
 export function FXBreakdownModal({ onBack, onClose }: Props) {
   useEscapeKey(onClose)
-  const [selectedAttendant, setSelectedAttendant] = useState<string | null>(null)
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 537)
   const fxMap = activityByAccount.FX.filter((r): r is FXRow => r.type === 'fx')
     .reduce<Record<string, number>>((acc, r) => { acc[r.name] = (acc[r.name] ?? 0) + r.amount; return acc }, {})
@@ -35,17 +24,6 @@ export function FXBreakdownModal({ onBack, onClose }: Props) {
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
-
-  if (selectedAttendant) {
-    return (
-      <FXAttendantDetailModal
-        attendant={selectedAttendant}
-        entries={fxData[selectedAttendant]}
-        onBack={() => setSelectedAttendant(null)}
-        onClose={onClose}
-      />
-    )
-  }
 
   return (
     <div
@@ -84,12 +62,7 @@ export function FXBreakdownModal({ onBack, onClose }: Props) {
 
           {attendants.map((a) => (
             <div key={a} className="flex items-center justify-between py-2">
-              <button
-                onClick={() => setSelectedAttendant(a)}
-                className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
-              >
-                {a}
-              </button>
+              <p className="text-[13px] font-semibold text-[#111]">{a}</p>
               <p className="text-[13px] font-semibold text-[#333]">{fmt(attendantTotal(a))}</p>
             </div>
           ))}

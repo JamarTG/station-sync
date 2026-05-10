@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { Menu, Settings, LogOut } from 'lucide-react'
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 export function TopBar({ onMenuClick, onLogout }: Props) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
 
   const now = new Date()
   const ampm = now.getHours() < 12 ? 'AM' : 'PM'
@@ -68,7 +70,10 @@ export function TopBar({ onMenuClick, onLogout }: Props) {
                 <p className="text-[13px] font-bold text-[#111]">A. Lewis</p>
                 <p className="text-[11px] text-[#aaa] font-medium">Supervisor</p>
               </div>
-              <button className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors text-left">
+              <button
+                onClick={() => { setDropdownOpen(false); navigate({ to: '/settings' }) }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors text-left"
+              >
                 <Settings size={13} className="text-[#888]" />
                 Settings
               </button>

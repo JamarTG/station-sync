@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Tv2 } from 'lucide-react'
 import clsx from 'clsx'
 import { StationSyncLogo } from './StationSyncLogo'
 
@@ -29,7 +29,7 @@ function NavLink({ to, label, onClick }: { to: string; label: string; onClick?: 
       onClick={onClick}
       className={clsx(
         'block px-4 py-2 text-[13px] font-medium rounded-md transition-colors',
-        isActive ? 'text-[#111] font-semibold ring-1 ring-[#ddd]' : 'text-[#888] hover:text-[#111]'
+        isActive ? 'text-[#111] font-semibold bg-black/[0.06] ring-1 ring-[#ddd]' : 'text-[#888] hover:text-[#111] hover:bg-black/[0.03]'
       )}
     >
       {label}
@@ -56,8 +56,14 @@ export function Sidebar({ isOpen, onClose }: Props) {
         'min-[668px]:relative min-[668px]:translate-x-0 min-[668px]:z-auto',
       )}
     >
-      <div className="p-5 pb-4">
+      <div className="px-5 pt-5 pb-4 flex items-center justify-between">
         <StationSyncLogo size={32} />
+        <button
+          title="POS Mode"
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-[#aaa] hover:text-[#111] hover:bg-[#f4f4f4] transition-colors flex-shrink-0"
+        >
+          <Tv2 size={16} />
+        </button>
       </div>
 
       <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">

@@ -10,6 +10,7 @@ import { AccountsPage } from './pages/AccountsPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { StaffPage } from './pages/StaffPage'
 import { SchedulePage } from './pages/SchedulePage'
+import { AccountSettingsPage } from './pages/AccountSettingsPage'
 
 const rootRoute = createRootRoute({ component: RootLayout })
 
@@ -61,6 +62,12 @@ const scheduleRoute = createRoute({
   component: SchedulePage,
 })
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings',
+  component: AccountSettingsPage,
+})
+
 export const routeTree = rootRoute.addChildren([
   dashboardRoute,
   convSalesRoute,
@@ -70,6 +77,7 @@ export const routeTree = rootRoute.addChildren([
   ssReportsRoute,
   staffRoute,
   scheduleRoute,
+  settingsRoute,
 ])
 
 export type Router = ReturnType<typeof createRouter<typeof routeTree>>

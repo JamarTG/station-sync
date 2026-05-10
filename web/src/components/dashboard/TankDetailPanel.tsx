@@ -52,6 +52,7 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
               <td className="py-3 text-center">
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={fmtInput(tankReading.opening)}
                   onChange={(e) => !readOnly && onReadingChange({ ...tankReading, opening: parseInput(e.target.value) })}
                   onBlur={() => !readOnly && setTouched(true)}
@@ -67,6 +68,7 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
               <td className="py-3 text-center">
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={fmtInput(tankReading.closing)}
                   onChange={(e) => !readOnly && onReadingChange({ ...tankReading, closing: parseInput(e.target.value) })}
                   onBlur={() => !readOnly && setTouched(true)}

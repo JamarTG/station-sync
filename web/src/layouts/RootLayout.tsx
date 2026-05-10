@@ -4,11 +4,19 @@ import { Sidebar } from '../components/Sidebar'
 import { TopBar } from '../components/TopBar'
 import { LoginPage } from '../pages/LoginPage'
 import { SignUpPage } from '../pages/SignUpPage'
+import { ShiftLoginFlow } from '../pages/ShiftLoginFlow'
+import { AuthContext } from '../lib/authContext'
 
 export function RootLayout() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [shiftFlowDone, setShiftFlowDone] = useState(false)
   const [authView, setAuthView] = useState<'login' | 'signup'>('login')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  function handleLogout() {
+    setIsLoggedIn(false)
+    setShiftFlowDone(false)
+  }
 
   if (!isLoggedIn) {
     if (authView === 'signup') {
@@ -27,23 +35,29 @@ export function RootLayout() {
     )
   }
 
+  if (!shiftFlowDone) {
+    return <ShiftLoginFlow onComplete={() => setShiftFlowDone(true)} />
+  }
+
   return (
-    <div className="flex h-screen bg-[#f4f4f4] font-[Manrope]">
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/40 min-[668px]:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+    <AuthContext.Provider value={{ logout: handleLogout }}>
+      <div className="flex h-screen bg-[#f4f4f4] font-[Manrope]">
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 z-30 bg-black/40 min-[668px]:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
 
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-        <TopBar onMenuClick={() => setSidebarOpen(true)} onLogout={() => setIsLoggedIn(false)} />
-        <main className="flex-1 overflow-y-auto min-[1200px]:overflow-hidden">
-          <Outlet />
-        </main>
+        <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+          <TopBar onMenuClick={() => setSidebarOpen(true)} onLogout={handleLogout} />
+          <main className="flex-1 overflow-y-auto min-[1200px]:overflow-hidden">
+            <Outlet />
+          </main>
+        </div>
       </div>
-    </div>
+    </AuthContext.Provider>
   )
 }

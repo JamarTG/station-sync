@@ -25,9 +25,10 @@ interface Props {
   nozzles: NozzleRow[]
   onChange: (nozzles: NozzleRow[]) => void
   readOnly?: boolean
+  openingReadOnly?: boolean
 }
 
-export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, readOnly }: Props) {
+export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, readOnly, openingReadOnly }: Props) {
   const label = fuelType ? (gradeLabels[fuelType] ?? fuelType) : '—'
   const [touched, setTouched] = useState<Record<number, boolean>>({})
 
@@ -81,6 +82,7 @@ export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, re
               const c = parseFloat(n.closing)
               const hasError = touched[i] && !isNaN(o) && !isNaN(c) && o > c
               const litres = !isNaN(o) && !isNaN(c) && c >= o ? c - o : null
+              const isOpeningReadOnly = readOnly || (openingReadOnly && n.opening !== '')
 
               return (
                 <tr key={i} className={clsx('border-b border-[#f9f9f9] flex', hasError && 'bg-red-50')}>
@@ -88,21 +90,23 @@ export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, re
                   <td className="py-3 flex-1 flex items-center justify-center">
                     <input
                       type="text"
+                      inputMode="decimal"
                       value={fmtInput(n.opening)}
-                      onChange={(e) => !readOnly && updateNozzle(i, 'opening', e.target.value)}
-                      onBlur={() => !readOnly && markTouched(i)}
+                      onChange={(e) => !isOpeningReadOnly && updateNozzle(i, 'opening', e.target.value)}
+                      onBlur={() => !isOpeningReadOnly && markTouched(i)}
                       placeholder="—"
-                      readOnly={readOnly}
+                      readOnly={isOpeningReadOnly}
                       className={clsx(
                         'w-20 text-center text-[12px] font-medium bg-transparent outline-none placeholder:text-[#ddd] rounded-md px-1 py-0.5 transition-colors',
-                        readOnly ? 'cursor-default text-[#aaa]' : 'focus:bg-[#f5f5f5]',
-                        hasError ? 'text-red-500' : !readOnly && 'text-[#333]'
+                        isOpeningReadOnly ? 'cursor-default text-[#aaa]' : 'focus:bg-[#f5f5f5]',
+                        hasError ? 'text-red-500' : !isOpeningReadOnly && 'text-[#333]'
                       )}
                     />
                   </td>
                   <td className="py-3 flex-1 flex items-center justify-center">
                     <input
                       type="text"
+                      inputMode="decimal"
                       value={fmtInput(n.closing)}
                       onChange={(e) => !readOnly && updateNozzle(i, 'closing', e.target.value)}
                       onBlur={() => !readOnly && markTouched(i)}

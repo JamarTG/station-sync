@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { PumpsPanel, fuelPrices, type Fuel } from '../components/dashboard/PumpsPanel'
+import { PumpsPanel, fuelPrices as defaultFuelPrices, type Fuel } from '../components/dashboard/PumpsPanel'
+import { getShiftData, saveShiftData } from '../lib/shiftStore'
 import { PumpDetailPanel, type NozzleRow } from '../components/dashboard/PumpDetailPanel'
 import { TanksPanel, type TankGrade } from '../components/dashboard/TanksPanel'
 import { TankDetailPanel } from '../components/dashboard/TankDetailPanel'
@@ -37,14 +38,60 @@ export function DashboardPage() {
   const [showConvenienceBreakdown, setShowConvenienceBreakdown] = useState(false)
   const [shiftEnded, setShiftEnded] = useState(false)
 
+  const fuelPrices = getShiftData()?.fuelPrices ?? defaultFuelPrices
+
   const [nozzleReadings, setNozzleReadings] = useState<Record<string, NozzleRow[]>>({})
   const [tankReadings, setTankReadings] = useState<Record<string, { opening: string; closing: string }>>({})
+  const [savedPumpOpenings, setSavedPumpOpenings] = useState<Record<string, string[]>>(
+    () => getShiftData()?.pumpOpenings ?? {}
+  )
+  const [savedTankOpenings, setSavedTankOpenings] = useState<Record<string, string>>(
+    () => getShiftData()?.tankOpenings ?? {}
+  )
 
   function getNozzles(fuelType: string): NozzleRow[] {
     return nozzleReadings[fuelType] ?? emptyNozzles()
   }
   function setNozzles(fuelType: string, rows: NozzleRow[]) {
     setNozzleReadings((prev) => ({ ...prev, [fuelType]: rows }))
+  }
+
+  function handleShiftEnd() {
+    const newPumpOpenings: Record<string, string[]> = {}
+    for (const grade of allFuelGrades) {
+      newPumpOpenings[grade] = getNozzles(grade).map((n) => n.closing)
+    }
+    setSavedPumpOpenings(newPumpOpenings)
+
+    const newTankOpenings: Record<string, string> = {}
+    for (const grade of allFuelGrades) {
+      newTankOpenings[grade] = tankReadings[grade]?.closing ?? ''
+    }
+    setSavedTankOpenings(newTankOpenings)
+
+    saveShiftData({ status: 'closed', pumpOpenings: newPumpOpenings, tankOpenings: newTankOpenings, fuelPrices })
+
+    setShiftEnded(true)
+  }
+
+  function handleNewShift() {
+    const newNozzleReadings: Record<string, NozzleRow[]> = {}
+    for (const grade of allFuelGrades) {
+      const openings = savedPumpOpenings[grade] ?? []
+      newNozzleReadings[grade] = Array.from({ length: NOZZLE_COUNT }, (_, i) => ({
+        opening: openings[i] ?? '',
+        closing: '',
+      }))
+    }
+    setNozzleReadings(newNozzleReadings)
+
+    const newTankReadings: Record<string, { opening: string; closing: string }> = {}
+    for (const grade of allFuelGrades) {
+      newTankReadings[grade] = { opening: savedTankOpenings[grade] ?? '', closing: '' }
+    }
+    setTankReadings(newTankReadings)
+
+    setShiftEnded(false)
   }
   function pumpTotalForGrade(fuelType: string): number {
     return getNozzles(fuelType).reduce((sum, n) => {
@@ -58,6 +105,10 @@ export function DashboardPage() {
   }
   function allNozzlesComplete(fuelType: string): boolean {
     return getNozzles(fuelType).every((n) => n.opening !== '' && n.closing !== '')
+  }
+  function activeNozzlesComplete(fuelType: string): boolean {
+    const active = getNozzles(fuelType).filter((n) => n.opening !== '' || n.closing !== '')
+    return active.length > 0 && active.every((n) => n.opening !== '' && n.closing !== '')
   }
 
   const allFuelGrades = Object.keys(fuelPrices)
@@ -134,7 +185,7 @@ export function DashboardPage() {
       {/* Main scrollable content */}
       <div className="flex-[2] min-w-0 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
         <div className="p-6 flex flex-col gap-5">
-          <ActionBar shiftEnded={shiftEnded} canEndShift={allFuelGrades.every((g) => allNozzlesComplete(g) && (tankReadings[g]?.opening ?? '') !== '' && (tankReadings[g]?.closing ?? '') !== '')} onShiftEnd={() => setShiftEnded(true)} onNewShift={() => setShiftEnded(false)} />
+          <ActionBar shiftEnded={shiftEnded} canEndShift={allFuelGrades.every((g) => activeNozzlesComplete(g) && (tankReadings[g]?.opening ?? '') !== '' && (tankReadings[g]?.closing ?? '') !== '')} onShiftEnd={handleShiftEnd} onNewShift={handleNewShift} />
 
           <div>
             <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Service Station</p>
