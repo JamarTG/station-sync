@@ -15,10 +15,10 @@ type UserHandler struct {
 	DB *pgxpool.Pool
 }
 
-const userSelectCols = `id::text, name, role, active, employed_on, date_of_birth, phone, nis, trn, email`
+const userSelectCols = `id::text, name, role, active, employed_on, date_of_birth, phone, nis, trn, email, pay_rate, pay_type`
 
 func scanUser(row pgx.Row, u *model.User) error {
-	return row.Scan(&u.ID, &u.Name, &u.Role, &u.Active, &u.EmployedOn, &u.DateOfBirth, &u.Phone, &u.NIS, &u.TRN, &u.Email)
+	return row.Scan(&u.ID, &u.Name, &u.Role, &u.Active, &u.EmployedOn, &u.DateOfBirth, &u.Phone, &u.NIS, &u.TRN, &u.Email, &u.PayRate, &u.PayType)
 }
 
 func (h *UserHandler) List(c *gin.Context) {

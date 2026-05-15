@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { api, type Fuel, type Pump, type Shift, type FuelSummary } from '../lib/api'
+import { api, type Fuel, type Pump, type Shift, type FuelSummary, type User, type PayrollPeriod, type PayrollRecord } from '../lib/api'
 
 export function useFuels() {
   return useQuery({
@@ -27,5 +27,27 @@ export function useFuelSummary(pumpId: string | undefined, shiftId: string | und
     queryKey: ['fuel-summary', pumpId, shiftId],
     queryFn: () => api.get<FuelSummary[]>(`/pumps/${pumpId}/shifts/${shiftId}/fuel-summary`).then((r) => r.data),
     enabled: !!pumpId && !!shiftId,
+  })
+}
+
+export function useUsers() {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: () => api.get<User[]>('/users').then((r) => r.data),
+  })
+}
+
+export function usePayrollPeriods() {
+  return useQuery({
+    queryKey: ['payroll-periods'],
+    queryFn: () => api.get<PayrollPeriod[]>('/payroll/periods').then((r) => r.data),
+  })
+}
+
+export function usePayrollRecords(periodId: string | null) {
+  return useQuery({
+    queryKey: ['payroll-records', periodId],
+    queryFn: () => api.get<PayrollRecord[]>(`/payroll/periods/${periodId}/records`).then((r) => r.data),
+    enabled: !!periodId,
   })
 }

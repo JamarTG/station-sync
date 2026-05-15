@@ -16,6 +16,7 @@ const stationItems = [
   { label: 'Reports', to: '/station/reports' },
   { label: 'Staff', to: '/station/staff' },
   { label: 'Schedule', to: '/station/schedule' },
+  { label: 'Payroll', to: '/station/payroll' },
 ]
 
 function NavLink({ to, label, onClick }: { to: string; label: string; onClick?: () => void }) {
