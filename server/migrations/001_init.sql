@@ -102,5 +102,17 @@ CREATE TABLE deposits (
     attendant_id UUID NOT NULL REFERENCES users(id),
     type         TEXT NOT NULL CHECK (type IN ('Cash', 'Card', 'Charge', 'FX', 'Advance')),
     amount       NUMERIC(10, 2) NOT NULL,
+    fx_currency  TEXT,
+    fx_amount    NUMERIC(10, 2),
+    fx_rate      NUMERIC(10, 4),
     metadata     TEXT
+);
+
+CREATE TABLE drops (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    deposited_by  UUID NOT NULL REFERENCES users(id),
+    received_by   UUID REFERENCES users(id),
+    amount        NUMERIC(10, 2) NOT NULL,
+    reference     TEXT,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
