@@ -33,7 +33,7 @@ func (h *UserHandler) List(c *gin.Context) {
 	users := []model.User{}
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Name, &u.Role, &u.Active, &u.EmployedOn, &u.DateOfBirth, &u.Phone, &u.NIS, &u.TRN, &u.Email); err != nil {
+		if err := scanUser(rows, &u); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -46,6 +46,34 @@ func (h *UserHandler) Get(c *gin.Context) {
 	var u model.User
 	err := scanUser(h.DB.QueryRow(c.Request.Context(),
 		`SELECT `+userSelectCols+` FROM users WHERE id = $1`, c.Param("id")), &u)
+	if err == pgx.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, u)
+}
+
+func (h *UserHandler) UpdatePay(c *gin.Context) {
+	var body struct {
+		PayRate *float64 `json:"pay_rate"`
+		PayType *string  `json:"pay_type"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var u model.User
+	err := scanUser(h.DB.QueryRow(c.Request.Context(), `
+		UPDATE users SET pay_rate = $1, pay_type = $2
+		WHERE id = $3
+		RETURNING `+userSelectCols,
+		body.PayRate, body.PayType, c.Param("id"),
+	), &u)
 	if err == pgx.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
