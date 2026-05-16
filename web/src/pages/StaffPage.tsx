@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useUsers, useUserPayroll, usePayrollPeriods } from '../hooks/useApi'
+import { useUsers, useUserPayroll, usePayrollPeriods, usePayrollRecords } from '../hooks/useApi'
 import { api } from '../lib/api'
-import type { User, PayrollRecord } from '../lib/api'
+import type { User, PayrollPeriod, PayrollRecord } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ChevronRight, Plus, X } from 'lucide-react'
 
@@ -266,8 +266,7 @@ function StaffList({ onSelect }: { onSelect: (user: User) => void }) {
   const inactive = users.filter((u) => !u.active)
 
   return (
-    <div className="p-6 max-w-2xl">
-      <h2 className="text-[20px] font-bold text-[#111] mb-6">Staff</h2>
+    <div className="max-w-2xl">
       {isLoading ? (
         <p className="text-[13px] text-[#aaa]">Loading...</p>
       ) : (
@@ -333,14 +332,170 @@ function StaffList({ onSelect }: { onSelect: (user: User) => void }) {
   )
 }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Period Overview ───────────────────────────────────────────────────────────
 
-export function StaffPage() {
-  const [selected, setSelected] = useState<User | null>(null)
+function PeriodOverview({ period, onBack }: { period: PayrollPeriod; onBack: () => void }) {
+  const { data: records = [], isLoading } = usePayrollRecords(period.id)
+  const qc = useQueryClient()
+  const totalNet = records.reduce((s, r) => s + r.net_pay, 0)
 
-  if (selected) {
-    return <EmployeePayroll user={selected} onBack={() => setSelected(null)} />
+  async function handlePublish() {
+    await api.patch(`/payroll/periods/${period.id}/publish`)
+    await qc.invalidateQueries({ queryKey: ['payroll-periods'] })
   }
 
-  return <StaffList onSelect={setSelected} />
+  return (
+    <div className="p-6 max-w-2xl overflow-y-auto h-full">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 text-[13px] text-[#888] hover:text-[#111] transition-colors mb-6"
+      >
+        <ArrowLeft size={14} />
+        Back to Staff
+      </button>
+
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-[20px] font-bold text-[#111]">
+            {fmtDate(period.start_date)} – {fmtDate(period.end_date)}
+          </h2>
+          <p className="text-[13px] text-[#999] mt-0.5">
+            {records.length} employee{records.length !== 1 ? 's' : ''} · Total net {fmt(totalNet)}
+          </p>
+        </div>
+        {period.status === 'Draft' ? (
+          <button
+            onClick={handlePublish}
+            className="px-4 py-2 bg-[#111] text-white text-[13px] font-semibold rounded-xl hover:bg-[#333] transition-colors"
+          >
+            Publish
+          </button>
+        ) : (
+          <span className="px-3 py-1 bg-[#d1e7dd] text-[#0a5435] text-[12px] font-semibold rounded-full">
+            Published
+          </span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <p className="text-[13px] text-[#aaa]">Loading...</p>
+      ) : records.length === 0 ? (
+        <p className="text-[13px] text-[#bbb]">No records for this period.</p>
+      ) : (
+        <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
+          {records.map((r) => (
+            <div key={r.id} className="flex items-center gap-4 px-5 py-4 border-b border-[#f0f0f0] last:border-0">
+              <div className="w-9 h-9 rounded-full bg-[#111] text-white flex items-center justify-center text-[13px] font-bold shrink-0">
+                {r.user_name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-semibold text-[#111]">{r.user_name}</p>
+                <p className="text-[12px] text-[#999]">{r.user_role}</p>
+              </div>
+              <div className="text-right shrink-0 space-y-0.5">
+                <p className="text-[13px] text-[#bbb]">Gross {fmt(r.gross_pay)}</p>
+                <p className="text-[14px] font-semibold text-[#111]">{fmt(r.net_pay)} net</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PeriodList({ onSelect }: { onSelect: (p: PayrollPeriod) => void }) {
+  const { data: periods = [], isLoading } = usePayrollPeriods()
+  const [showModal, setShowModal] = useState(false)
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] font-semibold text-[#bbb] uppercase tracking-widest">
+          {periods.length} Period{periods.length !== 1 ? 's' : ''}
+        </p>
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-1.5 text-[12px] font-semibold text-[#111] hover:text-[#555] transition-colors"
+        >
+          <Plus size={13} /> New Period
+        </button>
+      </div>
+      {isLoading ? (
+        <p className="text-[13px] text-[#aaa]">Loading...</p>
+      ) : periods.length === 0 ? (
+        <p className="text-[13px] text-[#bbb]">No payroll periods yet.</p>
+      ) : (
+        <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
+          {periods.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => onSelect(p)}
+              className="w-full flex items-center gap-4 px-5 py-4 border-b border-[#f0f0f0] last:border-0 hover:bg-[#fafafa] transition-colors text-left"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] font-semibold text-[#111]">
+                  {fmtDate(p.start_date)} – {fmtDate(p.end_date)}
+                </p>
+              </div>
+              <span className={`text-[11px] font-semibold px-2 py-1 rounded-full shrink-0 ${
+                p.status === 'Published' ? 'bg-[#d1e7dd] text-[#0a5435]' : 'bg-[#f0f0f0] text-[#555]'
+              }`}>
+                {p.status}
+              </span>
+              <ChevronRight size={14} className="text-[#ccc] shrink-0" />
+            </button>
+          ))}
+        </div>
+      )}
+      {showModal && <NewPeriodModal onClose={() => setShowModal(false)} />}
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+type View =
+  | { type: 'staff' }
+  | { type: 'employee'; user: User }
+  | { type: 'period'; period: PayrollPeriod }
+
+export function StaffPage() {
+  const [view, setView] = useState<View>({ type: 'staff' })
+  const [tab, setTab]   = useState<'employees' | 'payroll'>('employees')
+
+  if (view.type === 'employee') {
+    return <EmployeePayroll user={view.user} onBack={() => setView({ type: 'staff' })} />
+  }
+  if (view.type === 'period') {
+    return <PeriodOverview period={view.period} onBack={() => setView({ type: 'staff' })} />
+  }
+
+  return (
+    <div className="p-6 max-w-2xl">
+      <h2 className="text-[20px] font-bold text-[#111] mb-4">Staff</h2>
+
+      <div className="flex gap-1 mb-6 border-b border-[#ebebeb]">
+        {(['employees', 'payroll'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setTab(t)}
+            className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px capitalize transition-colors ${
+              tab === t
+                ? 'border-[#111] text-[#111]'
+                : 'border-transparent text-[#999] hover:text-[#555]'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'employees' ? (
+        <StaffList onSelect={(u) => setView({ type: 'employee', user: u })} />
+      ) : (
+        <PeriodList onSelect={(p) => setView({ type: 'period', period: p })} />
+      )}
+    </div>
+  )
 }
