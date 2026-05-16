@@ -481,20 +481,21 @@ function StaffList({ onSelect }: { onSelect: (u: User) => void }) {
   const active   = users.filter((u) => u.active)
   const inactive = users.filter((u) => !u.active)
 
-  const monthlyCost = users
-    .filter((u) => u.active && u.pay_rate != null && u.pay_type === 'Salary')
-    .reduce((s, u) => s + (u.pay_rate ?? 0), 0)
-
   const onPayroll = users.filter((u) => u.active && u.pay_rate != null).length
+
+  const ratesSet  = users.filter((u) => u.active && u.pay_rate != null)
+  const avgRate   = ratesSet.length > 0
+    ? ratesSet.reduce((s, u) => s + (u.pay_rate ?? 0), 0) / ratesSet.length
+    : 0
 
   return (
     <div className="max-w-2xl">
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         {[
-          { label: 'Total Staff',      value: users.length.toString() },
-          { label: 'On Payroll',       value: onPayroll.toString() },
-          { label: 'Monthly (Salary)', value: fmt(monthlyCost) },
+          { label: 'Total Staff',   value: users.length.toString() },
+          { label: 'On Payroll',    value: onPayroll.toString() },
+          { label: 'Avg Hourly Rate', value: fmt(avgRate) },
         ].map(({ label, value }) => (
           <div key={label} className="bg-white rounded-2xl border border-[#ebebeb] p-4">
             <p className="text-[11px] text-[#999] mb-1">{label}</p>

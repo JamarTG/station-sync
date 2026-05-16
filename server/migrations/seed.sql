@@ -1,8 +1,8 @@
 TRUNCATE nozzle_logs, tank_logs, deposits, shift_attendance, shift_fuel_prices, nozzles, tanks, shifts, shift_schedule_days, shift_schedules, pumps, users, fuels, days RESTART IDENTITY CASCADE;
 
 INSERT INTO users (id, name, role, password_hash, active, phone, nis, trn, email, pay_rate, pay_type) VALUES
-  ('f60f593a-28d2-4c17-9cd5-02c42c692574', 'John Smith', 'Supervisor', 'hash1', true, '555-0001', 'NIS001', 'TRN001', 'john@example.com', 180000.00, 'Salary'),
-  ('d99f5df6-8733-4ebd-ab7e-3e7ff9fea903', 'Jane Doe',   'Attendant',  'hash2', true, '555-0002', 'NIS002', 'TRN002', 'jane@example.com',    650.00, 'Hourly');
+  ('f60f593a-28d2-4c17-9cd5-02c42c692574', 'John Smith', 'Supervisor', 'hash1', true, '555-0001', 'NIS001', 'TRN001', 'john@example.com', 1500.00, 'Hourly'),
+  ('d99f5df6-8733-4ebd-ab7e-3e7ff9fea903', 'Jane Doe',   'Attendant',  'hash2', true, '555-0002', 'NIS002', 'TRN002', 'jane@example.com',  650.00, 'Hourly');
 
 INSERT INTO fuels (id, name) VALUES
   ('5981a302-b8b4-4aa3-85cb-7c17b18479b5', 'ULSD'),
