@@ -184,18 +184,29 @@ func (h *PayrollHandler) CreatePeriod(c *gin.Context) {
 	c.JSON(http.StatusCreated, period)
 }
 
-func (h *PayrollHandler) ListRecords(c *gin.Context) {
-	periodID := c.Param("id")
+const recordSelectCols = `
+	pr.id::text, pr.period_id::text, pp.start_date, pp.end_date, pp.status,
+	pr.user_id::text, u.name, u.role,
+	pr.gross_pay, pr.nis, pr.nht, pr.ed_tax, pr.paye, pr.net_pay,
+	pr.hours_worked, pr.created_at`
 
+func scanRecord(rows interface{ Scan(...any) error }, r *model.PayrollRecord) error {
+	return rows.Scan(
+		&r.ID, &r.PeriodID, &r.PeriodStartDate, &r.PeriodEndDate, &r.PeriodStatus,
+		&r.UserID, &r.UserName, &r.UserRole,
+		&r.GrossPay, &r.NIS, &r.NHT, &r.EdTax, &r.PAYE, &r.NetPay,
+		&r.HoursWorked, &r.CreatedAt,
+	)
+}
+
+func (h *PayrollHandler) ListRecords(c *gin.Context) {
 	rows, err := h.DB.Query(c.Request.Context(), `
-		SELECT pr.id::text, pr.period_id::text, pr.user_id::text,
-		       u.name, u.role,
-		       pr.gross_pay, pr.nis, pr.nht, pr.ed_tax, pr.paye, pr.net_pay,
-		       pr.hours_worked, pr.created_at
+		SELECT `+recordSelectCols+`
 		FROM payroll_records pr
+		JOIN payroll_periods pp ON pp.id = pr.period_id
 		JOIN users u ON u.id = pr.user_id
 		WHERE pr.period_id = $1
-		ORDER BY u.name`, periodID)
+		ORDER BY u.name`, c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -205,12 +216,33 @@ func (h *PayrollHandler) ListRecords(c *gin.Context) {
 	records := []model.PayrollRecord{}
 	for rows.Next() {
 		var r model.PayrollRecord
-		if err := rows.Scan(
-			&r.ID, &r.PeriodID, &r.UserID,
-			&r.UserName, &r.UserRole,
-			&r.GrossPay, &r.NIS, &r.NHT, &r.EdTax, &r.PAYE, &r.NetPay,
-			&r.HoursWorked, &r.CreatedAt,
-		); err != nil {
+		if err := scanRecord(rows, &r); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		records = append(records, r)
+	}
+	c.JSON(http.StatusOK, records)
+}
+
+func (h *PayrollHandler) ListRecordsForUser(c *gin.Context) {
+	rows, err := h.DB.Query(c.Request.Context(), `
+		SELECT `+recordSelectCols+`
+		FROM payroll_records pr
+		JOIN payroll_periods pp ON pp.id = pr.period_id
+		JOIN users u ON u.id = pr.user_id
+		WHERE pr.user_id = $1
+		ORDER BY pp.start_date DESC`, c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	records := []model.PayrollRecord{}
+	for rows.Next() {
+		var r model.PayrollRecord
+		if err := scanRecord(rows, &r); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

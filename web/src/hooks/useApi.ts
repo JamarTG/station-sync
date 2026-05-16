@@ -51,3 +51,11 @@ export function usePayrollRecords(periodId: string | null) {
     enabled: !!periodId,
   })
 }
+
+export function useUserPayroll(userId: string | null) {
+  return useQuery({
+    queryKey: ['user-payroll', userId],
+    queryFn: () => api.get<PayrollRecord[]>(`/users/${userId}/payroll`).then((r) => r.data),
+    enabled: !!userId,
+  })
+}

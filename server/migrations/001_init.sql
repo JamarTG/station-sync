@@ -105,12 +105,15 @@ CREATE TABLE deposits (
     fx_currency  TEXT,
     fx_amount    NUMERIC(10, 2),
     fx_rate      NUMERIC(10, 4),
-    metadata     TEXT
+    metadata     TEXT,
+    deposited_by  TEXT NOT NULL,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
 
 CREATE TABLE drops (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    deposited_by  UUID NOT NULL REFERENCES users(id),
+    deposited_by  TEXT NOT NULL,
     received_by   UUID REFERENCES users(id),
     amount        NUMERIC(10, 2) NOT NULL,
     reference     TEXT,

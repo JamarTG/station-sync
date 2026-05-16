@@ -61,6 +61,9 @@ export interface PayrollPeriod {
 export interface PayrollRecord {
   id: string
   period_id: string
+  period_start_date: string
+  period_end_date: string
+  period_status: string
   user_id: string
   user_name: string
   user_role: string

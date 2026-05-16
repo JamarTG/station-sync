@@ -15,4 +15,6 @@ func RegisterRoute(g *gin.RouterGroup, db *pgxpool.Pool) {
 	periods.POST("", h.CreatePeriod)
 	periods.GET("/:id/records", h.ListRecords)
 	periods.PATCH("/:id/publish", h.PublishPeriod)
+
+	g.GET("/users/:id/payroll", h.ListRecordsForUser)
 }
