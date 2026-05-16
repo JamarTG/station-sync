@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"project-sync/internal/model"
@@ -190,14 +191,14 @@ const recordSelectCols = `
 	pr.id::text, pr.period_id::text, pp.start_date, pp.end_date, pp.status,
 	pr.user_id::text, u.name, u.role,
 	pr.gross_pay, pr.nis, pr.nht, pr.ed_tax, pr.paye, pr.net_pay,
-	pr.hours_worked, pr.created_at`
+	pr.hours_worked, pr.overage, pr.shortage, pr.created_at`
 
 func scanRecord(rows interface{ Scan(...any) error }, r *model.PayrollRecord) error {
 	return rows.Scan(
 		&r.ID, &r.PeriodID, &r.PeriodStartDate, &r.PeriodEndDate, &r.PeriodStatus,
 		&r.UserID, &r.UserName, &r.UserRole,
 		&r.GrossPay, &r.NIS, &r.NHT, &r.EdTax, &r.PAYE, &r.NetPay,
-		&r.HoursWorked, &r.CreatedAt,
+		&r.HoursWorked, &r.Overage, &r.Shortage, &r.CreatedAt,
 	)
 }
 
@@ -262,6 +263,91 @@ func (h *PayrollHandler) PublishPeriod(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func (h *PayrollHandler) WeeklySummary(c *gin.Context) {
+	now := time.Now()
+	weekday := int(now.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	weekStart := now.AddDate(0, 0, -(weekday - 1))
+	weekEnd := weekStart.AddDate(0, 0, 6)
+
+	var totalOverage, totalShortage float64
+	err := h.DB.QueryRow(c.Request.Context(), `
+		SELECT COALESCE(SUM(pr.overage), 0), COALESCE(SUM(pr.shortage), 0)
+		FROM payroll_records pr
+		JOIN payroll_periods pp ON pp.id = pr.period_id
+		WHERE pp.end_date >= $1 AND pp.start_date <= $2`,
+		weekStart.Format("2006-01-02"),
+		weekEnd.Format("2006-01-02"),
+	).Scan(&totalOverage, &totalShortage)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"total_overage":  totalOverage,
+		"total_shortage": totalShortage,
+		"week_start":     weekStart.Format("2006-01-02"),
+		"week_end":       weekEnd.Format("2006-01-02"),
+	})
+}
+
+func (h *PayrollHandler) UpdateRecord(c *gin.Context) {
+	periodID := c.Param("id")
+	recordID := c.Param("recordId")
+
+	var body struct {
+		Overage  float64 `json:"overage"`
+		Shortage float64 `json:"shortage"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx := c.Request.Context()
+
+	var gross, nis, nht, edTax, paye float64
+	err := h.DB.QueryRow(ctx,
+		`SELECT gross_pay, nis, nht, ed_tax, paye FROM payroll_records WHERE id = $1 AND period_id = $2`,
+		recordID, periodID,
+	).Scan(&gross, &nis, &nht, &edTax, &paye)
+	if err == pgx.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "record not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	overage  := math.Round(body.Overage*100) / 100
+	shortage := math.Round(body.Shortage*100) / 100
+	netPay   := math.Round((gross-nis-nht-edTax-paye+overage-shortage)*100) / 100
+
+	_, err = h.DB.Exec(ctx,
+		`UPDATE payroll_records SET overage=$1, shortage=$2, net_pay=$3 WHERE id=$4`,
+		overage, shortage, netPay, recordID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var r model.PayrollRecord
+	if err := scanRecord(h.DB.QueryRow(ctx,
+		`SELECT `+recordSelectCols+`
+		 FROM payroll_records pr
+		 JOIN payroll_periods pp ON pp.id = pr.period_id
+		 JOIN users u ON u.id = pr.user_id
+		 WHERE pr.id = $1`, recordID,
+	), &r); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, r)
 }
 
 func daysInMonthOf(t time.Time) int {

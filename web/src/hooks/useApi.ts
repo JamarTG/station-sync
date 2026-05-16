@@ -45,6 +45,13 @@ export function useUsers() {
   })
 }
 
+export function usePayrollWeeklySummary() {
+  return useQuery({
+    queryKey: ['payroll-weekly-summary'],
+    queryFn: () => api.get<{ total_overage: number; total_shortage: number; week_start: string; week_end: string }>('/payroll/weekly-summary').then((r) => r.data),
+  })
+}
+
 export function usePayrollPeriods() {
   return useQuery({
     queryKey: ['payroll-periods'],

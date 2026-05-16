@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   useUsers, useUserPayroll, usePayrollPeriods, usePayrollRecords,
-  useCreateUser, useUpdatePay,
+  useCreateUser, useUpdatePay, usePayrollWeeklySummary,
 } from '../hooks/useApi'
 import { api } from '../lib/api'
 import type { User, PayrollPeriod, PayrollRecord } from '../lib/api'
@@ -228,8 +228,39 @@ function NewPeriodModal({ onClose }: { onClose: () => void }) {
 // ── Payroll Record Card ───────────────────────────────────────────────────────
 
 function RecordCard({ record }: { record: PayrollRecord }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen]         = useState(false)
+  const [editAdj, setEditAdj]   = useState(false)
+  const [overage, setOverage]   = useState((record.overage ?? 0).toString())
+  const [shortage, setShortage] = useState((record.shortage ?? 0).toString())
+  const [saving, setSaving]     = useState(false)
+  const qc = useQueryClient()
+
   const totalDeductions = record.nis + record.nht + record.ed_tax + record.paye
+  const recOverage  = record.overage  ?? 0
+  const recShortage = record.shortage ?? 0
+  const liveNet = record.gross_pay - totalDeductions + (parseFloat(overage) || 0) - (parseFloat(shortage) || 0)
+
+  async function saveAdjustments() {
+    setSaving(true)
+    try {
+      await api.patch(`/payroll/periods/${record.period_id}/records/${record.id}`, {
+        overage:  parseFloat(overage)  || 0,
+        shortage: parseFloat(shortage) || 0,
+      })
+      await qc.invalidateQueries({ queryKey: ['payroll-records', record.period_id] })
+      await qc.invalidateQueries({ queryKey: ['user-payroll', record.user_id] })
+      await qc.invalidateQueries({ queryKey: ['users'] })
+      setEditAdj(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function cancelAdj() {
+    setOverage(record.overage.toString())
+    setShortage(record.shortage.toString())
+    setEditAdj(false)
+  }
 
   return (
     <div className="border border-[#ebebeb] rounded-xl overflow-hidden">
@@ -272,7 +303,68 @@ function RecordCard({ record }: { record: PayrollRecord }) {
             <span className="text-[#888]">Total deductions</span>
             <span className="text-[#c0392b] font-semibold">- {fmt(totalDeductions)}</span>
           </div>
-          <div className="flex justify-between text-[14px] font-bold mt-1">
+
+          {/* Adjustments */}
+          <div className="border-t border-[#ebebeb] mt-3 pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-semibold text-[#bbb] uppercase tracking-widest">Adjustments</p>
+              {!editAdj && (
+                <button onClick={() => setEditAdj(true)} className="flex items-center gap-1 text-[12px] text-[#888] hover:text-[#111] transition-colors">
+                  <Pencil size={11} /> Edit
+                </button>
+              )}
+            </div>
+            {editAdj ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <p className="text-[10px] text-[#bbb] mb-0.5">Overage (+)</p>
+                    <input type="number" min="0" value={overage} onChange={(e) => setOverage(e.target.value)}
+                      className="w-full border border-[#ebebeb] rounded-lg px-3 py-1.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111]" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] text-[#bbb] mb-0.5">Shortage (−)</p>
+                    <input type="number" min="0" value={shortage} onChange={(e) => setShortage(e.target.value)}
+                      className="w-full border border-[#ebebeb] rounded-lg px-3 py-1.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111]" />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between text-[13px] mt-1">
+                  <span className="text-[#888]">Adjusted net pay</span>
+                  <span className="font-semibold text-[#111]">{fmt(liveNet)}</span>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <button onClick={saveAdjustments} disabled={saving}
+                    className="flex-1 bg-[#111] text-white rounded-lg py-1.5 text-[12px] font-semibold hover:bg-[#333] transition-colors disabled:opacity-40">
+                    {saving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button onClick={cancelAdj}
+                    className="flex-1 border border-[#ebebeb] rounded-lg py-1.5 text-[12px] font-semibold text-[#888] hover:bg-[#fafafa] transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {recOverage > 0 && (
+                  <div className="flex justify-between text-[13px]">
+                    <span className="text-[#888]">Overage</span>
+                    <span className="text-green-600">+ {fmt(recOverage)}</span>
+                  </div>
+                )}
+                {recShortage > 0 && (
+                  <div className="flex justify-between text-[13px]">
+                    <span className="text-[#888]">Shortage</span>
+                    <span className="text-[#c0392b]">- {fmt(recShortage)}</span>
+                  </div>
+                )}
+                {recOverage === 0 && recShortage === 0 && (
+                  <p className="text-[12px] text-[#bbb]">No adjustments</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between text-[14px] font-bold mt-3 pt-3 border-t border-[#ebebeb]">
             <span className="text-[#111]">Net pay</span>
             <span className="text-[#111]">{fmt(record.net_pay)}</span>
           </div>
@@ -312,86 +404,95 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
   ]
 
   return (
-    <div className="p-6 max-w-2xl overflow-y-auto h-full">
-      <button onClick={onBack} className="flex items-center gap-2 text-[13px] text-[#888] hover:text-[#111] transition-colors mb-6">
-        <ArrowLeft size={14} /> Back to Staff
-      </button>
+    <div className="flex h-full overflow-hidden">
 
-      {/* Header */}
-      <div className="flex items-start gap-4 mb-6">
-        <div className="w-14 h-14 rounded-full bg-[#111] text-white flex items-center justify-center text-[18px] font-bold shrink-0">
-          {user.name.charAt(0).toUpperCase()}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-[20px] font-bold text-[#111]">{user.name}</h2>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${roleBadgeColor(user.role)}`}>{user.role}</span>
-            <span className={`w-2 h-2 rounded-full ${user.active ? 'bg-green-400' : 'bg-[#ddd]'}`} />
-            <span className="text-[12px] text-[#999]">{user.active ? 'Active' : 'Inactive'}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Profile info */}
-      <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden mb-6">
-        {profile.map(({ label, value }) => (
-          <div key={label} className="flex items-center px-5 py-3 border-b border-[#f4f4f4] last:border-0">
-            <span className="text-[12px] text-[#999] w-28 shrink-0">{label}</span>
-            <span className="text-[13px] text-[#111]">{value}</span>
-          </div>
-        ))}
-        <div className="flex items-center px-5 py-3">
-          <span className="text-[12px] text-[#999] w-28 shrink-0">Pay Rate</span>
-          <span className="text-[13px] text-[#111] flex-1">
-            {user.pay_rate != null && user.pay_type
-              ? `${fmt(user.pay_rate)} / ${user.pay_type === 'Hourly' ? 'hr' : 'month'}`
-              : <span className="text-[#bbb]">Not set</span>}
-          </span>
-          <button onClick={() => setShowPayModal(true)}
-            className="flex items-center gap-1 text-[12px] text-[#888] hover:text-[#111] transition-colors">
-            <Pencil size={12} /> Edit
-          </button>
-        </div>
-      </div>
-
-      {/* Payroll history */}
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[13px] font-bold text-[#111]">Payroll History</p>
-        <button onClick={() => setShowPeriodModal(true)}
-          className="flex items-center gap-1.5 text-[12px] font-semibold text-[#111] hover:text-[#555] transition-colors">
-          <Plus size={13} /> Run Payroll
+      {/* Left: profile */}
+      <div className="w-[420px] shrink-0 border-r border-[#e8e8e8] overflow-y-auto p-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-[13px] text-[#888] hover:text-[#111] transition-colors mb-6">
+          <ArrowLeft size={14} /> Back to Staff
         </button>
-      </div>
 
-      {isLoading ? (
-        <p className="text-[13px] text-[#aaa]">Loading...</p>
-      ) : records.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-          <p className="text-[13px] text-[#bbb]">
-            {periods.length === 0
-              ? 'No payroll periods yet. Run payroll to generate records.'
-              : user.pay_rate == null
-              ? 'No pay rate set. Edit pay rate above, then run payroll.'
-              : 'No records found for this employee.'}
-          </p>
+        <div className="flex items-start gap-4 mb-6">
+          <div className="w-14 h-14 rounded-full bg-[#111] text-white flex items-center justify-center text-[18px] font-bold shrink-0">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-[20px] font-bold text-[#111]">{user.name}</h2>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`w-2 h-2 rounded-full ${user.active ? 'bg-green-400' : 'bg-[#ddd]'}`} />
+              <span className="text-[12px] text-[#999]">{user.active ? 'Active' : 'Inactive'}</span>
+            </div>
+          </div>
         </div>
-      ) : (
-        <div className="space-y-2">
-          {records.map((r) => (
-            <div key={r.id}>
-              <RecordCard record={r} />
-              {r.period_status === 'Draft' && (
-                <div className="flex justify-end mt-1 pr-1">
-                  <button onClick={() => handlePublish(r.period_id)}
-                    className="text-[12px] text-[#888] hover:text-[#111] transition-colors">
-                    Publish period
-                  </button>
-                </div>
-              )}
+
+        <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
+          <div className="flex items-center px-5 py-3 border-b border-[#f4f4f4]">
+            <span className="text-[12px] text-[#999] w-28 shrink-0">Role</span>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${roleBadgeColor(user.role)}`}>{user.role}</span>
+          </div>
+          {profile.map(({ label, value }) => (
+            <div key={label} className="flex items-center px-5 py-3 border-b border-[#f4f4f4]">
+              <span className="text-[12px] text-[#999] w-28 shrink-0">{label}</span>
+              <span className="text-[13px] text-[#111]">{value}</span>
             </div>
           ))}
+          <div className="flex items-center px-5 py-3">
+            <span className="text-[12px] text-[#999] w-28 shrink-0">Base Pay</span>
+            <span className="text-[13px] text-[#111] flex-1">
+              {user.pay_rate != null && user.pay_type
+                ? `${fmt(user.pay_rate)} / ${user.pay_type === 'Hourly' ? 'hr' : 'month'}`
+                : <span className="text-[#bbb]">Not set</span>}
+            </span>
+            <button onClick={() => setShowPayModal(true)}
+              className="flex items-center gap-1 text-[12px] text-[#888] hover:text-[#111] transition-colors">
+              <Pencil size={12} /> Edit
+            </button>
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* Right: payroll history */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-xl">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-[16px] font-bold text-[#111]">Payroll History</p>
+            <button onClick={() => setShowPeriodModal(true)}
+              className="flex items-center gap-1.5 text-[12px] font-semibold text-[#111] hover:text-[#555] transition-colors">
+              <Plus size={13} /> Run Payroll
+            </button>
+          </div>
+
+          {isLoading ? (
+            <p className="text-[13px] text-[#aaa]">Loading...</p>
+          ) : records.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+              <p className="text-[13px] text-[#bbb]">
+                {periods.length === 0
+                  ? 'No payroll periods yet. Run payroll to generate records.'
+                  : user.pay_rate == null
+                  ? 'No pay rate set. Edit pay rate in the profile, then run payroll.'
+                  : 'No records found for this employee.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {records.map((r) => (
+                <div key={r.id}>
+                  <RecordCard record={r} />
+                  {r.period_status === 'Draft' && (
+                    <div className="flex justify-end mt-1 pr-1">
+                      <button onClick={() => handlePublish(r.period_id)}
+                        className="text-[12px] text-[#888] hover:text-[#111] transition-colors">
+                        Publish period
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {showPayModal    && <EditPayModal user={user} onClose={() => setShowPayModal(false)} />}
       {showPeriodModal && <NewPeriodModal onClose={() => setShowPeriodModal(false)} />}
@@ -501,32 +602,24 @@ function PeriodOverview({ period, onBack }: { period: PayrollPeriod; onBack: () 
 // ── Staff List ────────────────────────────────────────────────────────────────
 
 function StaffList({ onSelect }: { onSelect: (u: User) => void }) {
-  const { data: users = [], isLoading } = useUsers()
-  const [showAdd, setShowAdd]           = useState(false)
+  const { data: users = [], isLoading }  = useUsers()
+  const { data: weekly }                 = usePayrollWeeklySummary()
+  const [showAdd, setShowAdd]            = useState(false)
   const active   = users.filter((u) => u.active)
   const inactive = users.filter((u) => !u.active)
-
-  const onPayroll = users.filter((u) => u.active && u.pay_rate != null).length
-
-  const ratesSet  = users.filter((u) => u.active && u.pay_rate != null)
-  const avgRate   = ratesSet.length > 0
-    ? ratesSet.reduce((s, u) => s + (u.pay_rate ?? 0), 0) / ratesSet.length
-    : 0
 
   return (
     <div className="max-w-2xl">
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {[
-          { label: 'Total Staff',   value: users.length.toString() },
-          { label: 'On Payroll',    value: onPayroll.toString() },
-          { label: 'Avg Hourly Rate', value: fmt(avgRate) },
-        ].map(({ label, value }) => (
-          <div key={label} className="bg-white rounded-2xl border border-[#ebebeb] p-4">
-            <p className="text-[11px] text-[#999] mb-1">{label}</p>
-            <p className="text-[15px] font-bold text-[#111]">{value}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className={`rounded-2xl border p-4 ${(weekly?.total_overage ?? 0) > 0 ? 'bg-green-50 border-green-200' : 'bg-white border-[#ebebeb]'}`}>
+          <p className="text-[11px] text-[#999] mb-1">Overages This Week</p>
+          <p className={`text-[15px] font-bold ${(weekly?.total_overage ?? 0) > 0 ? 'text-green-700' : 'text-[#bbb]'}`}>{fmt(weekly?.total_overage ?? 0)}</p>
+        </div>
+        <div className={`rounded-2xl border p-4 ${(weekly?.total_shortage ?? 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-[#ebebeb]'}`}>
+          <p className="text-[11px] text-[#999] mb-1">Shortages This Week</p>
+          <p className={`text-[15px] font-bold ${(weekly?.total_shortage ?? 0) > 0 ? 'text-[#c0392b]' : 'text-[#bbb]'}`}>{fmt(weekly?.total_shortage ?? 0)}</p>
+        </div>
       </div>
 
       {isLoading ? (
@@ -546,17 +639,16 @@ function StaffList({ onSelect }: { onSelect: (u: User) => void }) {
                 <p className="text-[14px] font-semibold text-[#111] truncate">{u.name}</p>
                 <p className="text-[12px] text-[#999] truncate">{u.email}</p>
               </div>
-              <span className={`text-[11px] font-semibold px-2 py-1 rounded-full shrink-0 ${roleBadgeColor(u.role)}`}>{u.role}</span>
-              <div className="text-right shrink-0 w-28">
-                {u.pay_rate != null && u.pay_type != null ? (
-                  <>
-                    <p className="text-[13px] font-semibold text-[#111]">{fmt(u.pay_rate)}</p>
-                    <p className="text-[11px] text-[#999]">{u.pay_type === 'Hourly' ? 'per hour' : 'per month'}</p>
-                  </>
-                ) : (
-                  <p className="text-[12px] text-[#bbb]">No pay set</p>
-                )}
-              </div>
+              {u.pay_rate == null ? (
+                <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200 shrink-0">No Pay Set</span>
+              ) : u.latest_net_pay != null ? (
+                <div className="text-right shrink-0">
+                  <p className="text-[13px] font-semibold text-[#111]">{fmt(u.latest_net_pay)}</p>
+                  <p className="text-[11px] text-[#999]">last paid</p>
+                </div>
+              ) : (
+                <p className="text-[12px] text-[#bbb] shrink-0">No records</p>
+              )}
               <ChevronRight size={14} className="text-[#ccc] shrink-0" />
             </button>
           ))}

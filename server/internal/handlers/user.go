@@ -22,8 +22,13 @@ func scanUser(row pgx.Row, u *model.User) error {
 }
 
 func (h *UserHandler) List(c *gin.Context) {
-	rows, err := h.DB.Query(c.Request.Context(),
-		`SELECT `+userSelectCols+` FROM users ORDER BY name`)
+	rows, err := h.DB.Query(c.Request.Context(), `
+		SELECT `+userSelectCols+`,
+			(SELECT pr.net_pay FROM payroll_records pr
+			 JOIN payroll_periods pp ON pp.id = pr.period_id
+			 WHERE pr.user_id = u.id
+			 ORDER BY pp.start_date DESC LIMIT 1) AS latest_net_pay
+		FROM users u ORDER BY name`)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -33,7 +38,11 @@ func (h *UserHandler) List(c *gin.Context) {
 	users := []model.User{}
 	for rows.Next() {
 		var u model.User
-		if err := scanUser(rows, &u); err != nil {
+		if err := rows.Scan(
+			&u.ID, &u.Name, &u.Role, &u.Active, &u.EmployedOn, &u.DateOfBirth,
+			&u.Phone, &u.NIS, &u.TRN, &u.Email, &u.PayRate, &u.PayType,
+			&u.LatestNetPay,
+		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

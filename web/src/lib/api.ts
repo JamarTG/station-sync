@@ -57,6 +57,7 @@ export interface User {
   email: string
   pay_rate: number | null
   pay_type: 'Hourly' | 'Salary' | null
+  latest_net_pay: number | null
 }
 
 export interface PayrollPeriod {
@@ -83,5 +84,7 @@ export interface PayrollRecord {
   paye: number
   net_pay: number
   hours_worked: number | null
+  overage: number
+  shortage: number
   created_at: string
 }

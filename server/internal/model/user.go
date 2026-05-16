@@ -25,4 +25,5 @@ type User struct {
 	Email        string     `db:"email" json:"email"`
 	PayRate      *float64   `db:"pay_rate" json:"pay_rate"`
 	PayType      *string    `db:"pay_type" json:"pay_type"`
+	LatestNetPay *float64   `db:"latest_net_pay" json:"latest_net_pay"`
 }

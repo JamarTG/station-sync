@@ -33,5 +33,7 @@ type PayrollRecord struct {
 	PAYE            float64   `db:"paye" json:"paye"`
 	NetPay          float64   `db:"net_pay" json:"net_pay"`
 	HoursWorked     *float64  `db:"hours_worked" json:"hours_worked"`
+	Overage         float64   `db:"overage" json:"overage"`
+	Shortage        float64   `db:"shortage" json:"shortage"`
 	CreatedAt       time.Time `db:"created_at" json:"created_at"`
 }
