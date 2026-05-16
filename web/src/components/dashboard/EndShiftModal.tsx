@@ -3,6 +3,7 @@ import { ArrowLeft, X, Plus, Minus } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { CardSettlementReviewModal, type CardTransaction } from './CardSettlementReviewModal'
 import { fmtInput, parseInput } from '../../lib/fmt'
+import { api } from '../../lib/api'
 
 const allDenominations = [5000, 2000, 1000, 500, 100, 50, 20, 10, 5, 1]
 const zeroCounts = Object.fromEntries(allDenominations.map((d) => [d, 0]))
@@ -25,9 +26,10 @@ type Step = 'password' | 'cash' | 'card' | 'summary'
 
 interface Props {
   onClose: () => void
+  shiftId?: string
 }
 
-export function EndShiftModal({ onClose }: Props) {
+export function EndShiftModal({ onClose, shiftId }: Props) {
   useEscapeKey(onClose)
   const [step, setStep] = useState<Step>('password')
   const [password, setPassword] = useState('')
@@ -392,7 +394,13 @@ export function EndShiftModal({ onClose }: Props) {
                 </div>
               </div>
 
-              <button onClick={onClose} className="w-full py-4 rounded-2xl bg-[#111] text-[15px] font-semibold text-white hover:bg-[#222] transition-colors">
+              <button
+                onClick={async () => {
+                  if (shiftId) await api.post(`/shifts/${shiftId}/close`).catch(() => {})
+                  onClose()
+                }}
+                className="w-full py-4 rounded-2xl bg-[#111] text-[15px] font-semibold text-white hover:bg-[#222] transition-colors"
+              >
                 End Shift
               </button>
             </>

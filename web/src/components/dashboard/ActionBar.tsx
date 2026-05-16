@@ -15,7 +15,7 @@ import { DepositModal } from './DepositModal'
 
 type RecordView = 'select' | 'drop' | 'cash-deposit' | 'expenditure' | 'charge' | 'card' | 'advance' | 'fuel-receival' | 'fx' | 'deposit' | null
 
-export function ActionBar() {
+export function ActionBar({ shiftId }: { shiftId?: string }) {
   const [recordView, setRecordView] = useState<RecordView>(null)
   const [dropAttendant, setDropAttendant] = useState('')
   const [showEndShift, setShowEndShift] = useState(false)
@@ -147,7 +147,7 @@ export function ActionBar() {
         />
       )}
       {showEndShift && (
-        <EndShiftModal onClose={() => setShowEndShift(false)} />
+        <EndShiftModal onClose={() => setShowEndShift(false)} shiftId={shiftId} />
       )}
       {showReportIssue && (
         <ReportIssueModal onClose={() => setShowReportIssue(false)} />

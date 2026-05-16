@@ -82,7 +82,9 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		return
 	}
 
-	rows, err := h.DB.Query(c.Request.Context(), `
+	ctx := c.Request.Context()
+
+	rows, err := h.DB.Query(ctx, `
 		INSERT INTO shifts (supervisor_id, date, start_time, end_time)
 		VALUES ($1, $2, $3, $4)
 		RETURNING `+shiftSelectCols,
@@ -100,5 +102,49 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	rows.Close()
+
+	// Auto clock-in all active attendants at the shift start time
+	clockIn := body.Date + "T" + body.StartTime + ":00"
+	_, err = h.DB.Exec(ctx, `
+		INSERT INTO shift_attendance (shift_id, user_id, clock_in)
+		SELECT $1, id, $2::timestamptz
+		FROM users
+		WHERE active = true AND role = 'Attendant'
+		ON CONFLICT DO NOTHING`,
+		s.ID, clockIn,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusCreated, s)
+}
+
+func (h *ShiftHandler) CloseAttendance(c *gin.Context) {
+	shiftID := c.Param("shiftId")
+	ctx     := c.Request.Context()
+
+	var endTime, date string
+	err := h.DB.QueryRow(ctx,
+		`SELECT end_time::text, date::text FROM shifts WHERE id = $1`, shiftID,
+	).Scan(&endTime, &date)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "shift not found"})
+		return
+	}
+
+	clockOut := date + "T" + endTime + ":00"
+	_, err = h.DB.Exec(ctx, `
+		UPDATE shift_attendance
+		SET clock_out = $1::timestamptz
+		WHERE shift_id = $2 AND clock_out IS NULL`,
+		clockOut, shiftID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
 }

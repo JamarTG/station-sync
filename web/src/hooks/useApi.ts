@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type Fuel, type Pump, type Shift, type FuelSummary, type User, type PayrollPeriod, type PayrollRecord } from '../lib/api'
+import { api, type Fuel, type Pump, type Shift, type FuelSummary, type User, type PayrollPeriod, type PayrollRecord, type ShiftAttendance } from '../lib/api'
 
 export function useFuels() {
   return useQuery({
@@ -27,6 +27,14 @@ export function useFuelSummary(pumpId: string | undefined, shiftId: string | und
     queryKey: ['fuel-summary', pumpId, shiftId],
     queryFn: () => api.get<FuelSummary[]>(`/pumps/${pumpId}/shifts/${shiftId}/fuel-summary`).then((r) => r.data),
     enabled: !!pumpId && !!shiftId,
+  })
+}
+
+export function useShiftAttendance(shiftId: string | undefined) {
+  return useQuery({
+    queryKey: ['attendance', shiftId],
+    queryFn: () => api.get<ShiftAttendance[]>(`/shifts/${shiftId}/attendance`).then((r) => r.data),
+    enabled: !!shiftId,
   })
 }
 

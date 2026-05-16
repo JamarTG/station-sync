@@ -8,6 +8,7 @@ const NOZZLE_COUNT = 12
 const emptyNozzles = (): NozzleRow[] =>
   Array.from({ length: NOZZLE_COUNT }, () => ({ opening: '', closing: '' }))
 import { AccountsPanel, type AccountType } from '../components/dashboard/AccountsPanel'
+import { AttendancePanel } from '../components/dashboard/AttendancePanel'
 import { TotalSalesCard } from '../components/dashboard/TotalSalesCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
@@ -75,7 +76,7 @@ export function DashboardPage() {
       {/* Main scrollable content */}
       <div className="flex-[2] min-w-0 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
         <div className="p-6 flex flex-col gap-5">
-          <ActionBar />
+          <ActionBar shiftId={shift?.id} />
 
           <div>
             <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Service Station</p>
@@ -108,6 +109,8 @@ export function DashboardPage() {
             <AccountsPanel selected={selectedAccount} onSelect={setSelectedAccount} />
             <RecentActivityCard account={selectedAccount} />
           </div>
+
+          <AttendancePanel shiftId={shift?.id} />
 
           <div>
             <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Convenience Store</p>

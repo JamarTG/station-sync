@@ -33,4 +33,6 @@ func RegisterRoute(g *gin.RouterGroup, db *pgxpool.Pool) {
 	shifts.GET("/:shiftId/attendance", ah.ListByShift)
 	shifts.POST("/:shiftId/attendance/clock-in", ah.ClockIn)
 	shifts.PATCH("/:shiftId/attendance/:id/clock-out", ah.ClockOut)
+	shifts.PATCH("/:shiftId/attendance/:id", ah.UpdateTimes)
+	shifts.POST("/:shiftId/close", sh.CloseAttendance)
 }

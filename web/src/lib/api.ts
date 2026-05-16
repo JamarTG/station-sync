@@ -36,6 +36,15 @@ export interface FuelSummary {
   totalSales: number
 }
 
+export interface ShiftAttendance {
+  id: string
+  shift_id: string
+  user_id: string
+  user_name: string
+  clock_in: string
+  clock_out: string | null
+}
+
 export interface User {
   id: string
   name: string
