@@ -1,18 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
-import { FXAttendantDetailModal } from './FXAttendantDetailModal'
+import { activityByAccount, type FXRow } from './RecentActivityCard'
 
-const fxData: Record<string, { currency: string; amount: number; rate: number }[]> = {
-  'S. Smith': [
-    { currency: 'USD', amount: 500, rate: 150 },
-  ],
-  'T. Brisco': [
-    { currency: 'EUR', amount: 200, rate: 160 },
-  ],
-}
-
-const attendants = Object.keys(fxData)
+const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
 interface Props {
   onBack: () => void
@@ -21,25 +12,18 @@ interface Props {
 
 export function FXBreakdownModal({ onBack, onClose }: Props) {
   useEscapeKey(onClose)
-  const [selectedAttendant, setSelectedAttendant] = useState<string | null>(null)
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 537)
+  const fxMap = activityByAccount.FX.filter((r): r is FXRow => r.type === 'fx')
+    .reduce<Record<string, number>>((acc, r) => { acc[r.name] = (acc[r.name] ?? 0) + r.amount; return acc }, {})
+  const attendants = Object.keys(fxMap)
+  const attendantTotal = (a: string) => fxMap[a] ?? 0
+  const total = activityByAccount.FX.reduce((s, r) => s + r.amount, 0)
 
   useEffect(() => {
     function onResize() { setIsNarrow(window.innerWidth < 537) }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
-
-  if (selectedAttendant) {
-    return (
-      <FXAttendantDetailModal
-        attendant={selectedAttendant}
-        entries={fxData[selectedAttendant]}
-        onBack={() => setSelectedAttendant(null)}
-        onClose={onClose}
-      />
-    )
-  }
 
   return (
     <div
@@ -63,13 +47,13 @@ export function FXBreakdownModal({ onBack, onClose }: Props) {
             <h2 className="text-[36px] font-bold text-[#111] leading-none mb-3">FX</h2>
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Total</p>
-              <p className="text-[11px] font-bold text-[#111]">J$0.00</p>
+              <p className="text-[11px] font-bold text-[#111]">{fmt(total)}</p>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[36px] font-bold text-[#111] leading-none">FX</h2>
-            <p className="text-[36px] font-bold text-[#111] leading-none">J$0.00</p>
+            <p className="text-[36px] font-bold text-[#111] leading-none">{fmt(total)}</p>
           </div>
         )}
 
@@ -78,13 +62,8 @@ export function FXBreakdownModal({ onBack, onClose }: Props) {
 
           {attendants.map((a) => (
             <div key={a} className="flex items-center justify-between py-2">
-              <button
-                onClick={() => setSelectedAttendant(a)}
-                className="text-[13px] font-semibold text-[#111] hover:text-[#555] transition-colors"
-              >
-                {a}
-              </button>
-              <p className="text-[13px] font-semibold text-[#bbb]">--</p>
+              <p className="text-[13px] font-semibold text-[#111]">{a}</p>
+              <p className="text-[13px] font-semibold text-[#333]">{fmt(attendantTotal(a))}</p>
             </div>
           ))}
         </div>

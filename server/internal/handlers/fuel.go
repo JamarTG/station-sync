@@ -14,8 +14,9 @@ type FuelHandler struct {
 }
 
 func (h *FuelHandler) List(c *gin.Context) {
+	businessID := c.GetString("business_id")
 	rows, err := h.DB.Query(c.Request.Context(),
-		`SELECT id::text, name FROM fuels ORDER BY name`)
+		`SELECT id::text, name FROM fuels WHERE business_id = $1 ORDER BY name`, businessID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -35,13 +36,14 @@ func (h *FuelHandler) List(c *gin.Context) {
 }
 
 func (h *FuelHandler) ListPumps(c *gin.Context) {
+	businessID := c.GetString("business_id")
 	rows, err := h.DB.Query(c.Request.Context(),
 		`SELECT DISTINCT p.id::text, p.name, p.description
 		 FROM pumps p
 		 JOIN nozzles n ON n.pump_id = p.id
-		 WHERE n.fuel_id = $1
+		 WHERE n.fuel_id = $1 AND p.business_id = $2
 		 ORDER BY p.name`,
-		c.Param("fuelId"),
+		c.Param("fuelId"), businessID,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -62,6 +64,7 @@ func (h *FuelHandler) ListPumps(c *gin.Context) {
 }
 
 func (h *FuelHandler) Create(c *gin.Context) {
+	businessID := c.GetString("business_id")
 	var body struct {
 		Name string `json:"name" binding:"required"`
 	}
@@ -72,12 +75,18 @@ func (h *FuelHandler) Create(c *gin.Context) {
 
 	var f model.Fuel
 	err := h.DB.QueryRow(c.Request.Context(),
-		`INSERT INTO fuels (name) VALUES ($1) RETURNING id::text, name`,
-		body.Name,
+		`INSERT INTO fuels (business_id, name) VALUES ($1, $2) RETURNING id::text, name`,
+		businessID, body.Name,
 	).Scan(&f.ID, &f.Name)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	h.DB.Exec(c.Request.Context(),
+		`INSERT INTO tanks (business_id, fuel_id, name) VALUES ($1, $2, $3) ON CONFLICT (business_id, name) DO NOTHING`,
+		businessID, f.ID, f.Name,
+	)
+
 	c.JSON(http.StatusCreated, f)
 }

@@ -2,6 +2,27 @@ import axios from 'axios'
 
 export const api = axios.create({ baseURL: '/v1' })
 
+export interface AuthUser {
+  id: string
+  business_name?: string
+  business_address_line1?: string
+  business_address_line2?: string
+  business_city?: string
+  business_parish?: string
+  branch_id: string | null
+  name: string
+  role: string
+  email: string
+  must_change_password?: boolean
+}
+
+export interface Branch {
+  id: string
+  business_id: string
+  name: string
+  created_at: string
+}
+
 export interface Fuel {
   id: string
   name: string
@@ -9,6 +30,7 @@ export interface Fuel {
 
 export interface Pump {
   id: string
+  branch_id: string
   name: string
   description: string
 }
@@ -18,8 +40,61 @@ export interface Shift {
   supervisor_id: string
   date: string
   start_time: string
-  end_time: string
+  end_time: string | null
   created_at: string
+}
+
+export interface ShiftFuelPrice {
+  fuel_id: string
+  shift_id: string
+  price: number
+  fuel_name: string
+}
+
+export interface ShiftAttendance {
+  id: string
+  shift_id: string
+  user_id: string
+  user_name: string
+  pump_id: string | null
+  clock_in: string
+  clock_out: string | null
+}
+
+export interface Deposit {
+  id: string
+  shift_id: string
+  attendant_id: string
+  attendant_name: string
+  type: string
+  amount: number
+  metadata: string | null
+}
+
+export interface Nozzle {
+  id: string
+  pump_id: string
+  fuel_id: string
+  fuel_name: string
+}
+
+export interface Tank {
+  id: string
+  business_id: string
+  branch_id: string
+  fuel_id: string
+  fuel_name: string
+  name: string
+  capacity_litres: number
+}
+
+export interface TankLog {
+  id: string
+  tank_id: string
+  shift_id: string
+  opening_level: number | null
+  closing_level: number | null
+  delivery_litres: number | null
 }
 
 export interface NozzleReading {
@@ -34,4 +109,249 @@ export interface FuelSummary {
   pricePerLitre: number
   totalLitresSold: number
   totalSales: number
+}
+
+interface AuthResponse {
+  token: string
+  user: AuthUser
+}
+
+const TOKEN_KEY = 'ss_token'
+const USER_KEY = 'ss_user'
+
+function setToken(token: string) {
+  api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+export function clearToken() {
+  delete api.defaults.headers.common['Authorization']
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(USER_KEY)
+}
+
+export function saveUser(user: AuthUser) {
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
+export function loadSavedSession(): { token: string; user: AuthUser } | null {
+  const token = localStorage.getItem(TOKEN_KEY)
+  const userRaw = localStorage.getItem(USER_KEY)
+  if (!token || !userRaw) return null
+  try {
+    const user = JSON.parse(userRaw) as AuthUser
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+    return { token, user }
+  } catch {
+    return null
+  }
+}
+
+export function login(email: string, password: string) {
+  return api.post<AuthResponse>('/auth/login', { email, password }).then((r) => {
+    setToken(r.data.token)
+    saveUser(r.data.user)
+    return r.data.user
+  })
+}
+
+export function signUp(data: { business_name: string; branch_name?: string; name: string; email: string; password: string; address_line1?: string; address_line2?: string; city?: string; parish?: string }) {
+  return api.post<AuthResponse>('/auth/signup', data).then((r) => {
+    setToken(r.data.token)
+    saveUser(r.data.user)
+    return r.data.user
+  })
+}
+
+export function logout() {
+  return api.post('/auth/logout').finally(clearToken)
+}
+
+export function getOpenShift() {
+  return api
+    .get<Shift>('/shifts/open')
+    .then((r) => r.data)
+    .catch((err) => {
+      if (err.response?.status === 404) return null
+      throw err
+    })
+}
+
+export function createShift(data: { supervisor_id: string; date: string; start_time: string }) {
+  return api.post<Shift>('/shifts', data).then((r) => r.data)
+}
+
+export function closeShift(shiftId: string) {
+  return api.patch(`/shifts/${shiftId}/close`).then((r) => r.data)
+}
+
+export function getShiftFuelPrices(shiftId: string) {
+  return api.get<ShiftFuelPrice[]>(`/shifts/${shiftId}/fuel-prices`).then((r) => r.data)
+}
+
+export function upsertFuelPrice(shiftId: string, fuelId: string, price: number) {
+  return api.post(`/shifts/${shiftId}/fuel-prices`, { fuel_id: fuelId, price }).then((r) => r.data)
+}
+
+export function clockIn(shiftId: string, userId: string, pumpId?: string, clockInTime?: string) {
+  return api
+    .post(`/shifts/${shiftId}/attendance/clock-in`, {
+      user_id: userId,
+      pump_id: pumpId ?? null,
+      clock_in: clockInTime ?? null,
+    })
+    .then((r) => r.data)
+}
+
+export function updateAttendance(
+  shiftId: string,
+  attendanceId: string,
+  data: { user_id: string; pump_id?: string | null; clock_in?: string }
+) {
+  return api.patch<ShiftAttendance>(`/shifts/${shiftId}/attendance/${attendanceId}`, data).then((r) => r.data)
+}
+
+export function deleteAttendance(shiftId: string, attendanceId: string) {
+  return api.delete(`/shifts/${shiftId}/attendance/${attendanceId}`).then((r) => r.data)
+}
+
+export function getShiftAttendance(shiftId: string) {
+  return api.get<ShiftAttendance[]>(`/shifts/${shiftId}/attendance`).then((r) => r.data)
+}
+
+export function getShiftDeposits(shiftId: string) {
+  return api.get<Deposit[]>(`/shifts/${shiftId}/deposits`).then((r) => r.data)
+}
+
+export function getUsers() {
+  return api.get<AuthUser[]>('/users').then((r) => r.data)
+}
+
+export function createUser(data: {
+  name: string
+  role: string
+  password: string
+  email: string
+  phone?: string
+  nis?: string
+  trn?: string
+  employed_on?: string
+  date_of_birth?: string
+}) {
+  return api.post<AuthUser>('/users', data).then((r) => r.data)
+}
+
+export function updateUser(id: string, data: {
+  name?: string
+  role?: string
+  email?: string
+  phone?: string
+  nis?: string
+  trn?: string
+  employed_on?: string
+  date_of_birth?: string
+  active?: boolean
+}) {
+  return api.patch<AuthUser>(`/users/${id}`, data).then((r) => r.data)
+}
+
+export function changePassword(currentPassword: string, newPassword: string) {
+  return api.patch('/users/me/password', { current_password: currentPassword, new_password: newPassword })
+}
+
+export function getBranches() {
+  return api.get<Branch[]>('/branches').then((r) => r.data)
+}
+
+export function createBranch(name: string) {
+  return api.post<Branch>('/branches', { name }).then((r) => r.data)
+}
+
+export function createFuel(data: { name: string }) {
+  return api.post<Fuel>('/fuels', data).then((r) => r.data)
+}
+
+export function createPump(data: { name: string; description?: string }) {
+  return api.post<Pump>('/pumps', data).then((r) => r.data)
+}
+
+export function getNozzles() {
+  return api.get<Nozzle[]>('/nozzles').then((r) => r.data)
+}
+
+export function getPumpNozzles(pumpId: string) {
+  return api.get<Nozzle[]>(`/pumps/${pumpId}/nozzles`).then((r) => r.data)
+}
+
+export function createNozzle(pumpId: string, fuelId: string) {
+  return api.post(`/pumps/${pumpId}/nozzles`, { fuel_id: fuelId }).then((r) => r.data)
+}
+
+export function createDeposit(
+  shiftId: string,
+  data: { attendant_id: string; type: string; amount: number; metadata?: string | null }
+) {
+  return api.post<Deposit>(`/shifts/${shiftId}/deposits`, data).then((r) => r.data)
+}
+
+export function updateDeposit(
+  shiftId: string,
+  depositId: string,
+  data: { attendant_id: string; type: string; amount: number; metadata?: string | null }
+) {
+  return api.patch<Deposit>(`/shifts/${shiftId}/deposits/${depositId}`, data).then((r) => r.data)
+}
+
+export function deleteDeposit(shiftId: string, depositId: string) {
+  return api.delete(`/shifts/${shiftId}/deposits/${depositId}`).then((r) => r.data)
+}
+
+export function getTanks() {
+  return api.get<Tank[]>('/tanks').then((r) => r.data)
+}
+
+export function getShiftTankLogs(shiftId: string) {
+  return api.get<TankLog[]>(`/shifts/${shiftId}/tank-logs`).then((r) => r.data)
+}
+
+export function upsertTankLog(
+  shiftId: string,
+  data: { tank_id: string; opening_level?: number | null; closing_level?: number | null; delivery_litres?: number | null }
+) {
+  return api.post<TankLog>(`/shifts/${shiftId}/tank-logs`, data).then((r) => r.data)
+}
+
+export interface FuelReceival {
+  id: string
+  shift_id: string
+  tank_id: string | null
+  fuel_name: string
+  litres_ordered: number
+  opening_level: number | null
+  closing_level: number | null
+  rate: number | null
+  haulage: number | null
+  gct: number | null
+  invoice_no: string | null
+}
+
+export function getShiftFuelReceivals(shiftId: string) {
+  return api.get<FuelReceival[]>(`/shifts/${shiftId}/fuel-receivals`).then((r) => r.data)
+}
+
+export function createFuelReceival(
+  shiftId: string,
+  data: {
+    tank_id?: string | null
+    fuel_name: string
+    litres_ordered: number
+    opening_level?: number | null
+    closing_level?: number | null
+    rate?: number | null
+    haulage?: number | null
+    gct?: number | null
+    invoice_no?: string | null
+  }
+) {
+  return api.post<FuelReceival>(`/shifts/${shiftId}/fuel-receivals`, data).then((r) => r.data)
 }

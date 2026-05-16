@@ -1,28 +1,78 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { useUsers } from '../../hooks/useApi'
+import { createDeposit, updateDeposit } from '../../lib/api'
 import { fmtInput, parseInput } from '../../lib/fmt'
 
 const denominations = [5000, 2000, 1000, 500, 100, 50, 20, 10, 5, 1]
-const requesters = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
 
 interface Props {
   onBack: () => void
   onClose: () => void
   isEditing?: boolean
-  initialData?: { requestedBy: string; description: string }
+  depositId?: string
+  initialData?: { requestedBy: string; description: string; denominations?: Record<number, number> }
+  shiftId?: string
 }
 
-export function ExpenditureModal({ onBack, onClose, isEditing, initialData }: Props) {
+export function ExpenditureModal({ onBack, onClose, isEditing, depositId, initialData, shiftId }: Props) {
   useEscapeKey(onClose)
+  const queryClient = useQueryClient()
+  const { data: users = [] } = useUsers()
+  const managerRoles = new Set(['Super Admin', 'Admin', 'Manager'])
+  const attendantOptions = users.filter((u) => managerRoles.has(u.role)).map((u) => ({ id: u.id, name: u.name }))
+
   const [counts, setCounts] = useState<Record<number, string>>({})
-  const [description, setDescription] = useState(initialData?.description ?? '')
+  const [description, setDescription] = useState('')
   const [requestedBy, setRequestedBy] = useState(initialData?.requestedBy ?? '')
+
+  useEffect(() => {
+    if (attendantOptions.length > 0 && !requestedBy) setRequestedBy(attendantOptions[0].name)
+  }, [attendantOptions.length])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const total = denominations.reduce((sum, d) => {
     const n = parseInt(counts[d] ?? '', 10)
     return sum + (isNaN(n) ? 0 : n * d)
   }, 0)
+
+  const nonEmpty = Object.fromEntries(
+    denominations.filter((d) => parseInt(counts[d] ?? '', 10) > 0).map((d) => [d, parseInt(counts[d], 10)])
+  )
+
+  const initialTotal = denominations.reduce((sum, d) => sum + (initialData?.denominations?.[d] ?? 0) * d, 0)
+  const effectiveTotal = total > 0 ? total : initialTotal
+  const effectiveCounts = total > 0 ? nonEmpty : (initialData?.denominations ?? {})
+
+  async function handleSubmit() {
+    if (!shiftId || effectiveTotal === 0) return
+    const entry = attendantOptions.find((a) => a.name === requestedBy)
+    if (!entry) return
+    setLoading(true)
+    setError('')
+    try {
+      const payload = {
+        attendant_id: entry.id,
+        type: 'Expenditure',
+        amount: effectiveTotal,
+        metadata: JSON.stringify({ description: description || (initialData?.description ?? ''), denominations: effectiveCounts }),
+      }
+      if (isEditing && depositId) {
+        await updateDeposit(shiftId, depositId, payload)
+      } else {
+        await createDeposit(shiftId, payload)
+      }
+      queryClient.invalidateQueries({ queryKey: ['shifts', shiftId, 'deposits'] })
+      onClose()
+    } catch {
+      setError('Failed to save. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div
@@ -54,6 +104,7 @@ export function ExpenditureModal({ onBack, onClose, isEditing, initialData }: Pr
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          placeholder={initialData?.description ?? ''}
           className="w-full border border-[#e0e0e0] rounded-xl px-4 py-3 text-[13px] font-medium text-[#333] focus:outline-none mb-6"
         />
 
@@ -67,8 +118,8 @@ export function ExpenditureModal({ onBack, onClose, isEditing, initialData }: Pr
                     type="text"
                     value={fmtInput(counts[d] ?? '')}
                     onChange={(e) => setCounts((prev) => ({ ...prev, [d]: parseInput(e.target.value) }))}
+                    placeholder={String(initialData?.denominations?.[d] ?? '')}
                     className="w-full text-[13px] font-medium text-[#333] focus:outline-none bg-transparent"
-                    placeholder=""
                   />
                 </td>
                 <td className="px-3 py-2 text-center text-[13px] font-medium text-[#333]">
@@ -93,8 +144,8 @@ export function ExpenditureModal({ onBack, onClose, isEditing, initialData }: Pr
             className="border border-[#ddd] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] bg-white focus:outline-none cursor-pointer min-w-[200px]"
           >
             <option value="">Select...</option>
-            {requesters.map((r) => (
-              <option key={r} value={r}>{r}</option>
+            {attendantOptions.map((a) => (
+              <option key={a.id} value={a.name}>{a.name}</option>
             ))}
           </select>
         </div>
@@ -107,8 +158,14 @@ export function ExpenditureModal({ onBack, onClose, isEditing, initialData }: Pr
           </label>
         </div>
 
-        <button className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
-          Submit
+        {error && <p className="text-[11px] font-semibold text-red-500 mb-3">{error}</p>}
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading || effectiveTotal === 0 || !requestedBy || !shiftId}
+          className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Saving...' : 'Submit'}
         </button>
       </div>
     </div>

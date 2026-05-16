@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import clsx from 'clsx'
 import { ChevronDown } from 'lucide-react'
-import { useFuels, useFuelSummary } from '../../hooks/useApi'
+import { useFuels, useFuelSummary, useNozzles, useShiftFuelReceivals, useTanks } from '../../hooks/useApi'
 import type { Pump, FuelSummary } from '../../lib/api'
 import { PumpDetailPanel, type NozzleRow } from './PumpDetailPanel'
 import { FuelReceivalModal } from './FuelReceivalModal'
 import { EditFuelReceivalModal } from './EditFuelReceivalModal'
 import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
 
-const NOZZLE_COUNT = 12
-const emptyNozzles = (): NozzleRow[] => Array.from({ length: NOZZLE_COUNT }, () => ({ opening: '', closing: '' }))
+const emptyNozzles = (count: number): NozzleRow[] => Array.from({ length: count }, () => ({ opening: '', closing: '' }))
 
 type View = 'pumps' | 'tanks'
 type TankGrade = '87' | '90' | 'ADO' | 'ULSD'
@@ -84,12 +83,14 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
 
   const { data: fuels = [] } = useFuels()
   const { data: summaries = [] } = useFuelSummary(pump?.id, shiftId)
+  const { data: pumpNozzles = [] } = useNozzles()
+  const { data: receivals = [] } = useShiftFuelReceivals(shiftId)
+  const { data: tanks = [] } = useTanks()
   const [selectedFuelName, setSelectedFuelName] = useState<string | null>(null)
   const activeFuelName = selectedFuelName ?? summaries[0]?.fuelType ?? fuels[0]?.name ?? null
 
   const [grade, setGrade] = useState<TankGrade>('87')
   const [tankTouched, setTankTouched] = useState<Record<string, boolean>>({})
-  const [hasReceival, setHasReceival] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
 
@@ -97,12 +98,32 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
   const [nozzleReadings, setNozzleReadings] = useState<Record<string, NozzleRow[]>>({})
   const [tankReadings, setTankReadings] = useState<Record<string, { opening: string; closing: string }>>({})
 
+  useEffect(() => {
+    if (!shiftId) return
+    setNozzleReadings({})
+    setTankReadings({})
+    try {
+      const raw = localStorage.getItem(`pump_readings_${shiftId}`)
+      if (raw) setNozzleReadings(JSON.parse(raw))
+    } catch {}
+    try {
+      const raw = localStorage.getItem(`tank_readings_${shiftId}`)
+      if (raw) setTankReadings(JSON.parse(raw))
+    } catch {}
+  }, [shiftId])
+
+  function nozzleCountForFuel(fuelName: string): number {
+    return pumpNozzles.filter((n) => n.fuel_name === fuelName).length
+  }
+
   function getNozzles(fuelType: string): NozzleRow[] {
-    return nozzleReadings[fuelType] ?? emptyNozzles()
+    return nozzleReadings[fuelType] ?? emptyNozzles(nozzleCountForFuel(fuelType))
   }
 
   function setNozzles(fuelType: string, rows: NozzleRow[]) {
-    setNozzleReadings((prev) => ({ ...prev, [fuelType]: rows }))
+    const next = { ...nozzleReadings, [fuelType]: rows }
+    setNozzleReadings(next)
+    if (shiftId) localStorage.setItem(`pump_readings_${shiftId}`, JSON.stringify(next))
   }
 
   function pumpTotalForGrade(fuelType: string): number {
@@ -118,7 +139,6 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
   }
 
   useEffect(() => {
-    setHasReceival(false)
     setShowAdd(false)
     setShowEdit(false)
   }, [grade])
@@ -231,7 +251,14 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
             const tClose = parseFloat(tr.closing)
             const tankHasData = tr.opening !== '' || tr.closing !== ''
             const tankError = tankTouched[grade] && !isNaN(tOpen) && !isNaN(tClose) && tClose > tOpen
-            const suggestedLitres = !isNaN(tOpen) && !isNaN(tClose) && tOpen >= tClose ? tOpen - tClose : null
+            const gradeReceival = receivals.find((r) => r.fuel_name === grade) ?? null
+            const gradeTank = tanks.find((t) => t.fuel_name === grade) ?? null
+            const openLvl = gradeReceival?.opening_level ?? null
+            const closeLvl = gradeReceival?.closing_level ?? null
+            const fuelReceived = openLvl != null && closeLvl != null ? closeLvl - openLvl : null
+            const suggestedLitres = !isNaN(tOpen) && !isNaN(tClose)
+              ? (fuelReceived != null ? tOpen + fuelReceived - tClose : tOpen >= tClose ? tOpen - tClose : null)
+              : null
             const actualLitres = hasPumpDataForGrade(grade) ? pumpTotalForGrade(grade) : null
             const variance = suggestedLitres != null && actualLitres != null ? suggestedLitres - actualLitres : null
             const wetStockPct = variance != null && actualLitres != null && actualLitres > 0
@@ -253,7 +280,11 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
                       <input
                         type="text"
                         value={fmtInput(tr.opening)}
-                        onChange={(e) => setTankReadings((prev) => ({ ...prev, [grade]: { ...tr, opening: parseInput(e.target.value) } }))}
+                        onChange={(e) => {
+                          const next = { ...tankReadings, [grade]: { ...tr, opening: parseInput(e.target.value) } }
+                          setTankReadings(next)
+                          if (shiftId) localStorage.setItem(`tank_readings_${shiftId}`, JSON.stringify(next))
+                        }}
                         onBlur={() => setTankTouched((prev) => ({ ...prev, [grade]: true }))}
                         placeholder="—"
                         className={clsx(
@@ -266,7 +297,11 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
                       <input
                         type="text"
                         value={fmtInput(tr.closing)}
-                        onChange={(e) => setTankReadings((prev) => ({ ...prev, [grade]: { ...tr, closing: parseInput(e.target.value) } }))}
+                        onChange={(e) => {
+                          const next = { ...tankReadings, [grade]: { ...tr, closing: parseInput(e.target.value) } }
+                          setTankReadings(next)
+                          if (shiftId) localStorage.setItem(`tank_readings_${shiftId}`, JSON.stringify(next))
+                        }}
                         onBlur={() => setTankTouched((prev) => ({ ...prev, [grade]: true }))}
                         placeholder="—"
                         className={clsx(
@@ -302,64 +337,81 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
 
               <div className="px-5 pt-2 pb-4 border-t border-[#f0f0f0]">
                 <p className="text-[10px] font-semibold tracking-widest text-[#aaa] mb-1">WET STOCK SUMMARY</p>
-                <p className={clsx('text-[28px] font-bold leading-none tracking-tight', wetStockPct != null && wetStockPct < 0 ? 'text-red-500' : 'text-[#111]')}>
+                <p className={clsx('text-[28px] font-bold leading-none tracking-tight', wetStockPct == null ? 'text-[#111]' : wetStockPct > 1 ? 'text-blue-500' : wetStockPct > -0.5 ? 'text-yellow-500' : wetStockPct < -0.5 ? 'text-red-500' : 'text-[#111]')}>
                   {wetStockPct != null
                     ? `${wetStockPct >= 0 ? '+' : ''}${wetStockPct.toFixed(2)}%`
                     : tankHasData || hasPumpDataForGrade(grade) ? '—' : '+0.00%'}
                 </p>
               </div>
 
-              <div className="border-t border-[#ebebeb] px-5 py-4">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[12px] font-bold tracking-widest text-[#111]">RECEIVAL LOG</p>
-                  {hasReceival ? (
-                    <button
-                      onClick={() => setShowEdit(true)}
-                      className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors"
-                    >
-                      Edit
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setShowAdd(true)}
-                      className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors"
-                    >
-                      Add
-                    </button>
+              {(() => {
+                const gradeReceival = receivals.find((r) => r.fuel_name === grade) ?? null
+                const gradeTank = tanks.find((t) => t.fuel_name === grade) ?? null
+                const fuelOrdered = gradeReceival?.litres_ordered ?? null
+                const openLvl = gradeReceival?.opening_level ?? null
+                const closeLvl = gradeReceival?.closing_level ?? null
+                const fuelReceived = openLvl != null && closeLvl != null ? closeLvl - openLvl : null
+                const receivalVariance = fuelReceived != null && fuelOrdered != null ? fuelReceived - fuelOrdered : null
+                return (
+                <div className="border-t border-[#ebebeb] px-5 py-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[12px] font-bold tracking-widest text-[#111]">RECEIVAL LOG</p>
+                    {gradeReceival ? (
+                      <button
+                        onClick={() => setShowEdit(true)}
+                        className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors"
+                      >
+                        Edit
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setShowAdd(true)}
+                        className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors"
+                      >
+                        Add
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2 mb-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">FUEL ORDERED</span>
+                      <span className={clsx('text-[12px] font-bold', fuelOrdered != null ? 'text-[#333]' : 'text-[#bbb]')}>
+                        {fuelOrdered != null ? fmtNum(fuelOrdered) : '---'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">FUEL RECEIVED</span>
+                      <span className={clsx('text-[12px] font-bold', fuelReceived != null ? 'text-[#333]' : 'text-[#bbb]')}>
+                        {fuelReceived != null ? fmtNum(fuelReceived) : '---'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] font-semibold text-[#aaa] mb-1">Variance</p>
+                  <p className={clsx('text-[28px] font-bold leading-none', receivalVariance == null ? 'text-[#bbb]' : receivalVariance < 0 ? 'text-red-500' : 'text-[#111]')}>
+                    {receivalVariance != null ? fmtNum(receivalVariance) : '---'}
+                  </p>
+                  {showAdd && (
+                    <FuelReceivalModal
+                      onBack={() => setShowAdd(false)}
+                      onClose={() => setShowAdd(false)}
+                      initialTankId={gradeTank?.id}
+                    />
+                  )}
+                  {showEdit && gradeReceival && (
+                    <EditFuelReceivalModal
+                      onClose={() => setShowEdit(false)}
+                      initialReceival={gradeReceival}
+                    />
                   )}
                 </div>
-                <div className="space-y-2 mb-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">FUEL ORDERED</span>
-                    <span className="text-[12px] font-bold text-[#bbb]">---</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">FUEL RECEIVED</span>
-                    <span className="text-[12px] font-bold text-[#bbb]">---</span>
-                  </div>
-                </div>
-                <p className="text-[11px] font-semibold text-[#aaa] mb-1">Variance</p>
-                <p className="text-[28px] font-bold text-[#111] leading-none">0.00</p>
-              </div>
+                )
+              })()}
             </>
             )
           })()}
         </div>
       </div>
 
-      {showAdd && (
-        <FuelReceivalModal
-          onBack={() => setShowAdd(false)}
-          onClose={() => setShowAdd(false)}
-          onSubmit={() => { setHasReceival(true); setShowAdd(false) }}
-        />
-      )}
-      {showEdit && (
-        <EditFuelReceivalModal
-          onClose={() => setShowEdit(false)}
-          onSubmit={() => setShowEdit(false)}
-        />
-      )}
     </>
   )
 }

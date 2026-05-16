@@ -1,32 +1,72 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Plus, Minus } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { useOpenShift, useTanks } from '../../hooks/useApi'
+import { createFuelReceival, type FuelReceival } from '../../lib/api'
 import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
-
-const fuelGrades = ['87', '90', 'ADO', 'ULSD']
 
 interface Props {
   onClose: () => void
   onSubmit?: () => void
+  initialTankId?: string
+  initialReceival?: FuelReceival | null
 }
 
-export function EditFuelReceivalModal({ onClose, onSubmit }: Props) {
+export function EditFuelReceivalModal({ onClose, initialTankId, initialReceival }: Props) {
   useEscapeKey(onClose)
-  const [amountOrdered, setAmountOrdered] = useState('')
-  const [opening, setOpening] = useState('')
-  const [closing, setClosing] = useState('')
-  const [fuel, setFuel] = useState('90')
-  const [showRate, setShowRate] = useState(false)
-  const [showHaulage, setShowHaulage] = useState(false)
-  const [showGct, setShowGct] = useState(false)
-  const [rate, setRate] = useState('')
-  const [haulage, setHaulage] = useState('')
-  const [gct, setGct] = useState('')
+  const queryClient = useQueryClient()
+  const { data: shift } = useOpenShift()
+  const shiftId = shift?.id
+  const { data: tanks = [] } = useTanks()
+
+  const defaultTank = tanks.find((t) => t.id === (initialReceival?.tank_id ?? initialTankId)) ?? tanks[0]
+  const [tankId, setTankId] = useState(initialReceival?.tank_id ?? initialTankId ?? '')
+  const [amountOrdered, setAmountOrdered] = useState(initialReceival ? String(initialReceival.litres_ordered) : '')
+  const [opening, setOpening] = useState(initialReceival?.opening_level != null ? String(initialReceival.opening_level) : '')
+  const [closing, setClosing] = useState(initialReceival?.closing_level != null ? String(initialReceival.closing_level) : '')
+  const [showRate, setShowRate] = useState(initialReceival?.rate != null)
+  const [showHaulage, setShowHaulage] = useState(initialReceival?.haulage != null)
+  const [showGct, setShowGct] = useState(initialReceival?.gct != null)
+  const [rate, setRate] = useState(initialReceival?.rate != null ? String(initialReceival.rate) : '')
+  const [haulage, setHaulage] = useState(initialReceival?.haulage != null ? String(initialReceival.haulage) : '')
+  const [gct, setGct] = useState(initialReceival?.gct != null ? String(initialReceival.gct) : '')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!tankId && defaultTank) setTankId(defaultTank.id)
+  }, [defaultTank])
 
   const ordered = parseFloat(amountOrdered) || 0
   const openingVal = parseFloat(opening) || 0
   const closingVal = parseFloat(closing) || 0
   const variance = (closingVal - openingVal) - ordered
+  const selectedTank = tanks.find((t) => t.id === tankId)
+
+  async function handleSubmit() {
+    if (!shiftId || ordered === 0 || !tankId) return
+    setLoading(true)
+    setError('')
+    try {
+      await createFuelReceival(shiftId, {
+        tank_id: tankId || null,
+        fuel_name: selectedTank?.fuel_name ?? tankId,
+        litres_ordered: ordered,
+        opening_level: opening ? openingVal : null,
+        closing_level: closing ? closingVal : null,
+        rate: rate ? parseFloat(rate) : null,
+        haulage: haulage ? parseFloat(haulage) : null,
+        gct: gct ? parseFloat(gct) : null,
+      })
+      queryClient.invalidateQueries({ queryKey: ['shifts', shiftId, 'fuel-receivals'] })
+      onClose()
+    } catch {
+      setError('Failed to save. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div
@@ -156,12 +196,13 @@ export function EditFuelReceivalModal({ onClose, onSubmit }: Props) {
           <div>
             <label className="text-[13px] font-semibold text-[#888] block mb-2">fuel</label>
             <select
-              value={fuel}
-              onChange={(e) => setFuel(e.target.value)}
+              value={tankId}
+              onChange={(e) => setTankId(e.target.value)}
               className="border border-[#e0e0e0] rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[#333] bg-white focus:outline-none cursor-pointer min-w-[100px]"
             >
-              {fuelGrades.map((g) => (
-                <option key={g} value={g}>{g}</option>
+              {tanks.length === 0 && <option value="">—</option>}
+              {tanks.map((t) => (
+                <option key={t.id} value={t.id}>{t.fuel_name}</option>
               ))}
             </select>
           </div>
@@ -182,11 +223,14 @@ export function EditFuelReceivalModal({ onClose, onSubmit }: Props) {
           </label>
         </div>
 
+        {error && <p className="text-[11px] font-semibold text-red-500 mb-3">{error}</p>}
+
         <button
-          onClick={() => { onSubmit?.(); onClose() }}
-          className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+          onClick={handleSubmit}
+          disabled={loading || ordered === 0 || !tankId || !shiftId}
+          className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Submit
+          {loading ? 'Saving...' : 'Submit'}
         </button>
       </div>
     </div>

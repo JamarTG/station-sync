@@ -2,23 +2,18 @@ import { useEffect } from 'react'
 import clsx from 'clsx'
 import { useFuels } from '../../hooks/useApi'
 import type { Fuel } from '../../lib/api'
+import { fmtNum } from '../../lib/fmt'
 
 export type { Fuel }
-
-export const fuelPrices: Record<string, number> = {
-  '87': 190.90,
-  '90': 190.90,
-  'ADO': 190.90,
-  'ULSD': 190.90,
-}
 
 interface Props {
   selected: Fuel | null
   onSelect: (fuel: Fuel) => void
   onEditPrice?: () => void
+  price?: number | null
 }
 
-export function PumpsPanel({ selected, onSelect, onEditPrice }: Props) {
+export function PumpsPanel({ selected, onSelect, onEditPrice, price = null }: Props) {
   const { data: fuels = [] } = useFuels()
 
   useEffect(() => {
@@ -26,8 +21,6 @@ export function PumpsPanel({ selected, onSelect, onEditPrice }: Props) {
       onSelect(fuels[0])
     }
   }, [fuels])
-
-  const price = selected ? fuelPrices[selected.name] : null
 
   return (
     <div className="flex flex-col border-b border-[#e8e8e8] bg-white flex-shrink-0">
@@ -37,7 +30,7 @@ export function PumpsPanel({ selected, onSelect, onEditPrice }: Props) {
           {price != null ? (
             <>
               <span className="text-[11px] font-semibold text-[#888] mr-1">J$</span>
-              {price.toFixed(2)}
+              {fmtNum(price)}
               <span className="text-[11px] font-semibold text-[#888] ml-1">/L</span>
             </>
           ) : '—'}

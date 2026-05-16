@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Plus } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { useShiftAttendance, useShiftDeposits } from '../../hooks/useApi'
+import { createDeposit, updateDeposit } from '../../lib/api'
 import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
 
 const banks = ['NCB', 'Scotiabank', 'JMMB', 'Sagicor', 'FirstGlobal']
-const attendants = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
 
 interface CardRecord {
   id: number
@@ -17,19 +19,43 @@ interface Props {
   onBack: () => void
   onClose: () => void
   isEditing?: boolean
-  initialData?: { name: string; bank: string; amount: number }
+  depositId?: string
+  initialData?: { name: string; bank: string; transNo?: string; amount: number }
+  shiftId?: string
 }
 
 let nextId = 1
 
-export function CardModal({ onBack, onClose, isEditing, initialData }: Props) {
+export function CardModal({ onBack, onClose, isEditing, depositId, initialData, shiftId }: Props) {
   useEscapeKey(onClose)
+  const queryClient = useQueryClient()
+  const { data: attendance = [] } = useShiftAttendance(shiftId)
+  const { data: existingDeposits = [] } = useShiftDeposits(shiftId)
+  const savedTransNos = new Set(
+    existingDeposits
+      .filter((d) => d.type === 'Card' && d.id !== depositId)
+      .map((d) => {
+        try { const m = JSON.parse(d.metadata ?? '{}'); return `${m.bank}:${m.trans_no}` } catch { return '' }
+      })
+      .filter(Boolean)
+  )
+  const attendantOptions = attendance.reduce<{ id: string; name: string }[]>((acc, a) => {
+    if (!acc.some((o) => o.id === a.user_id)) acc.push({ id: a.user_id, name: a.user_name })
+    return acc
+  }, [])
+
   const [records, setRecords] = useState<CardRecord[]>([
-    { id: nextId++, amount: initialData?.amount ? String(initialData.amount) : '', bank: initialData?.bank ?? 'NCB', transNo: '' },
+    { id: nextId++, amount: '', bank: initialData?.bank ?? 'NCB', transNo: '' },
   ])
   const [attendant, setAttendant] = useState(initialData?.name ?? '')
   const [touchedTransNo, setTouchedTransNo] = useState<Record<number, boolean>>({})
+
+  useEffect(() => {
+    if (attendantOptions.length > 0 && !attendant) setAttendant(attendantOptions[0].name)
+  }, [attendantOptions.length])
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 650)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     function onResize() { setIsNarrow(window.innerWidth < 650) }
@@ -47,6 +73,8 @@ export function CardModal({ onBack, onClose, isEditing, initialData }: Props) {
 
   function isDuplicateTransNo(record: CardRecord) {
     if (!record.transNo.trim()) return false
+    const key = `${record.bank}:${record.transNo.trim()}`
+    if (savedTransNos.has(key)) return true
     return records.some(
       (r) => r.id !== record.id && r.bank === record.bank && r.transNo.trim() === record.transNo.trim()
     )
@@ -54,6 +82,44 @@ export function CardModal({ onBack, onClose, isEditing, initialData }: Props) {
 
   const hasDuplicates = records.some(isDuplicateTransNo)
   const total = records.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0)
+  const effectiveTotal = total > 0 ? total : (isEditing && initialData?.amount ? initialData.amount : 0)
+  const hasMissingTransNo = records.some((r) => (parseFloat(r.amount) || 0) > 0 && !r.transNo.trim())
+
+  async function handleSubmit() {
+    if (!shiftId || effectiveTotal === 0 || hasDuplicates || hasMissingTransNo) return
+    const entry = attendantOptions.find((a) => a.name === attendant)
+    if (!entry) return
+    setLoading(true)
+    setError('')
+    try {
+      if (isEditing && depositId) {
+        const r = records[0]
+        await updateDeposit(shiftId, depositId, {
+          attendant_id: entry.id,
+          type: 'Card',
+          amount: parseFloat(r.amount) || (initialData?.amount ?? 0),
+          metadata: JSON.stringify({ bank: r.bank, trans_no: r.transNo || (initialData?.transNo ?? '') }),
+        })
+      } else {
+        for (const r of records) {
+          const amt = parseFloat(r.amount) || 0
+          if (amt === 0) continue
+          await createDeposit(shiftId, {
+            attendant_id: entry.id,
+            type: 'Card',
+            amount: amt,
+            metadata: JSON.stringify({ bank: r.bank, trans_no: r.transNo }),
+          })
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['shifts', shiftId, 'deposits'] })
+      onClose()
+    } catch {
+      setError('Failed to save. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div
@@ -82,7 +148,8 @@ export function CardModal({ onBack, onClose, isEditing, initialData }: Props) {
 
         <div className="flex flex-col gap-3 mb-2">
           {records.map((r) => {
-            const showTransError = touchedTransNo[r.id] && isDuplicateTransNo(r)
+            const isMissingTransNo = touchedTransNo[r.id] && (parseFloat(r.amount) || 0) > 0 && !r.transNo.trim()
+            const showTransError = touchedTransNo[r.id] && (isDuplicateTransNo(r) || isMissingTransNo)
             return (
               <div key={r.id} className={`flex items-end gap-3${isNarrow ? ' flex-wrap' : ''}`}>
                 <div className="flex-1">
@@ -95,7 +162,7 @@ export function CardModal({ onBack, onClose, isEditing, initialData }: Props) {
                       type="text"
                       value={fmtInput(r.amount)}
                       onChange={(e) => updateRecord(r.id, 'amount', parseInput(e.target.value))}
-                      placeholder="0.00"
+                      placeholder={r.id === records[0].id && initialData?.amount ? fmtInput(String(initialData.amount)) : '0.00'}
                       className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent min-w-0"
                     />
                   </div>
@@ -123,7 +190,7 @@ export function CardModal({ onBack, onClose, isEditing, initialData }: Props) {
                     value={r.transNo}
                     onChange={(e) => updateRecord(r.id, 'transNo', e.target.value)}
                     onBlur={() => setTouchedTransNo((prev) => ({ ...prev, [r.id]: true }))}
-                    placeholder="—"
+                    placeholder={r.id === records[0].id && initialData?.transNo ? initialData.transNo : '—'}
                     className={`border rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none w-[100px] ${showTransError ? 'border-red-400 bg-red-50' : 'border-[#e0e0e0]'}`}
                   />
                 </div>
@@ -159,17 +226,20 @@ export function CardModal({ onBack, onClose, isEditing, initialData }: Props) {
             className="border border-[#ddd] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] bg-white focus:outline-none cursor-pointer min-w-[200px]"
           >
             <option value="">Select...</option>
-            {attendants.map((a) => (
-              <option key={a} value={a}>{a}</option>
+            {attendantOptions.map((a) => (
+              <option key={a.id} value={a.name}>{a.name}</option>
             ))}
           </select>
         </div>
 
+        {error && <p className="text-[11px] font-semibold text-red-500 mb-3">{error}</p>}
+
         <button
-          disabled={hasDuplicates}
+          onClick={handleSubmit}
+          disabled={loading || hasDuplicates || hasMissingTransNo || effectiveTotal === 0 || !attendant || !shiftId}
           className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Submit
+          {loading ? 'Saving...' : 'Submit'}
         </button>
       </div>
     </div>
