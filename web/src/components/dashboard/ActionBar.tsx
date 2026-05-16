@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { MoreHorizontal } from 'lucide-react'
 import { NewShiftLoginModal } from './NewShiftLoginModal'
 import { useAuth } from '../../lib/authContext'
+import { useOpenShift } from '../../hooks/useApi'
 import { ReportIssueModal } from './ReportIssueModal'
 import { RecordModal } from './RecordModal'
 import { DropModal } from './DropModal'
@@ -25,6 +26,8 @@ interface Props {
 
 export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewShift }: Props) {
   const { logout } = useAuth()
+  const { data: shift } = useOpenShift()
+  const shiftId = shift?.id
   const [recordView, setRecordView] = useState<RecordView>(null)
   const [dropAttendant, setDropAttendant] = useState('')
   const [showNewShiftLogin, setShowNewShiftLogin] = useState(false)
@@ -124,30 +127,35 @@ export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewSh
           initialAttendant={dropAttendant}
           onBack={() => setRecordView('drop')}
           onClose={() => setRecordView(null)}
+          shiftId={shiftId}
         />
       )}
       {recordView === 'expenditure' && (
         <ExpenditureModal
           onBack={() => setRecordView('select')}
           onClose={() => setRecordView(null)}
+          shiftId={shiftId}
         />
       )}
       {recordView === 'charge' && (
         <ChargeModal
           onBack={() => setRecordView('drop')}
           onClose={() => setRecordView(null)}
+          shiftId={shiftId}
         />
       )}
       {recordView === 'card' && (
         <CardModal
           onBack={() => setRecordView('drop')}
           onClose={() => setRecordView(null)}
+          shiftId={shiftId}
         />
       )}
       {recordView === 'advance' && (
         <AdvanceModal
           onBack={() => setRecordView('drop')}
           onClose={() => setRecordView(null)}
+          shiftId={shiftId}
         />
       )}
       {recordView === 'fuel-receival' && (
@@ -160,12 +168,14 @@ export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewSh
         <FXModal
           onBack={() => setRecordView('drop')}
           onClose={() => setRecordView(null)}
+          shiftId={shiftId}
         />
       )}
       {recordView === 'deposit' && (
         <DepositModal
           onBack={() => setRecordView('select')}
           onClose={() => setRecordView(null)}
+          shiftId={shiftId}
         />
       )}
       {showReportIssue && (

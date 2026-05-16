@@ -1,41 +1,61 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { FuelReceivalModal } from './FuelReceivalModal'
+import { EditFuelReceivalModal } from './EditFuelReceivalModal'
 import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
-
-export type TankGrade = '87' | '90' | 'ADO' | 'ULSD'
+import type { Tank, FuelReceival } from '../../lib/api'
 
 interface Props {
-  grade: TankGrade
+  tank: Tank | null
   tankReading: { opening: string; closing: string }
   onReadingChange: (r: { opening: string; closing: string }) => void
+  onSave?: (r: { opening: string; closing: string }) => void
   actualLitresSold: number | null
+  receival?: FuelReceival | null
+  shiftId?: string
   readOnly?: boolean
 }
 
-export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLitresSold, readOnly }: Props) {
-  const [hasReceival, setHasReceival] = useState(false)
+export function TankDetailPanel({ tank, tankReading, onReadingChange, onSave, actualLitresSold, receival = null, shiftId, readOnly }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [touched, setTouched] = useState(false)
+  const latestReading = useRef(tankReading)
 
   useEffect(() => {
-    setHasReceival(false)
+    latestReading.current = tankReading
+  })
+
+  useEffect(() => {
     setShowAdd(false)
     setShowEdit(false)
     setTouched(false)
-  }, [grade])
+  }, [tank?.id])
 
   const tOpen = parseFloat(tankReading.opening)
   const tClose = parseFloat(tankReading.closing)
   const hasData = tankReading.opening !== '' || tankReading.closing !== ''
-  const tankError = touched && !isNaN(tOpen) && !isNaN(tClose) && tClose > tOpen
-  const suggestedLitres = !isNaN(tOpen) && !isNaN(tClose) && tOpen >= tClose ? tOpen - tClose : null
+  const fuelReceived = (() => {
+    const openLvl = receival?.opening_level ?? null
+    const closeLvl = receival?.closing_level ?? null
+    return openLvl != null && closeLvl != null ? closeLvl - openLvl : null
+  })()
+  const tankError = touched && !isNaN(tOpen) && !isNaN(tClose) &&
+    (fuelReceived != null ? tOpen + fuelReceived < tClose : tClose > tOpen)
+  const suggestedLitres = !isNaN(tOpen) && !isNaN(tClose)
+    ? (fuelReceived != null ? tOpen + fuelReceived - tClose : tOpen >= tClose ? tOpen - tClose : null)
+    : null
   const variance = suggestedLitres != null && actualLitresSold != null ? actualLitresSold - suggestedLitres : null
   const wetStockPct =
     variance != null && actualLitresSold != null && actualLitresSold > 0
       ? (variance / actualLitresSold) * 100
       : null
+
+  function handleBlur() {
+    if (readOnly) return
+    setTouched(true)
+    onSave?.(latestReading.current)
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -54,8 +74,13 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
                   type="text"
                   inputMode="decimal"
                   value={fmtInput(tankReading.opening)}
-                  onChange={(e) => !readOnly && onReadingChange({ ...tankReading, opening: parseInput(e.target.value) })}
-                  onBlur={() => !readOnly && setTouched(true)}
+                  onChange={(e) => {
+                    if (readOnly) return
+                    const r = { ...tankReading, opening: parseInput(e.target.value) }
+                    latestReading.current = r
+                    onReadingChange(r)
+                  }}
+                  onBlur={handleBlur}
                   placeholder="—"
                   readOnly={readOnly}
                   className={clsx(
@@ -70,8 +95,13 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
                   type="text"
                   inputMode="decimal"
                   value={fmtInput(tankReading.closing)}
-                  onChange={(e) => !readOnly && onReadingChange({ ...tankReading, closing: parseInput(e.target.value) })}
-                  onBlur={() => !readOnly && setTouched(true)}
+                  onChange={(e) => {
+                    if (readOnly) return
+                    const r = { ...tankReading, closing: parseInput(e.target.value) }
+                    latestReading.current = r
+                    onReadingChange(r)
+                  }}
+                  onBlur={handleBlur}
                   placeholder="—"
                   readOnly={readOnly}
                   className={clsx(
@@ -116,46 +146,56 @@ export function TankDetailPanel({ grade, tankReading, onReadingChange, actualLit
         </div>
       </div>
 
-      <div className="bg-white rounded-none border border-[#ebebeb] p-5 flex-shrink-0">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-[12px] font-bold tracking-widest text-[#111]">RECEIVAL LOG</p>
-          {!readOnly && (hasReceival ? (
-            <button onClick={() => setShowEdit(true)} className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
-              Edit
-            </button>
-          ) : (
-            <button onClick={() => setShowAdd(true)} className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
-              Add
-            </button>
-          ))}
-        </div>
-        <div className="space-y-3 mb-4">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">FUEL ORDERED</span>
-            <span className="text-[12px] font-bold text-[#bbb]">---</span>
+      {(() => {
+        const fuelOrdered = receival?.litres_ordered ?? null
+        const receivalVariance = fuelReceived != null && fuelOrdered != null ? fuelReceived - fuelOrdered : null
+        return (
+          <div className="bg-white rounded-none border border-[#ebebeb] p-5 flex-shrink-0">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-[12px] font-bold tracking-widest text-[#111]">RECEIVAL LOG</p>
+              {!readOnly && (receival ? (
+                <button onClick={() => setShowEdit(true)} className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
+                  Edit
+                </button>
+              ) : (
+                <button onClick={() => setShowAdd(true)} className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
+                  Add
+                </button>
+              ))}
+            </div>
+            <div className="space-y-3 mb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">FUEL ORDERED</span>
+                <span className={clsx('text-[12px] font-bold', fuelOrdered != null ? 'text-[#333]' : 'text-[#bbb]')}>
+                  {fuelOrdered != null ? fmtNum(fuelOrdered) : '---'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">FUEL RECEIVED</span>
+                <span className={clsx('text-[12px] font-bold', fuelReceived != null ? 'text-[#333]' : 'text-[#bbb]')}>
+                  {fuelReceived != null ? fmtNum(fuelReceived) : '---'}
+                </span>
+              </div>
+            </div>
+            <p className="text-[11px] font-semibold text-[#aaa] mb-1">Variance</p>
+            <p className={clsx('text-[28px] font-bold leading-none', receivalVariance == null ? 'text-[#bbb]' : receivalVariance < 0 ? 'text-red-500' : 'text-[#111]')}>
+              {receivalVariance != null ? fmtNum(receivalVariance) : '---'}
+            </p>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">FUEL RECEIVED</span>
-            <span className="text-[12px] font-bold text-[#bbb]">---</span>
-          </div>
-        </div>
-        <p className="text-[11px] font-semibold text-[#aaa] mb-1">Variance</p>
-        <p className="text-[28px] font-bold text-[#111] leading-none">0.00</p>
-      </div>
+        )
+      })()}
 
       {showAdd && (
         <FuelReceivalModal
           onBack={() => setShowAdd(false)}
           onClose={() => setShowAdd(false)}
-          onSubmit={() => { setHasReceival(true); setShowAdd(false) }}
+          initialTankId={tank?.id}
         />
       )}
-      {showEdit && (
-        <FuelReceivalModal
-          isEditing
-          onBack={() => setShowEdit(false)}
+      {showEdit && receival && (
+        <EditFuelReceivalModal
           onClose={() => setShowEdit(false)}
-          onSubmit={() => setShowEdit(false)}
+          initialReceival={receival}
         />
       )}
     </div>

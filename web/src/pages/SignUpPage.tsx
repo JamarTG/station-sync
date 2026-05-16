@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { Eye, EyeOff, Check, Plus, Fuel, Trash2, ArrowLeft, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Eye, EyeOff, Check, Plus, Fuel, Trash2, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
 import { StationSyncLogo } from '../components/StationSyncLogo'
+import { signUp, createFuel, createPump, createNozzle } from '../lib/api'
+import type { AuthUser } from '../lib/api'
 
 interface Props {
-  onSignUp: () => void
+  onSignUp: (user: AuthUser) => void
   onGoToLogin: () => void
 }
 
@@ -58,7 +60,7 @@ const plans = [
   {
     id: 'starter',
     name: 'Starter',
-    price: 500,
+    price: 499,
     description: 'Everything you need to get one station up and running.',
     features: [
       '1 station',
@@ -66,6 +68,7 @@ const plans = [
       'Sales & shift tracking',
       'Cash, card & FX recording',
       'Basic shift reports',
+      '5 GB account storage',
       'Email support',
     ],
     popular: false,
@@ -82,6 +85,7 @@ const plans = [
       'Advanced analytics & reporting',
       'Payroll & scheduling management',
       'Multi-user access & roles',
+      '20 GB account storage',
       'Priority support',
     ],
     popular: true,
@@ -98,6 +102,7 @@ const plans = [
       'Dedicated account manager',
       'SLA guarantee',
       'Custom branding & white-label',
+      '50 GB account storage',
       '24/7 phone support',
     ],
     popular: false,
@@ -157,10 +162,12 @@ function InterestsPanel({ onContinue }: { onContinue: () => void }) {
                 {cat.features.map((f) => {
                   if (f.subFeatures) {
                     return (
-                      <div key={f.id} className="flex flex-col bg-white border border-[#ebebeb] rounded-2xl h-[320px]">
+                      <div key={f.id} onClick={() => toggle(f.id)} className="flex flex-col bg-white border border-[#ebebeb] rounded-2xl h-[320px] cursor-pointer select-none">
                         <div className="flex items-center justify-between px-5 py-4 flex-shrink-0 border-b border-[#f4f4f4]">
                           <span className="text-[13px] font-semibold text-[#222]">{f.label}</span>
-                          <Toggle on={enabled[f.id]} onToggle={() => toggle(f.id)} />
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Toggle on={enabled[f.id]} onToggle={() => toggle(f.id)} />
+                          </div>
                         </div>
                         <ul className="flex flex-col gap-3 overflow-y-auto px-5 py-4">
                           {f.subFeatures.map((sf) => (
@@ -179,9 +186,11 @@ function InterestsPanel({ onContinue }: { onContinue: () => void }) {
                     )
                   }
                   return (
-                    <div key={f.id} className="flex items-center justify-between px-5 py-4 bg-white border border-[#ebebeb] rounded-2xl">
+                    <div key={f.id} onClick={() => toggle(f.id)} className="flex items-center justify-between px-5 py-4 bg-white border border-[#ebebeb] rounded-2xl cursor-pointer select-none">
                       <span className="text-[13px] font-semibold text-[#222]">{f.label}</span>
-                      <Toggle on={enabled[f.id]} onToggle={() => toggle(f.id)} />
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Toggle on={enabled[f.id]} onToggle={() => toggle(f.id)} />
+                      </div>
                     </div>
                   )
                 })}
@@ -192,15 +201,17 @@ function InterestsPanel({ onContinue }: { onContinue: () => void }) {
 
         <div className="flex flex-col gap-2 mb-8">
           {sharedFeatures.map((f) => (
-            <div key={f.id} className="flex items-center justify-between px-5 py-4 bg-white border border-[#ebebeb] rounded-2xl">
+            <div key={f.id} onClick={() => toggle(f.id)} className="flex items-center justify-between px-5 py-4 bg-white border border-[#ebebeb] rounded-2xl cursor-pointer select-none">
               <span className="text-[13px] font-semibold text-[#222]">{f.label}</span>
-              <Toggle on={enabled[f.id]} onToggle={() => toggle(f.id)} />
+              <div onClick={(e) => e.stopPropagation()}>
+                <Toggle on={enabled[f.id]} onToggle={() => toggle(f.id)} />
+              </div>
             </div>
           ))}
         </div>
 
         <button
-          onClick={onContinue}
+          onClick={() => onContinue()}
           disabled={!anyEnabled}
           className="w-full py-3.5 rounded-2xl bg-[#111] text-white text-[13px] font-bold uppercase tracking-widest hover:bg-[#333] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
@@ -306,13 +317,24 @@ const parishes = [
   'St. Elizabeth', 'Manchester', 'Clarendon', 'St. Catherine',
 ]
 
-function BusinessDetailsPanel({ onContinue }: { onContinue: (grades: string[]) => void }) {
-  const [businessName, setBusinessName] = useState('')
+interface BusinessDetailsContinueArgs {
+  branchName: string
+  grades: string[]
+  addressLine1: string
+  addressLine2: string
+  city: string
+  parish: string
+}
+
+function BusinessDetailsPanel({ onContinue }: { onContinue: (args: BusinessDetailsContinueArgs) => Promise<void> }) {
+  const [branchName, setBranchName] = useState('')
   const [addressLine1, setAddressLine1] = useState('')
   const [addressLine2, setAddressLine2] = useState('')
   const [city, setCity] = useState('')
   const [parish, setParish] = useState('')
   const [selectedGrades, setSelectedGrades] = useState<Set<string>>(new Set())
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   function toggleGrade(grade: string) {
     setSelectedGrades((prev) => {
@@ -322,11 +344,19 @@ function BusinessDetailsPanel({ onContinue }: { onContinue: (grades: string[]) =
     })
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (selectedGrades.size === 0) return
-    if (!parish) return
-    onContinue([...selectedGrades])
+    if (selectedGrades.size === 0 || !parish || !branchName.trim()) return
+    setSubmitting(true)
+    setError('')
+    try {
+      await onContinue({ branchName: branchName.trim(), grades: [...selectedGrades], addressLine1, addressLine2, city, parish })
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { error?: string } }; message?: string }
+      const msg = axiosErr?.response?.data?.error ?? axiosErr?.message ?? 'Unknown error'
+      setError(`Failed: ${msg}`)
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -348,9 +378,9 @@ function BusinessDetailsPanel({ onContinue }: { onContinue: (grades: string[]) =
             <label className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase block mb-2">Business Name</label>
             <input
               type="text"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="e.g. Lewis Service Station"
+              value={branchName}
+              onChange={(e) => setBranchName(e.target.value)}
+              placeholder="e.g. Shell Portmore"
               required
               className="w-full bg-white border border-[#e0e0e0] rounded-xl px-4 py-3 text-[13px] font-semibold text-[#333] placeholder:text-[#ccc] placeholder:font-normal focus:outline-none focus:border-[#aaa] transition-colors"
             />
@@ -431,12 +461,14 @@ function BusinessDetailsPanel({ onContinue }: { onContinue: (grades: string[]) =
             </div>
           </div>
 
+          {error && <p className="text-[11px] font-semibold text-red-500">{error}</p>}
+
           <button
             type="submit"
-            disabled={selectedGrades.size === 0}
+            disabled={selectedGrades.size === 0 || submitting}
             className="w-full py-3.5 rounded-2xl bg-[#111] text-white text-[13px] font-bold uppercase tracking-widest hover:bg-[#333] transition-colors mt-2 disabled:opacity-30 disabled:cursor-not-allowed"
           >
-            Configure pumps
+            {submitting ? 'Creating account...' : 'Configure pumps'}
           </button>
         </form>
       </div>
@@ -447,13 +479,12 @@ function BusinessDetailsPanel({ onContinue }: { onContinue: (grades: string[]) =
 type Nozzle = { id: string; grade: string }
 type Pump = { id: string; name: string; nozzles: Nozzle[] }
 
-function ConfigurePumpsPanel({ grades, onBack, onDone }: { grades: string[]; onBack: () => void; onDone: () => void }) {
+function ConfigurePumpsPanel({ grades, onBack, onDone }: { grades: string[]; onBack: () => void; onDone: (pumps: Pump[]) => Promise<void> }) {
   const [pumps, setPumps] = useState<Pump[]>([])
-  const [nozzleDropdownFor, setNozzleDropdownFor] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
   const nameRefs = useRef<Record<string, HTMLInputElement | null>>({})
-  const pumpColRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const scrollRef = useRef<HTMLDivElement>(null)
 
   function checkScroll() {
@@ -490,29 +521,25 @@ function ConfigurePumpsPanel({ grades, onBack, onDone }: { grades: string[]; onB
     setPumps((prev) => prev.map((p) => p.id === id ? { ...p, name } : p))
   }
 
-  function addNozzle(pumpId: string, grade: string) {
-    setPumps((prev) => prev.map((p) =>
-      p.id === pumpId ? { ...p, nozzles: [...p.nozzles, { id: String(Date.now()), grade }] } : p
-    ))
-    setNozzleDropdownFor(null)
+  function toggleGrade(pumpId: string, grade: string) {
+    setPumps((prev) => prev.map((p) => {
+      if (p.id !== pumpId) return p
+      const has = p.nozzles.some((n) => n.grade === grade)
+      return {
+        ...p,
+        nozzles: has
+          ? p.nozzles.filter((n) => n.grade !== grade)
+          : [...p.nozzles, { id: String(Date.now()), grade }],
+      }
+    }))
   }
 
   function deletePump(id: string) {
     setPumps((prev) => prev.filter((p) => p.id !== id))
   }
 
-  function deleteNozzle(pumpId: string, nozzleId: string) {
-    setPumps((prev) => prev.map((p) =>
-      p.id === pumpId ? { ...p, nozzles: p.nozzles.filter((n) => n.id !== nozzleId) } : p
-    ))
-  }
-
   return (
-    <div
-      className="h-screen bg-[#f4f4f4] font-[Manrope] flex flex-col"
-      onClick={() => setNozzleDropdownFor(null)}
-    >
-      {/* Header */}
+    <div className="h-screen bg-[#f4f4f4] font-[Manrope] flex flex-col">
       <div className="flex-shrink-0 px-10 pt-10 pb-6">
         <button
           onClick={onBack}
@@ -530,108 +557,95 @@ function ConfigurePumpsPanel({ grades, onBack, onDone }: { grades: string[]; onB
         </div>
 
         <h1 className="text-[26px] font-bold text-[#111] leading-tight mb-1">Configure your pumps</h1>
-        <p className="text-[13px] text-[#888] font-medium">Add your pumps and assign nozzles to each one.</p>
+        <p className="text-[13px] text-[#888] font-medium">Add your pumps and select the fuel grades available on each one.</p>
       </div>
 
-      {/* Scrollable pump area */}
       <div className="relative flex-1 overflow-hidden">
         <div
           ref={scrollRef}
-          className="h-full overflow-x-auto overflow-y-auto px-10 py-6"
+          className="h-full overflow-x-auto overflow-y-hidden px-10 py-6"
         >
-          <div className="flex flex-row gap-14 w-max h-full items-start pt-4">
+          <div className="flex flex-row gap-4 w-max h-full items-start">
 
             {pumps.map((pump) => (
               <div
                 key={pump.id}
-                ref={(el) => { pumpColRefs.current[pump.id] = el }}
-                className="flex flex-col items-center"
+                className="w-[200px] bg-white border-2 border-[#e0e0e0] rounded-2xl p-5 flex flex-col"
               >
-                <div className="w-24 h-24 bg-white border-2 border-[#e0e0e0] rounded-2xl flex items-center justify-center">
-                  <Fuel size={28} className="text-[#bbb]" />
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-10 h-10 bg-[#f4f4f4] rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Fuel size={18} className="text-[#bbb]" />
+                  </div>
+                  <button
+                    onClick={() => deletePump(pump.id)}
+                    className="text-[#ddd] hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
+
                 <input
                   ref={(el) => { nameRefs.current[pump.id] = el }}
                   value={pump.name}
                   onChange={(e) => updateName(pump.id, e.target.value)}
-                  className="mt-2 w-24 text-center text-[13px] font-bold text-[#111] bg-transparent focus:outline-none focus:bg-[#ebebeb] rounded-lg px-1 py-0.5 selection:bg-[#111] selection:text-white"
+                  className="text-[14px] font-bold text-[#111] bg-transparent focus:outline-none focus:bg-[#f4f4f4] rounded-lg px-1.5 py-0.5 mb-4 -mx-1.5 selection:bg-[#111] selection:text-white"
                 />
-                <button onClick={() => deletePump(pump.id)} className="mt-2 text-[#ccc] hover:text-red-400 transition-colors">
-                  <Trash2 size={14} />
-                </button>
 
-                {pump.nozzles.length > 0 && <div className="w-px h-6 bg-[#ddd] mt-3" />}
-
-                {pump.nozzles.map((nozzle, i) => (
-                  <div key={nozzle.id} className="flex flex-col items-center">
-                    <div className="w-20 h-20 bg-white border-2 border-[#e0e0e0] rounded-2xl flex items-center justify-center">
-                      <span className="text-[15px] font-bold text-[#111]">{nozzle.grade}</span>
-                    </div>
-                    <p className="mt-2 text-[12px] font-semibold text-[#888]">{nozzle.grade}</p>
-                    <button onClick={() => deleteNozzle(pump.id, nozzle.id)} className="mt-1.5 text-[#ccc] hover:text-red-400 transition-colors">
-                      <Trash2 size={14} />
-                    </button>
-                    {i < pump.nozzles.length - 1 && <div className="w-px h-4 bg-[#ddd] mt-2" />}
-                  </div>
-                ))}
-
-                <div className="relative flex flex-col items-center mt-3">
-                  <div className="w-px h-4 bg-[#ddd]" />
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setNozzleDropdownFor(nozzleDropdownFor === pump.id ? null : pump.id) }}
-                    className="w-20 h-20 border-2 border-dashed border-[#ddd] rounded-2xl flex items-center justify-center hover:border-[#aaa] transition-colors"
-                  >
-                    <Plus size={18} className="text-[#bbb]" />
-                  </button>
-                  <p className="mt-2 text-[12px] font-semibold text-[#bbb]">Add nozzle</p>
-
-                  {nozzleDropdownFor === pump.id && (
-                    <div
-                      className="absolute top-[calc(100%+8px)] left-1/2 -translate-x-1/2 bg-white border border-[#e0e0e0] rounded-2xl shadow-lg overflow-hidden z-20 min-w-[130px]"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {grades.map((g) => (
-                        <button
-                          key={g}
-                          onClick={() => addNozzle(pump.id, g)}
-                          className="w-full text-left px-4 py-3 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors border-b border-[#f4f4f4] last:border-b-0"
-                        >
-                          {g}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                <div className="flex flex-col gap-2">
+                  {grades.map((grade) => {
+                    const checked = pump.nozzles.some((n) => n.grade === grade)
+                    return (
+                      <button
+                        key={grade}
+                        type="button"
+                        onClick={() => toggleGrade(pump.id, grade)}
+                        className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all text-left ${
+                          checked
+                            ? 'bg-[#111] border-[#111]'
+                            : 'bg-white border-[#e0e0e0] hover:border-[#aaa]'
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border transition-colors ${
+                          checked ? 'bg-white/20 border-white/30' : 'border-[#ddd]'
+                        }`}>
+                          {checked && <Check size={9} strokeWidth={3} className="text-white" />}
+                        </div>
+                        <span className={`text-[13px] font-semibold ${checked ? 'text-white' : 'text-[#333]'}`}>
+                          {grade}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
+
+                {pump.nozzles.length === 0 && (
+                  <p className="text-[11px] font-medium text-[#ccc] mt-3 text-center">Select at least one grade</p>
+                )}
               </div>
             ))}
 
-            {/* Add pump */}
-            <div className="flex flex-col items-center">
-              <button
-                onClick={addPump}
-                className="w-24 h-24 border-2 border-dashed border-[#ddd] rounded-2xl flex items-center justify-center hover:border-[#aaa] transition-colors bg-white/60"
-              >
-                <Plus size={24} className="text-[#bbb]" />
-              </button>
-              <p className="mt-2 text-[13px] font-semibold text-[#bbb]">Add pump</p>
-            </div>
+            <button
+              onClick={addPump}
+              className="w-[200px] h-[80px] border-2 border-dashed border-[#ddd] rounded-2xl flex flex-col items-center justify-center gap-1.5 hover:border-[#aaa] transition-colors bg-white/60 flex-shrink-0"
+            >
+              <Plus size={20} className="text-[#bbb]" />
+              <span className="text-[12px] font-semibold text-[#bbb]">Add pump</span>
+            </button>
           </div>
         </div>
 
-        {/* Left scroll arrow */}
         {canScrollLeft && (
           <button
-            onClick={() => scrollRef.current?.scrollBy({ left: -320, behavior: 'smooth' })}
+            onClick={() => scrollRef.current?.scrollBy({ left: -280, behavior: 'smooth' })}
             className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[#111] text-white flex items-center justify-center shadow-lg z-30 hover:bg-[#333] transition-colors"
           >
             <ChevronLeft size={20} />
           </button>
         )}
 
-        {/* Right scroll arrow */}
         {canScrollRight && (
           <button
-            onClick={() => scrollRef.current?.scrollBy({ left: 320, behavior: 'smooth' })}
+            onClick={() => scrollRef.current?.scrollBy({ left: 280, behavior: 'smooth' })}
             className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-[#111] text-white flex items-center justify-center shadow-lg z-30 hover:bg-[#333] transition-colors"
           >
             <ChevronRight size={20} />
@@ -639,149 +653,34 @@ function ConfigurePumpsPanel({ grades, onBack, onDone }: { grades: string[]; onB
         )}
       </div>
 
-      {/* Footer */}
       <div className="flex-shrink-0 px-10 py-6">
         <button
-          onClick={onDone}
-          disabled={pumps.length === 0 || pumps.some((p) => p.nozzles.length === 0)}
+          onClick={async () => { setSaving(true); try { await onDone(pumps) } finally { setSaving(false) } }}
+          disabled={pumps.length === 0 || pumps.some((p) => p.nozzles.length === 0) || saving}
           className="w-full py-3.5 rounded-2xl bg-[#111] text-white text-[13px] font-bold uppercase tracking-widest hover:bg-[#333] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          Complete setup
+          {saving ? 'Saving...' : 'Complete setup'}
         </button>
       </div>
     </div>
   )
 }
 
-const teamRoles = ['Admin', 'Manager', 'Supervisor', 'Cashier', 'Attendant', 'Viewer']
+// ─── Main sign-up page ────────────────────────────────────────────────────────
 
-type Invite = { id: string; email: string; role: string }
-
-function InviteTeamPanel({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
-  const [email, setEmail] = useState('')
-  const [role, setRole] = useState('Attendant')
-  const [invites, setInvites] = useState<Invite[]>([])
-  const [error, setError] = useState('')
-
-  function addInvite() {
-    if (!email.trim()) return
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError('Please enter a valid email address.')
-      return
-    }
-    if (invites.some((i) => i.email === email.trim())) {
-      setError('This email has already been added.')
-      return
-    }
-    setInvites((prev) => [...prev, { id: String(Date.now()), email: email.trim(), role }])
-    setEmail('')
-    setError('')
-  }
-
-  function removeInvite(id: string) {
-    setInvites((prev) => prev.filter((i) => i.id !== id))
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') { e.preventDefault(); addInvite() }
-  }
-
-  return (
-    <div className="min-h-screen bg-[#f4f4f4] font-[Manrope] flex items-center justify-center p-6">
-      <div className="bg-white rounded-3xl shadow-sm border border-[#ebebeb] w-full max-w-[540px] p-10">
-
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors mb-8"
-        >
-          <ArrowLeft size={13} />
-          Go back
-        </button>
-
-        <div className="flex items-center gap-3 mb-10">
-          <div className="w-9 h-9 bg-[#111] rounded-xl flex items-center justify-center flex-shrink-0">
-            <StationSyncLogo size={20} color="white" />
-          </div>
-          <span className="text-[15px] font-bold text-[#111] tracking-wide">StationSync</span>
-        </div>
-
-        <h1 className="text-[26px] font-bold text-[#111] leading-tight mb-1.5">Invite your team</h1>
-        <p className="text-[13px] text-[#888] font-medium mb-8">Add team members and assign their roles. You can always do this later.</p>
-
-        {/* Add invite row */}
-        <div className="flex gap-2 mb-2">
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => { setEmail(e.target.value); setError('') }}
-            onKeyDown={handleKeyDown}
-            placeholder="colleague@example.com"
-            className="flex-1 bg-white border border-[#e0e0e0] rounded-xl px-4 py-3 text-[13px] font-semibold text-[#333] placeholder:text-[#ccc] placeholder:font-normal focus:outline-none focus:border-[#aaa] transition-colors"
-          />
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-            className="bg-white border border-[#e0e0e0] rounded-xl px-3 py-3 text-[13px] font-semibold text-[#333] focus:outline-none focus:border-[#aaa] transition-colors appearance-none pr-6"
-          >
-            {teamRoles.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-          <button
-            type="button"
-            onClick={addInvite}
-            className="w-11 h-11 rounded-xl bg-[#111] text-white flex items-center justify-center hover:bg-[#333] transition-colors flex-shrink-0"
-          >
-            <Plus size={16} />
-          </button>
-        </div>
-        {error && <p className="text-[11px] font-semibold text-red-500 mb-3">{error}</p>}
-
-        {/* Invite list */}
-        {invites.length > 0 && (
-          <div className="flex flex-col gap-2 mt-5 mb-8">
-            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Pending invites</p>
-            {invites.map((invite) => (
-              <div key={invite.id} className="flex items-center justify-between px-4 py-3 bg-[#f7f7f7] rounded-2xl">
-                <div>
-                  <p className="text-[13px] font-semibold text-[#222]">{invite.email}</p>
-                  <p className="text-[11px] font-medium text-[#aaa] mt-0.5">{invite.role}</p>
-                </div>
-                <button onClick={() => removeInvite(invite.id)} className="text-[#ccc] hover:text-red-400 transition-colors">
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className={`flex flex-col gap-3 ${invites.length === 0 ? 'mt-8' : ''}`}>
-          <button
-            onClick={onDone}
-            disabled={invites.length === 0}
-            className="w-full py-3.5 rounded-2xl bg-[#111] text-white text-[13px] font-bold uppercase tracking-widest hover:bg-[#333] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            Send invites
-          </button>
-          <button
-            onClick={onDone}
-            className="w-full py-3 text-[13px] font-semibold text-[#aaa] hover:text-[#555] transition-colors"
-          >
-            Skip for now
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+type Step = 'form' | 'interests' | 'plans' | 'business' | 'pumps'
 
 export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
-  const [step, setStep] = useState<'form' | 'interests' | 'plans' | 'business' | 'pumps' | 'team'>('form')
+  const [step, setStep] = useState<Step>('form')
   const [grades, setGrades] = useState<string[]>([])
   const [fullName, setFullName] = useState('')
+  const [company, setCompany] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [createdUser, setCreatedUser] = useState<AuthUser | null>(null)
 
   const passwordMismatch = confirmPassword.length > 0 && confirmPassword !== password
 
@@ -792,7 +691,11 @@ export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
   }
 
   if (step === 'interests') {
-    return <InterestsPanel onContinue={() => setStep('plans')} />
+    return (
+      <InterestsPanel
+        onContinue={() => setStep('plans')}
+      />
+    )
   }
 
   if (step === 'plans') {
@@ -800,21 +703,56 @@ export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
   }
 
   if (step === 'business') {
-    return <BusinessDetailsPanel onContinue={(g) => { setGrades(g); setStep('pumps') }} />
+    return (
+      <BusinessDetailsPanel
+        onContinue={async ({ branchName, grades: g, addressLine1, addressLine2, city, parish }) => {
+          setGrades(g)
+          const user = await signUp({
+            business_name: company,
+            branch_name: branchName,
+            name: fullName,
+            email,
+            password,
+            address_line1: addressLine1,
+            address_line2: addressLine2,
+            city,
+            parish,
+          })
+          setCreatedUser(user)
+          setStep('pumps')
+        }}
+      />
+    )
   }
 
   if (step === 'pumps') {
-    return <ConfigurePumpsPanel grades={grades} onBack={() => setStep('business')} onDone={() => setStep('team')} />
-  }
-
-  if (step === 'team') {
-    return <InviteTeamPanel onBack={() => setStep('pumps')} onDone={onSignUp} />
+    return (
+      <ConfigurePumpsPanel
+        grades={grades}
+        onBack={() => setStep('business')}
+        onDone={async (configuredPumps) => {
+          const fuelMap: Record<string, string> = {}
+          for (const grade of grades) {
+            const fuel = await createFuel({ name: grade })
+            fuelMap[grade] = fuel.id
+          }
+          for (const pump of configuredPumps) {
+            const created = await createPump({ name: pump.name })
+            for (const nozzle of pump.nozzles) {
+              if (fuelMap[nozzle.grade]) {
+                await createNozzle(created.id, fuelMap[nozzle.grade])
+              }
+            }
+          }
+          onSignUp(createdUser!)
+        }}
+      />
+    )
   }
 
   return (
     <div className="min-h-screen font-[Manrope] relative flex overflow-hidden">
 
-      {/* Full-screen background */}
       <video
         autoPlay
         loop
@@ -827,7 +765,6 @@ export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
       </video>
       <div className="absolute inset-0 bg-black/50" />
 
-      {/* Left — branding content */}
       <div className="hidden lg:flex flex-1 flex-col justify-between p-12 relative z-10">
         <div>
           <div className="flex items-center gap-3">
@@ -853,12 +790,10 @@ export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
         </p>
       </div>
 
-      {/* Right — sign-up card */}
       <div className="w-full lg:w-auto lg:flex-none flex items-center justify-center p-6 lg:p-8 relative z-10">
         <div className="w-full lg:w-[620px] bg-white/20 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/30 px-14 py-12 overflow-y-auto max-h-[calc(100vh-48px)]">
           <div className="w-full max-w-[480px] mx-auto">
 
-            {/* Mobile logo */}
             <div className="flex lg:hidden items-center gap-3 mb-10">
               <div className="w-9 h-9 bg-white/20 border border-white/30 rounded-xl flex items-center justify-center">
                 <StationSyncLogo size={20} color="white" />
@@ -870,6 +805,18 @@ export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
             <p className="text-[13px] text-white/60 font-medium mb-8">Get started with StationSync today</p>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+              <div>
+                <label className="text-[11px] font-bold tracking-widest text-white/50 uppercase block mb-2">Company</label>
+                <input
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="e.g. Lewis Service Station"
+                  required
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-[13px] font-semibold text-white placeholder:text-white/30 placeholder:font-normal focus:outline-none focus:border-white/50 transition-colors"
+                />
+              </div>
+
               <div>
                 <label className="text-[11px] font-bold tracking-widest text-white/50 uppercase block mb-2">Full Name</label>
                 <input
@@ -950,19 +897,17 @@ export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
               </button>
             </form>
 
-            {/* Divider */}
             <div className="flex items-center gap-3 my-6">
               <div className="flex-1 h-px bg-white/20" />
               <span className="text-[11px] font-semibold text-white/40 uppercase tracking-widest">or</span>
               <div className="flex-1 h-px bg-white/20" />
             </div>
 
-            {/* Social buttons */}
             <div className="flex gap-3">
               <button
                 type="button"
-                onClick={() => setStep('interests')}
-                className="flex-1 flex items-center justify-center gap-2.5 bg-white/80 border border-white/40 rounded-2xl py-3 text-[13px] font-semibold text-[#333] hover:bg-white/90 transition-colors backdrop-blur-sm"
+                disabled
+                className="flex-1 flex items-center justify-center gap-2.5 bg-white/80 border border-white/40 rounded-2xl py-3 text-[13px] font-semibold text-[#333] opacity-50 cursor-not-allowed backdrop-blur-sm"
               >
                 <svg width="17" height="17" viewBox="0 0 24 24">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -974,8 +919,8 @@ export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
               </button>
               <button
                 type="button"
-                onClick={() => setStep('interests')}
-                className="flex-1 flex items-center justify-center gap-2.5 bg-[#1877F2] rounded-2xl py-3 text-[13px] font-semibold text-white hover:bg-[#1464d0] transition-colors"
+                disabled
+                className="flex-1 flex items-center justify-center gap-2.5 bg-[#1877F2] rounded-2xl py-3 text-[13px] font-semibold text-white opacity-50 cursor-not-allowed transition-colors"
               >
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="white">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>

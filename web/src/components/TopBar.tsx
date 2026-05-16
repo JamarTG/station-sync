@@ -1,13 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Menu, Settings, LogOut } from 'lucide-react'
+import { useAuth } from '../lib/authContext'
 
 interface Props {
   onMenuClick: () => void
   onLogout: () => void
 }
 
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length === 1) return (parts[0][0] ?? '').toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
 export function TopBar({ onMenuClick, onLogout }: Props) {
+  const { user } = useAuth()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
@@ -42,14 +50,16 @@ export function TopBar({ onMenuClick, onLogout }: Props) {
         </button>
       </div>
 
-      <h1 className="hidden min-[668px]:block max-[1087px]:!hidden absolute left-1/2 -translate-x-1/2 text-[14px] font-bold tracking-widest text-[#111] uppercase">
-        Pechon Street
-      </h1>
+      {user?.business_address_line1 && (
+        <h1 className="hidden min-[668px]:block max-[1087px]:!hidden absolute left-1/2 -translate-x-1/2 text-[14px] font-bold tracking-widest text-[#111] uppercase">
+          {user.business_address_line1}
+        </h1>
+      )}
 
       {/* Right side */}
       <div className="flex items-center gap-3 text-[12px] text-[#888]">
         {/* Desktop only */}
-        <span className="hidden min-[668px]:inline font-semibold text-[#333]">YAAD MAN ENERGY JA LTD.</span>
+        <span className="hidden min-[668px]:inline font-semibold text-[#333]">{user?.business_name?.toUpperCase() ?? ''}</span>
         <span className="hidden min-[668px]:inline text-[#ddd]">|</span>
 
         {/* Always visible */}
@@ -62,13 +72,13 @@ export function TopBar({ onMenuClick, onLogout }: Props) {
             onClick={() => setDropdownOpen((o) => !o)}
             className="w-8 h-8 rounded-full bg-[#111] flex items-center justify-center text-white text-[11px] font-bold hover:bg-[#333] transition-colors"
           >
-            AL
+            {user ? initials(user.name) : '?'}
           </button>
           {dropdownOpen && (
             <div className="absolute right-0 top-full mt-2 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[160px] z-50">
               <div className="px-4 py-2.5 border-b border-[#f4f4f4]">
-                <p className="text-[13px] font-bold text-[#111]">A. Lewis</p>
-                <p className="text-[11px] text-[#aaa] font-medium">Supervisor</p>
+                <p className="text-[13px] font-bold text-[#111]">{user?.name ?? '—'}</p>
+                <p className="text-[11px] text-[#aaa] font-medium">{user?.role ?? '—'}</p>
               </div>
               <button
                 onClick={() => { setDropdownOpen(false); navigate({ to: '/settings' }) }}

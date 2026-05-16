@@ -9,16 +9,14 @@ import { AdvanceBreakdownModal } from './AdvanceBreakdownModal'
 import { ShortagesBreakdownModal } from './ShortagesBreakdownModal'
 import { OveragesBreakdownModal } from './OveragesBreakdownModal'
 import { FXBreakdownModal } from './FXBreakdownModal'
-import { DepositsBreakdownModal } from './DepositsBreakdownModal'
 import { activityByAccount } from './RecentActivityCard'
-import { computeAllBalances } from '../../lib/attendantBalances'
+import { useShiftDeposits } from '../../hooks/useApi'
 
-const fuelGrades = ['87', '90', 'ADO', 'ULSD']
-const accounts = ['CASH', 'CARD', 'FX', 'ADVANCE', 'CHARGES', 'EXPENDITURES', 'DEPOSITS']
+const accounts = ['CASH', 'CARD', 'FX', 'ADVANCE', 'CHARGES', 'EXPENDITURES']
 
 const accountKeyMap: Record<string, keyof typeof activityByAccount> = {
   CASH: 'Cash', CARD: 'Card', FX: 'FX', ADVANCE: 'Advance',
-  CHARGES: 'Charges', EXPENDITURES: 'Expenditures', DEPOSITS: 'Deposits',
+  CHARGES: 'Charges', EXPENDITURES: 'Expenditures',
 }
 
 function accountTotal(key: string): number {
@@ -30,6 +28,7 @@ const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigit
 
 interface Props {
   onClose: () => void
+  shiftId?: string
   attendantSales?: Record<string, number>
   gradeSales?: Record<string, number | null>
   attendantGradeSales?: Record<string, Record<string, number>>
@@ -39,7 +38,7 @@ function SectionLabel({ label }: { label: string }) {
   return <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1 mt-6">{label}</p>
 }
 
-export function SalesBreakdownModal({ onClose, attendantSales, gradeSales, attendantGradeSales }: Props) {
+export function SalesBreakdownModal({ onClose, shiftId, attendantSales, gradeSales, attendantGradeSales }: Props) {
   useEscapeKey(onClose)
   const [showCashBreakdown, setShowCashBreakdown] = useState(false)
   const [showExpenditureBreakdown, setShowExpenditureBreakdown] = useState(false)
@@ -49,18 +48,34 @@ export function SalesBreakdownModal({ onClose, attendantSales, gradeSales, atten
   const [showShortagesBreakdown, setShowShortagesBreakdown] = useState(false)
   const [showOveragesBreakdown, setShowOveragesBreakdown] = useState(false)
   const [showFXBreakdown, setShowFXBreakdown] = useState(false)
-  const [showDepositsBreakdown, setShowDepositsBreakdown] = useState(false)
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 537)
+  const { data: deposits = [] } = useShiftDeposits(shiftId)
   const allGradesComplete = !!gradeSales && Object.keys(gradeSales).length > 0 && Object.values(gradeSales).every((v) => v != null)
   const grandTotal = allGradesComplete ? Object.values(gradeSales!).reduce<number>((sum, v) => sum + v!, 0) : null
-  const balances = computeAllBalances(attendantSales ?? {})
 
-  const inflow = ['CASH', 'CARD', 'FX', 'ADVANCE', 'EXPENDITURES', 'CHARGES'].reduce((s, a) => s + accountTotal(a), 0)
-  const depositTotal = accountTotal('DEPOSITS')
-  const overageTotal = Object.entries(balances)
-    .filter(([name, b]) => (attendantSales?.[name] ?? 0) > 0 && b > 0)
-    .reduce((s, [, b]) => s + b, 0)
-  const salesBalance = grandTotal != null ? inflow - depositTotal - overageTotal - grandTotal : null
+  const hasCashDeposits = activityByAccount.Deposits.some((r) => r.type === 'deposit' && r.depositType === 'CashDeposit')
+
+  const inflowTypes = new Set(['Cash', 'Card', 'FX', 'Advance', 'Expenditure', 'Charge'])
+  const attendantDepositTypes = new Set(['Cash', 'Card', 'FX', 'Advance', 'Charge'])
+  const inflow = deposits.filter((d) => inflowTypes.has(d.type)).reduce((s, d) => s + d.amount, 0)
+  const depositedByAttendant: Record<string, number> = {}
+  for (const d of deposits) {
+    if (attendantDepositTypes.has(d.type)) {
+      depositedByAttendant[d.attendant_name] = (depositedByAttendant[d.attendant_name] ?? 0) + d.amount
+    }
+  }
+  const balances: Record<string, number> = Object.fromEntries(
+    Object.entries(attendantSales ?? {})
+      .filter(([, sales]) => sales > 0)
+      .map(([name, sales]) => [name, (depositedByAttendant[name] ?? 0) - sales])
+  )
+  const overageTotal = Object.entries(attendantSales ?? {})
+    .filter(([, sales]) => sales > 0)
+    .reduce((s, [name, sales]) => { const b = (depositedByAttendant[name] ?? 0) - sales; return b > 0 ? s + b : s }, 0)
+  const shortageTotal = Object.entries(attendantSales ?? {})
+    .filter(([, sales]) => sales > 0)
+    .reduce((s, [name, sales]) => { const b = (depositedByAttendant[name] ?? 0) - sales; return b < 0 ? s + Math.abs(b) : s }, 0)
+  const salesBalance = grandTotal != null ? inflow + shortageTotal - overageTotal - grandTotal : null
 
   useEffect(() => {
     function onResize() { setIsNarrow(window.innerWidth < 537) }
@@ -74,7 +89,6 @@ export function SalesBreakdownModal({ onClose, attendantSales, gradeSales, atten
   if (showChargesBreakdown) return <ChargesBreakdownModal onBack={() => setShowChargesBreakdown(false)} onClose={onClose} />
   if (showAdvanceBreakdown) return <AdvanceBreakdownModal onBack={() => setShowAdvanceBreakdown(false)} onClose={onClose} />
   if (showFXBreakdown) return <FXBreakdownModal onBack={() => setShowFXBreakdown(false)} onClose={onClose} />
-  if (showDepositsBreakdown) return <DepositsBreakdownModal onBack={() => setShowDepositsBreakdown(false)} onClose={onClose} />
   if (showShortagesBreakdown) return <ShortagesBreakdownModal onBack={() => setShowShortagesBreakdown(false)} onClose={onClose} balances={balances} attendantSales={attendantSales} attendantGradeSales={attendantGradeSales} />
   if (showOveragesBreakdown) return <OveragesBreakdownModal onBack={() => setShowOveragesBreakdown(false)} onClose={onClose} balances={balances} attendantSales={attendantSales} attendantGradeSales={attendantGradeSales} />
 
@@ -113,17 +127,14 @@ export function SalesBreakdownModal({ onClose, attendantSales, gradeSales, atten
 
         <div className="flex-1 overflow-y-auto">
           <SectionLabel label="Amount Sold" />
-          {fuelGrades.map((g) => {
-            const val = gradeSales?.[g] ?? null
-            return (
-              <div key={g} className="flex items-center justify-between py-2">
-                <p className="text-[13px] font-semibold text-[#111]">{g}</p>
-                <p className={`text-[13px] font-semibold ${val != null ? 'text-[#333]' : 'text-[#bbb]'}`}>
-                  {val != null ? fmt(val) : '--'}
-                </p>
-              </div>
-            )
-          })}
+          {Object.entries(gradeSales ?? {}).map(([g, val]) => (
+            <div key={g} className="flex items-center justify-between py-2">
+              <p className="text-[13px] font-semibold text-[#111]">{g}</p>
+              <p className={`text-[13px] font-semibold ${val != null ? 'text-[#333]' : 'text-[#bbb]'}`}>
+                {val != null ? fmt(val) : '--'}
+              </p>
+            </div>
+          ))}
 
           <div className="border-t border-[#f0f0f0] mt-2" />
 
@@ -136,12 +147,13 @@ export function SalesBreakdownModal({ onClose, attendantSales, gradeSales, atten
               a === 'CHARGES' ? () => setShowChargesBreakdown(true) :
               a === 'ADVANCE' ? () => setShowAdvanceBreakdown(true) :
               a === 'EXPENDITURES' ? () => setShowExpenditureBreakdown(true) :
-              a === 'DEPOSITS' ? () => setShowDepositsBreakdown(true) :
               null
             return (
               <button key={a} onClick={handler ?? undefined} className="flex items-center justify-between py-2 w-full text-left hover:opacity-70 transition-opacity">
                 <p className="text-[13px] font-semibold text-[#111]">{a}</p>
-                <p className="text-[13px] font-semibold text-[#333]">{fmt(accountTotal(a))}</p>
+                <p className="text-[13px] font-semibold text-[#333]">
+                  {a === 'CASH' && hasCashDeposits ? '...' : fmt(accountTotal(a))}
+                </p>
               </button>
             )
           })}
@@ -150,9 +162,6 @@ export function SalesBreakdownModal({ onClose, attendantSales, gradeSales, atten
 
           <SectionLabel label="Attendants" />
           {(() => {
-            const entries = Object.entries(balances).filter(([name, b]) => (attendantSales?.[name] ?? 0) > 0 && b !== 0)
-            const shortageTotal = entries.filter(([, b]) => b < 0).reduce((s, [, b]) => s + Math.abs(b), 0)
-            const overageTotal = entries.filter(([, b]) => b > 0).reduce((s, [, b]) => s + b, 0)
             return (
               <>
                 <button onClick={() => setShowShortagesBreakdown(true)} className="flex items-center justify-between py-2 w-full text-left hover:opacity-70 transition-opacity">

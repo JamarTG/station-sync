@@ -1,27 +1,80 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { useShiftAttendance } from '../../hooks/useApi'
+import { createDeposit, updateDeposit } from '../../lib/api'
 import { fmtInput, parseInput } from '../../lib/fmt'
 
 const denominations = [5000, 2000, 1000, 500, 100, 50, 20, 10, 5, 1]
-const attendants = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
 
 interface Props {
   initialAttendant: string
+  initialDenominations?: Record<number, number>
   onBack: () => void
   onClose: () => void
   isEditing?: boolean
+  depositId?: string
+  shiftId?: string
 }
 
-export function CashDepositModal({ initialAttendant, onBack, onClose, isEditing }: Props) {
+export function CashDepositModal({ initialAttendant, initialDenominations, onBack, onClose, isEditing, depositId, shiftId }: Props) {
   useEscapeKey(onClose)
+  const queryClient = useQueryClient()
+  const { data: attendance = [] } = useShiftAttendance(shiftId)
+  const attendantOptions = attendance.reduce<{ id: string; name: string }[]>((acc, a) => {
+    if (!acc.some((o) => o.id === a.user_id)) acc.push({ id: a.user_id, name: a.user_name })
+    return acc
+  }, [])
+
   const [counts, setCounts] = useState<Record<number, string>>({})
-  const [attendant, setAttendant] = useState(initialAttendant || attendants[0])
+  const [attendant, setAttendant] = useState(initialAttendant || '')
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (attendantOptions.length > 0 && !attendant) setAttendant(attendantOptions[0].name)
+  }, [attendantOptions.length])
+  const [error, setError] = useState('')
 
   const total = denominations.reduce((sum, d) => {
     const n = parseInt(counts[d] ?? '', 10)
     return sum + (isNaN(n) ? 0 : n * d)
   }, 0)
+
+  const nonEmpty = Object.fromEntries(
+    denominations.filter((d) => parseInt(counts[d] ?? '', 10) > 0).map((d) => [d, parseInt(counts[d], 10)])
+  )
+
+  const initialTotal = denominations.reduce((sum, d) => sum + (initialDenominations?.[d] ?? 0) * d, 0)
+  const effectiveTotal = total > 0 ? total : initialTotal
+  const effectiveCounts = total > 0 ? nonEmpty : (initialDenominations ?? {})
+
+  async function handleSubmit() {
+    if (!shiftId || effectiveTotal === 0) return
+    const entry = attendantOptions.find((a) => a.name === attendant)
+    if (!entry) return
+    setLoading(true)
+    setError('')
+    try {
+      const payload = {
+        attendant_id: entry.id,
+        type: 'Cash',
+        amount: effectiveTotal,
+        metadata: JSON.stringify({ denominations: effectiveCounts }),
+      }
+      if (isEditing && depositId) {
+        await updateDeposit(shiftId, depositId, payload)
+      } else {
+        await createDeposit(shiftId, payload)
+      }
+      queryClient.invalidateQueries({ queryKey: ['shifts', shiftId, 'deposits'] })
+      onClose()
+    } catch {
+      setError('Failed to save. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div
@@ -58,8 +111,8 @@ export function CashDepositModal({ initialAttendant, onBack, onClose, isEditing 
                     type="text"
                     value={fmtInput(counts[d] ?? '')}
                     onChange={(e) => setCounts((prev) => ({ ...prev, [d]: parseInput(e.target.value) }))}
+                    placeholder={String(initialDenominations?.[d] ?? '')}
                     className="w-full text-[13px] font-medium text-[#333] focus:outline-none bg-transparent"
-                    placeholder=""
                   />
                 </td>
                 <td className="px-3 py-2 text-center text-[13px] font-medium text-[#333]">
@@ -83,14 +136,21 @@ export function CashDepositModal({ initialAttendant, onBack, onClose, isEditing 
             onChange={(e) => setAttendant(e.target.value)}
             className="border border-[#ddd] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] bg-white focus:outline-none cursor-pointer min-w-[200px]"
           >
-            {attendants.map((a) => (
-              <option key={a} value={a}>{a}</option>
+            <option value="">Select...</option>
+            {attendantOptions.map((a) => (
+              <option key={a.id} value={a.name}>{a.name}</option>
             ))}
           </select>
         </div>
 
-        <button className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
-          Submit
+        {error && <p className="text-[11px] font-semibold text-red-500 mb-3">{error}</p>}
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading || effectiveTotal === 0 || !attendant || !shiftId}
+          className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Saving...' : 'Submit'}
         </button>
       </div>
     </div>

@@ -6,8 +6,6 @@ import { activityByAccount } from './RecentActivityCard'
 
 const fmt = (n: number) => `J$ ${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
-const fuelGrades = ['87', '90', 'ADO', 'ULSD']
-
 const depositSources = [
   { label: 'CASH', key: 'Cash' },
   { label: 'CARD', key: 'Card' },
@@ -21,9 +19,10 @@ interface Props {
   onClose: () => void
   sales?: number
   gradeSales?: Record<string, number>
+  shiftId?: string
 }
 
-export function AttendantModal({ name, onClose, sales, gradeSales }: Props) {
+export function AttendantModal({ name, onClose, sales, gradeSales, shiftId }: Props) {
   useEscapeKey(onClose)
   const [showManage, setShowManage] = useState(false)
 
@@ -72,17 +71,14 @@ export function AttendantModal({ name, onClose, sales, gradeSales }: Props) {
 
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Amount Sold</p>
           <div className="divide-y divide-[#f0f0f0] mb-6">
-            {fuelGrades.map((g) => {
-              const val = gradeSales?.[g] ?? 0
-              return (
-                <div key={g} className="flex items-center justify-between py-2.5">
-                  <span className="text-[13px] font-medium text-[#222]">{g}</span>
-                  <span className={`text-[13px] font-medium ${val > 0 ? 'text-[#333]' : 'text-[#bbb]'}`}>
-                    {val > 0 ? fmt(val) : '--'}
-                  </span>
-                </div>
-              )
-            })}
+            {Object.entries(gradeSales ?? {}).map(([g, val]) => (
+              <div key={g} className="flex items-center justify-between py-2.5">
+                <span className="text-[13px] font-medium text-[#222]">{g}</span>
+                <span className={`text-[13px] font-medium ${val > 0 ? 'text-[#333]' : 'text-[#bbb]'}`}>
+                  {val > 0 ? fmt(val) : '--'}
+                </span>
+              </div>
+            ))}
             <div className="flex items-center justify-between py-2.5">
               <span className="text-[13px] font-semibold text-[#222] uppercase tracking-wide">Total</span>
               <span className={`text-[13px] font-semibold ${hasSales ? 'text-[#333]' : 'text-[#bbb]'}`}>
@@ -119,7 +115,7 @@ export function AttendantModal({ name, onClose, sales, gradeSales }: Props) {
         </div>
       </div>
     </div>
-    {showManage && <ManageAttendantsModal onClose={() => setShowManage(false)} />}
+    {showManage && <ManageAttendantsModal onClose={() => setShowManage(false)} shiftId={shiftId} />}
     </>
   )
 }

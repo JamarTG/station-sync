@@ -1,28 +1,23 @@
 import type { ActivityRow } from '../components/dashboard/RecentActivityCard'
-import { activityByAccount } from '../components/dashboard/RecentActivityCard'
+import type { AccountType } from '../components/dashboard/AccountsPanel'
 
-function sumForAttendant(rows: ActivityRow[], name: string): number {
-  return rows.reduce((s, r) => {
-    if (r.type === 'expenditure' || r.type === 'attendants' || r.type === 'deposit') return s
-    return r.name === name ? s + r.amount : s
-  }, 0)
-}
+const depositSources: AccountType[] = ['Cash', 'Card', 'FX', 'Advance', 'Charges']
 
-export function totalRecordedForAttendant(name: string): number {
-  return (
-    sumForAttendant(activityByAccount.Cash, name) +
-    sumForAttendant(activityByAccount.Card, name) +
-    sumForAttendant(activityByAccount.Charges, name) +
-    sumForAttendant(activityByAccount.Advance, name) +
-    sumForAttendant(activityByAccount.FX, name)
-  )
-}
-
-export function computeAllBalances(attendantSales: Record<string, number>): Record<string, number> {
+export function computeAllBalances(
+  attendantSales: Record<string, number>,
+  activityByAccount: Record<AccountType, ActivityRow[]>
+): Record<string, number> {
+  const totalDeposited: Record<string, number> = {}
+  for (const source of depositSources) {
+    for (const row of activityByAccount[source] ?? []) {
+      if (row.type === 'expenditure' || row.type === 'attendants' || row.type === 'deposit') continue
+      if ('name' in row) {
+        const name = (row as { name: string }).name
+        totalDeposited[name] = (totalDeposited[name] ?? 0) + row.amount
+      }
+    }
+  }
   return Object.fromEntries(
-    Object.entries(attendantSales).map(([name, sales]) => [
-      name,
-      totalRecordedForAttendant(name) - sales,
-    ])
+    Object.entries(attendantSales).map(([name, sales]) => [name, (totalDeposited[name] ?? 0) - sales])
   )
 }

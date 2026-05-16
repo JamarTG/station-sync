@@ -24,7 +24,7 @@ function buildCounts(): Record<number, number> {
   }
 
   for (const row of activityByAccount.Deposits) {
-    if (row.type === 'deposit' && row.depositType === 'Cash' && row.denominations) {
+    if (row.type === 'deposit' && row.depositType === 'CashDeposit' && row.denominations) {
       for (const [d, n] of Object.entries(row.denominations)) {
         counts[Number(d)] = (counts[Number(d)] ?? 0) + n
       }
@@ -69,6 +69,13 @@ export function CashBreakdownModal({ onBack, onClose }: Props) {
   const total = allDenominations.reduce((sum, d) => sum + d * Math.max(0, counts[d] ?? 0), 0)
   const totalNotes = allDenominations.reduce((sum, d) => sum + Math.max(0, counts[d] ?? 0), 0)
 
+  const cashDrops = activityByAccount.Cash.filter((r) => r.type === 'attendant') as import('./RecentActivityCard').AttendantRow[]
+  const cashDeposits = activityByAccount.Deposits.filter((r) => r.type === 'deposit' && r.depositType === 'CashDeposit') as import('./RecentActivityCard').DepositRow[]
+  const cashDropTotal = cashDrops.reduce((s, r) => s + r.amount, 0)
+  const cashDepositTotal = cashDeposits.reduce((s, r) => s + r.amount, 0)
+
+  const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/30 backdrop-blur-sm"
@@ -102,7 +109,47 @@ export function CashBreakdownModal({ onBack, onClose }: Props) {
         )}
 
         <div className="flex-1 overflow-y-auto">
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Breakdown</p>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Cash Drops</p>
+          {cashDrops.length === 0 ? (
+            <p className="text-[13px] font-medium text-[#bbb] py-2">No cash drops recorded</p>
+          ) : (
+            <>
+              {cashDrops.map((r) => (
+                <div key={r.depositId} className="flex items-center justify-between py-2">
+                  <p className="text-[13px] font-semibold text-[#111]">{r.name}</p>
+                  <p className="text-[13px] font-semibold text-[#333]">{fmt(r.amount)}</p>
+                </div>
+              ))}
+              <div className="flex items-center justify-between py-2 border-t border-[#f0f0f0]">
+                <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Subtotal</p>
+                <p className="text-[13px] font-semibold text-[#333]">{fmt(cashDropTotal)}</p>
+              </div>
+            </>
+          )}
+
+          <div className="border-t border-[#ebebeb] my-4" />
+
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Cash Deposits</p>
+          {cashDeposits.length === 0 ? (
+            <p className="text-[13px] font-medium text-[#bbb] py-2">No cash deposits recorded</p>
+          ) : (
+            <>
+              {cashDeposits.map((r) => (
+                <div key={r.depositId} className="flex items-center justify-between py-2">
+                  <p className="text-[13px] font-semibold text-[#111]">{r.name}</p>
+                  <p className="text-[13px] font-semibold text-[#333]">{fmt(r.amount)}</p>
+                </div>
+              ))}
+              <div className="flex items-center justify-between py-2 border-t border-[#f0f0f0]">
+                <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Subtotal</p>
+                <p className="text-[13px] font-semibold text-[#333]">{fmt(cashDepositTotal)}</p>
+              </div>
+            </>
+          )}
+
+          <div className="border-t border-[#ebebeb] my-4" />
+
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Denomination Breakdown</p>
           <div className="flex items-center pb-1 border-b border-[#f4f4f4] mb-1">
             <p className="flex-1 text-[11px] font-semibold text-[#bbb] uppercase">Note</p>
             <p className="w-16 text-center text-[11px] font-semibold text-[#bbb] uppercase">Count</p>

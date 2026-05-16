@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { SalesBreakdownModal } from './SalesBreakdownModal'
 import { fmtNum } from '../../lib/fmt'
-import { activityByAccount } from './RecentActivityCard'
-import { computeAllBalances } from '../../lib/attendantBalances'
+import { useShiftDeposits } from '../../hooks/useApi'
 
 const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
-function accountTotal(key: keyof typeof activityByAccount): number {
-  return activityByAccount[key].reduce((s, r) => s + r.amount, 0)
-}
+const inflowTypes = new Set(['Cash', 'Card', 'FX', 'Advance', 'Expenditure', 'Charge'])
+const attendantDepositTypes = new Set(['Cash', 'Card', 'FX', 'Advance', 'Charge'])
 
 interface Props {
   totalSales?: number
@@ -16,20 +14,33 @@ interface Props {
   attendantSales?: Record<string, number>
   gradeSales?: Record<string, number | null>
   attendantGradeSales?: Record<string, Record<string, number>>
+  shiftId?: string
 }
 
-export function TotalSalesCard({ totalSales = 0, totalLitres = 0, attendantSales, gradeSales, attendantGradeSales }: Props) {
+export function TotalSalesCard({ totalSales = 0, totalLitres = 0, attendantSales, gradeSales, attendantGradeSales, shiftId }: Props) {
   const [showBreakdown, setShowBreakdown] = useState(false)
+  const { data: deposits = [] } = useShiftDeposits(shiftId)
 
   const allGradesComplete = !!gradeSales && Object.keys(gradeSales).length > 0 && Object.values(gradeSales).every((v) => v != null)
   const grandTotal = allGradesComplete ? Object.values(gradeSales!).reduce<number>((s, v) => s + v!, 0) : null
-  const balances = computeAllBalances(attendantSales ?? {})
-  const inflow = accountTotal('Cash') + accountTotal('Card') + accountTotal('FX') + accountTotal('Advance') + accountTotal('Expenditures') + accountTotal('Charges')
-  const depositTotal = accountTotal('Deposits')
-  const overageTotal = Object.entries(balances)
-    .filter(([name, b]) => (attendantSales?.[name] ?? 0) > 0 && b > 0)
-    .reduce((s, [, b]) => s + b, 0)
-  const salesBalance = grandTotal != null ? inflow - depositTotal - overageTotal - grandTotal : null
+
+  const inflow = deposits.filter((d) => inflowTypes.has(d.type)).reduce((s, d) => s + d.amount, 0)
+
+  const depositedByAttendant: Record<string, number> = {}
+  for (const d of deposits) {
+    if (attendantDepositTypes.has(d.type)) {
+      depositedByAttendant[d.attendant_name] = (depositedByAttendant[d.attendant_name] ?? 0) + d.amount
+    }
+  }
+
+  const overageTotal = Object.entries(attendantSales ?? {})
+    .filter(([, sales]) => sales > 0)
+    .reduce((s, [name, sales]) => { const b = (depositedByAttendant[name] ?? 0) - sales; return b > 0 ? s + b : s }, 0)
+  const shortageTotal = Object.entries(attendantSales ?? {})
+    .filter(([, sales]) => sales > 0)
+    .reduce((s, [name, sales]) => { const b = (depositedByAttendant[name] ?? 0) - sales; return b < 0 ? s + Math.abs(b) : s }, 0)
+
+  const salesBalance = grandTotal != null ? inflow + shortageTotal - overageTotal - grandTotal : null
 
   return (
     <>
@@ -66,7 +77,7 @@ export function TotalSalesCard({ totalSales = 0, totalLitres = 0, attendantSales
       </button>
 
       {showBreakdown && (
-        <SalesBreakdownModal onClose={() => setShowBreakdown(false)} attendantSales={attendantSales} gradeSales={gradeSales} attendantGradeSales={attendantGradeSales} />
+        <SalesBreakdownModal onClose={() => setShowBreakdown(false)} shiftId={shiftId} attendantSales={attendantSales} gradeSales={gradeSales} attendantGradeSales={attendantGradeSales} />
       )}
     </>
   )

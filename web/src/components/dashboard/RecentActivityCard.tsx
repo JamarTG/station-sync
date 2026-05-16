@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { totalRecordedForAttendant } from '../../lib/attendantBalances'
 import { createPortal } from 'react-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { useShiftAttendance, useShiftDeposits } from '../../hooks/useApi'
+import { deleteDeposit } from '../../lib/api'
+import type { Deposit } from '../../lib/api'
 import { ChevronDown, ChevronUp, Plus, MoreHorizontal, Eye, Pencil, Trash2, Printer, FileText, Search, X } from 'lucide-react'
 import clsx from 'clsx'
 import type { AccountType } from './AccountsPanel'
@@ -31,54 +34,52 @@ import { ExpenditureReceiptModal } from './ExpenditureReceiptModal'
 
 export interface BaseRow { id: number; amount: number }
 export interface AttendantsRow extends BaseRow { type: 'attendants'; name: string; pump: string; balance: number; clockIn: string }
-export interface AttendantRow extends BaseRow { type: 'attendant'; name: string; time: string; supervisor?: string; denominations?: Record<number, number> }
-export interface ExpenditureRow extends BaseRow { type: 'expenditure'; requestedBy: string; description: string; denominations?: Record<number, number> }
-export interface ChargesRow extends BaseRow { type: 'charges'; name: string; fuelType: string; litres: number }
-export interface CardRow extends BaseRow { type: 'card'; name: string; bank: string; transNo: string }
-export interface AdvanceRow extends BaseRow { type: 'advance'; name: string; fuelType: string; litres: number }
-export interface FXRow extends BaseRow { type: 'fx'; name: string; fxAmount: number; currency: string }
-export interface DepositRow extends BaseRow { type: 'deposit'; name: string; description: string; depositType: string; supervisor?: string; fxAmount?: number; currency?: string; denominations?: Record<number, number> }
+export interface AttendantRow extends BaseRow { type: 'attendant'; depositId: string; name: string; time: string; supervisor?: string; denominations?: Record<number, number> }
+export interface ExpenditureRow extends BaseRow { type: 'expenditure'; depositId: string; requestedBy: string; description: string; denominations?: Record<number, number> }
+export interface ChargesRow extends BaseRow { type: 'charges'; depositId: string; name: string; fuelType: string; litres: number }
+export interface CardRow extends BaseRow { type: 'card'; depositId: string; name: string; bank: string; transNo: string }
+export interface AdvanceRow extends BaseRow { type: 'advance'; depositId: string; name: string; fuelType: string; litres: number }
+export interface FXRow extends BaseRow { type: 'fx'; depositId: string; name: string; fxAmount: number; currency: string }
+export interface DepositRow extends BaseRow { type: 'deposit'; depositId: string; name: string; description: string; depositType: string; supervisor?: string; fxAmount?: number; currency?: string; denominations?: Record<number, number>; bank?: string; transNo?: string; chequeNo?: string }
 
 export type ActivityRow = AttendantsRow | AttendantRow | ExpenditureRow | ChargesRow | CardRow | AdvanceRow | FXRow | DepositRow
 
 export const activityByAccount: Record<AccountType, ActivityRow[]> = {
-  Attendants: [
-    { type: 'attendants', id: 1, name: 'S. Lawes', pump: 'Pump 1', balance: 150000.0, clockIn: '7:00 AM', amount: 0 },
-    { type: 'attendants', id: 2, name: 'S. Smith', pump: 'Pump 2', balance: 92000.0, clockIn: '7:00 AM', amount: 0 },
-    { type: 'attendants', id: 3, name: 'T. Brisco', pump: 'Pump 3', balance: 210000.0, clockIn: '3:00 PM', amount: 0 },
-  ],
-  Cash: [
-    { type: 'attendant', id: 1, name: 'S. Lawes', time: '9:00 PM', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 25, 2000: 10, 1000: 5 } },
-    { type: 'attendant', id: 2, name: 'S. Smith', time: '7:43 PM', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 20, 2000: 15, 1000: 10 } },
-    { type: 'attendant', id: 3, name: 'T. Brisco', time: '4:32 PM', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 28, 1000: 8, 500: 4 } },
-    { type: 'attendant', id: 4, name: 'T. Brisco', time: '4:32 PM', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 30 } },
-    { type: 'attendant', id: 5, name: 'T. Brisco', time: '4:32 PM', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 26, 2000: 5, 1000: 10 } },
-  ],
-  Charges: [
-    { type: 'charges', id: 1, name: 'T. Brisco', fuelType: '87', litres: 45.2, amount: 8608.08 },
-    { type: 'charges', id: 2, name: 'A. Lewis', fuelType: 'ADO', litres: 30.0, amount: 5727.0 },
-  ],
-  Expenditures: [
-    { type: 'expenditure', id: 1, requestedBy: 'A. Lewis', description: 'Office supplies', amount: 5000.0, denominations: { 5000: 1 } },
-    { type: 'expenditure', id: 2, requestedBy: 'T. Brisco', description: 'Equipment repair', amount: 12000.0, denominations: { 5000: 2, 2000: 1 } },
-  ],
-  Advance: [
-    { type: 'advance', id: 1, name: 'T. Brisco', fuelType: '87', litres: 45.2, amount: 8608.08 },
-    { type: 'advance', id: 2, name: 'S. Smith', fuelType: '90', litres: 30.0, amount: 6150.0 },
-  ],
-  FX: [
-    { type: 'fx', id: 1, name: 'S. Smith', fxAmount: 500, currency: 'USD', amount: 75000 },
-    { type: 'fx', id: 2, name: 'T. Brisco', fxAmount: 200, currency: 'EUR', amount: 32000 },
-  ],
-  Card: [
-    { type: 'card', id: 1, name: 'S. Smith', bank: 'NCB', transNo: 'TXN-00123', amount: 23000.0 },
-    { type: 'card', id: 2, name: 'T. Brisco', bank: 'Scotiabank', transNo: 'TXN-00124', amount: 15000.0 },
-  ],
-  Deposits: [
-    { type: 'deposit', id: 1, name: 'S. Lawes', description: 'Shift end deposit', depositType: 'Cash', supervisor: 'A. Lewis', amount: 150000.0, denominations: { 5000: 30 } },
-    { type: 'deposit', id: 2, name: 'S. Smith', description: 'Card settlement', depositType: 'Card', supervisor: 'A. Lewis', amount: 45000.0 },
-    { type: 'deposit', id: 3, name: 'T. Brisco', description: 'FX deposit', depositType: 'FX', supervisor: 'A. Lewis', amount: 32000.0, fxAmount: 200, currency: 'EUR' },
-  ],
+  Attendants: [], Cash: [], Charges: [], Expenditures: [],
+  Advance: [], FX: [], Card: [], Deposits: [],
+}
+
+function fmtShortName(name: string): string {
+  const parts = name.trim().split(/\s+/)
+  if (parts.length < 2) return name
+  return `${parts[0][0]}. ${parts[parts.length - 1]}`
+}
+
+function formatClockIn(iso: string): string {
+  const d = new Date(iso)
+  const h = d.getHours()
+  const m = d.getMinutes()
+  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
+}
+
+function mapDepositToRow(d: Deposit, id: number): ActivityRow {
+  const meta: Record<string, unknown> = d.metadata ? JSON.parse(d.metadata) : {}
+  switch (d.type) {
+    case 'Cash':
+      return { type: 'attendant', id, depositId: d.id, name: d.attendant_name, time: '', supervisor: String(meta.supervisor ?? ''), amount: d.amount, denominations: meta.denominations as Record<number, number> | undefined }
+    case 'Card':
+      return { type: 'card', id, depositId: d.id, name: d.attendant_name, bank: String(meta.bank ?? ''), transNo: String(meta.trans_no ?? ''), amount: d.amount }
+    case 'Charge':
+      return { type: 'charges', id, depositId: d.id, name: d.attendant_name, fuelType: String(meta.fuel_type ?? ''), litres: Number(meta.litres ?? 0), amount: d.amount }
+    case 'Advance':
+      return { type: 'advance', id, depositId: d.id, name: d.attendant_name, fuelType: String(meta.fuel_type ?? ''), litres: Number(meta.litres ?? 0), amount: d.amount }
+    case 'FX':
+      return { type: 'fx', id, depositId: d.id, name: d.attendant_name, fxAmount: Number(meta.fx_amount ?? 0), currency: String(meta.currency ?? ''), amount: d.amount }
+    case 'Expenditure':
+      return { type: 'expenditure', id, depositId: d.id, requestedBy: d.attendant_name, description: String(meta.description ?? ''), amount: d.amount, denominations: meta.denominations as Record<number, number> | undefined }
+    default:
+      return { type: 'deposit', id, depositId: d.id, name: String(meta.deposited_by ?? d.attendant_name), description: String(meta.description ?? ''), depositType: d.type, supervisor: String(meta.supervisor ?? ''), amount: d.amount, fxAmount: meta.fx_amount != null ? Number(meta.fx_amount) : undefined, currency: meta.currency != null ? String(meta.currency) : undefined, denominations: meta.denominations as Record<number, number> | undefined, bank: meta.bank != null ? String(meta.bank) : undefined, transNo: meta.trans_no != null ? String(meta.trans_no) : undefined, chequeNo: meta.cheque_no != null ? String(meta.cheque_no) : undefined }
+  }
 }
 
 function TableHeaders({ account }: { account: AccountType }) {
@@ -87,14 +88,13 @@ function TableHeaders({ account }: { account: AccountType }) {
     <>
       <th className={th}>Name</th>
       <th className={th}>Description</th>
-      <th className={th}>Type</th>
     </>
   )
   if (account === 'Attendants') return (
     <>
       <th className={th}>Attendant</th>
-      <th className={th}>Pump</th>
       <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Amount Sold</th>
+      <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Deposited</th>
       <th className="text-right px-3 py-3 text-[11px] font-semibold text-[#bbb]">Balance</th>
     </>
   )
@@ -135,7 +135,7 @@ function TableHeaders({ account }: { account: AccountType }) {
   return <th className={th}>Attendant</th>
 }
 
-function TableCells({ row, attendantSales }: { row: ActivityRow; attendantSales?: Record<string, number> }) {
+function TableCells({ row, attendantSales, totalRecordedByAttendant }: { row: ActivityRow; attendantSales?: Record<string, number>; totalRecordedByAttendant?: Record<string, number> }) {
   if (row.type === 'deposit') return (
     <>
       <td className="px-3 py-3.5">
@@ -144,27 +144,27 @@ function TableCells({ row, attendantSales }: { row: ActivityRow; attendantSales?
       <td className="px-3 py-3.5">
         <p className="text-[13px] text-[#555] whitespace-nowrap">{row.description}</p>
       </td>
-      <td className="px-3 py-3.5">
-        <p className="text-[13px] text-[#555] whitespace-nowrap">{row.depositType}</p>
-      </td>
     </>
   )
   if (row.type === 'attendants') {
     const sales = attendantSales?.[row.name] ?? 0
-    const balance = totalRecordedForAttendant(row.name) - sales
+    const deposited = totalRecordedByAttendant?.[row.name] ?? 0
+    const balance = deposited - sales
     const balanceFmt = `J$ ${Math.abs(balance).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
     return (
       <>
         <td className="px-3 py-3.5">
-          <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
+          <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{fmtShortName(row.name)}</p>
           <p className="text-[11px] text-[#bbb] whitespace-nowrap">{row.clockIn}</p>
-        </td>
-        <td className="px-3 py-3.5">
-          <p className="text-[13px] text-[#555] whitespace-nowrap">{row.pump}</p>
         </td>
         <td className="px-3 py-3.5 text-right">
           <p className={`text-[13px] font-semibold whitespace-nowrap ${sales > 0 ? 'text-[#333]' : 'text-[#bbb]'}`}>
             {sales > 0 ? `J$ ${sales.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
+          </p>
+        </td>
+        <td className="px-3 py-3.5 text-right">
+          <p className={`text-[13px] font-semibold whitespace-nowrap ${deposited > 0 ? 'text-[#333]' : 'text-[#bbb]'}`}>
+            {deposited > 0 ? `J$ ${deposited.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
           </p>
         </td>
         <td className="px-3 py-3.5 text-right">
@@ -188,7 +188,7 @@ function TableCells({ row, attendantSales }: { row: ActivityRow; attendantSales?
   if (row.type === 'charges') return (
     <>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{fmtShortName(row.name)}</p>
       </td>
       <td className="px-3 py-3.5">
         <p className="text-[13px] text-[#555] whitespace-nowrap">{row.fuelType}</p>
@@ -201,7 +201,7 @@ function TableCells({ row, attendantSales }: { row: ActivityRow; attendantSales?
   if (row.type === 'advance') return (
     <>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{fmtShortName(row.name)}</p>
       </td>
       <td className="px-3 py-3.5">
         <p className="text-[13px] text-[#555] whitespace-nowrap">{row.fuelType}</p>
@@ -214,7 +214,7 @@ function TableCells({ row, attendantSales }: { row: ActivityRow; attendantSales?
   if (row.type === 'card') return (
     <>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{fmtShortName(row.name)}</p>
       </td>
       <td className="px-3 py-3.5">
         <p className="text-[13px] text-[#555] whitespace-nowrap">{row.bank}</p>
@@ -227,7 +227,7 @@ function TableCells({ row, attendantSales }: { row: ActivityRow; attendantSales?
   if (row.type === 'fx') return (
     <>
       <td className="px-3 py-3.5">
-        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
+        <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{fmtShortName(row.name)}</p>
       </td>
       <td className="px-3 py-3.5 text-right">
         <p className="text-[13px] text-[#555] whitespace-nowrap">{row.fxAmount.toFixed(2)}</p>
@@ -239,7 +239,7 @@ function TableCells({ row, attendantSales }: { row: ActivityRow; attendantSales?
   )
   if (row.type === 'attendant') return (
     <td className="px-3 py-3.5">
-      <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{row.name}</p>
+      <p className="text-[13px] font-semibold text-[#222] whitespace-nowrap">{fmtShortName(row.name)}</p>
       <p className="text-[11px] text-[#bbb] whitespace-nowrap">{row.time}</p>
     </td>
   )
@@ -252,6 +252,7 @@ interface Props {
   readOnly?: boolean
   attendantSales?: Record<string, number>
   attendantGradeSales?: Record<string, Record<string, number>>
+  shiftId?: string
 }
 
 function rowMenuOptions(account: AccountType) {
@@ -311,7 +312,10 @@ function RowDropdown({ account, onClose, onAction, anchor }: RowDropdownProps) {
   )
 }
 
-export function RecentActivityCard({ account, readOnly, attendantSales, attendantGradeSales }: Props) {
+export function RecentActivityCard({ account, readOnly, attendantSales, attendantGradeSales, shiftId }: Props) {
+  const queryClient = useQueryClient()
+  const { data: attendance = [] } = useShiftAttendance(shiftId)
+  const { data: deposits = [] } = useShiftDeposits(shiftId)
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null)
   const [dropdownAnchor, setDropdownAnchor] = useState<DOMRect | null>(null)
   const [editingRow, setEditingRow] = useState<ActivityRow | null>(null)
@@ -354,18 +358,50 @@ export function RecentActivityCard({ account, readOnly, attendantSales, attendan
     return base
   }
 
-  const allActivities = activityByAccount[account]
+  const totalRecordedByAttendant: Record<string, number> = {}
+  for (const d of deposits) {
+    if (['Cash', 'Card', 'Charge', 'Advance', 'FX'].includes(d.type)) {
+      totalRecordedByAttendant[d.attendant_name] = (totalRecordedByAttendant[d.attendant_name] ?? 0) + d.amount
+    }
+  }
+
+  const depositTypeMap: Partial<Record<AccountType, string[]>> = {
+    Cash: ['Cash'], Card: ['Card'], Charges: ['Charge'],
+    Advance: ['Advance'], FX: ['FX'], Expenditures: ['Expenditure'],
+    Deposits: ['CashDeposit', 'CardDeposit', 'FXDeposit', 'Cheque'],
+  }
+
+  // Keep activityByAccount fresh for all accounts so breakdown modals always have current data
+  const seenCache = new Set<string>()
+  activityByAccount.Attendants = attendance
+    .filter((a) => { if (seenCache.has(a.user_name)) return false; seenCache.add(a.user_name); return true })
+    .map((a, i) => ({
+      type: 'attendants' as const, id: i + 1, name: a.user_name, pump: '—',
+      balance: totalRecordedByAttendant[a.user_name] ?? 0,
+      clockIn: formatClockIn(a.clock_in), amount: 0,
+    }))
+  for (const [acct, types] of Object.entries(depositTypeMap)) {
+    activityByAccount[acct as AccountType] = deposits
+      .filter((d) => types!.includes(d.type))
+      .map((d, i) => mapDepositToRow(d, i + 1))
+  }
+
+  const allActivities: ActivityRow[] = (() => {
+    if (account === 'Attendants') return activityByAccount.Attendants
+    return activityByAccount[account] ?? []
+  })()
+
   const displayedActivities = [...allActivities].sort((a, b) => {
     const valA = a.type === 'attendants' ? a.balance : a.amount
     const valB = b.type === 'attendants' ? b.balance : b.amount
     return sortDir === 'asc' ? valA - valB : valB - valA
-  }).filter((r) => !searchQuery || rowMatchesSearch(r, searchQuery)).slice(0, isSearching ? undefined : 4)
+  }).filter((r) => !searchQuery || rowMatchesSearch(r, searchQuery)).slice(0, (isSearching || account === 'Attendants') ? undefined : 4)
 
   const accountTotal = allActivities.reduce((sum, r) => {
     if (r.type === 'attendants') {
       const sales = attendantSales?.[r.name] ?? 0
       if (sales === 0) return sum
-      const balance = totalRecordedForAttendant(r.name) - sales
+      const balance = (totalRecordedByAttendant[r.name] ?? 0) - sales
       return balance === 0 ? sum : sum + balance
     }
     return sum + r.amount
@@ -437,7 +473,7 @@ export function RecentActivityCard({ account, readOnly, attendantSales, attendan
               }}
               className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]"
             >
-              <Plus size={13} />
+              {account === 'Attendants' ? <Pencil size={13} /> : <Plus size={13} />}
             </button>
             {account !== 'Attendants' && (
               <button
@@ -465,15 +501,11 @@ export function RecentActivityCard({ account, readOnly, attendantSales, attendan
                 {displayedActivities.map((row) => (
                   <tr
                     key={row.id}
-                    className={`border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors group cursor-pointer`}
-                    onClick={
-                      account === 'Attendants' && row.type === 'attendants' ? () => setSelectedAttendant(row.name)
-                      : row.type !== 'attendants' ? () => setViewingRow(row)
-                      : undefined
-                    }
+                    className="border-b border-[#f9f9f9] hover:bg-[#fafafa] transition-colors group cursor-pointer"
+                    onClick={row.type === 'attendants' ? () => setSelectedAttendant(row.name) : () => setViewingRow(row)}
                   >
                     <td className="pl-5 pr-3 py-3.5 text-[13px] text-[#bbb] font-medium">{row.id}</td>
-                    <TableCells row={row} attendantSales={attendantSales} />
+                    <TableCells row={row} attendantSales={attendantSales} totalRecordedByAttendant={totalRecordedByAttendant} />
                     {account !== 'Attendants' && (
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-2 flex-nowrap">
@@ -507,6 +539,11 @@ export function RecentActivityCard({ account, readOnly, attendantSales, attendan
                                     if (action === 'View details') setViewingRow(row)
                                     if (action === 'Print receipt') setReceiptRow(row)
                                     if (action === 'View receipt') setReceiptRow(row)
+                                    if (action === 'Delete' && shiftId && row.type !== 'attendants') {
+                                      deleteDeposit(shiftId, row.depositId).then(() =>
+                                        queryClient.invalidateQueries({ queryKey: ['shifts', shiftId, 'deposits'] })
+                                      )
+                                    }
                                   }}
                                 />
                               )}
@@ -518,10 +555,13 @@ export function RecentActivityCard({ account, readOnly, attendantSales, attendan
                   </tr>
                 ))}
               </tbody>
+
             </table>
           ) : (
             <div className="flex items-center justify-center h-full">
-              <p className="text-[13px] text-[#ccc] font-medium">No activity recorded</p>
+              <p className="text-[13px] text-[#ccc] font-medium">
+                {account === 'Attendants' ? 'No attendants were assigned' : 'No activity recorded'}
+              </p>
             </div>
           )}
       </div>
@@ -540,22 +580,22 @@ export function RecentActivityCard({ account, readOnly, attendantSales, attendan
       </div>
 
       {showExpenditure && (
-        <ExpenditureModal onBack={() => setShowExpenditure(false)} onClose={() => setShowExpenditure(false)} />
+        <ExpenditureModal onBack={() => setShowExpenditure(false)} onClose={() => setShowExpenditure(false)} shiftId={shiftId} />
       )}
       {showCashDeposit && (
-        <CashDepositModal initialAttendant="" onBack={() => setShowCashDeposit(false)} onClose={() => setShowCashDeposit(false)} />
+        <CashDepositModal initialAttendant="" onBack={() => setShowCashDeposit(false)} onClose={() => setShowCashDeposit(false)} shiftId={shiftId} />
       )}
       {showCard && (
-        <CardModal onBack={() => setShowCard(false)} onClose={() => setShowCard(false)} />
+        <CardModal onBack={() => setShowCard(false)} onClose={() => setShowCard(false)} shiftId={shiftId} />
       )}
       {showAdvance && (
-        <AdvanceModal onBack={() => setShowAdvance(false)} onClose={() => setShowAdvance(false)} />
+        <AdvanceModal onBack={() => setShowAdvance(false)} onClose={() => setShowAdvance(false)} shiftId={shiftId} />
       )}
       {showCharge && (
-        <ChargeModal onBack={() => setShowCharge(false)} onClose={() => setShowCharge(false)} />
+        <ChargeModal onBack={() => setShowCharge(false)} onClose={() => setShowCharge(false)} shiftId={shiftId} />
       )}
       {showFX && (
-        <FXModal onBack={() => setShowFX(false)} onClose={() => setShowFX(false)} />
+        <FXModal onBack={() => setShowFX(false)} onClose={() => setShowFX(false)} shiftId={shiftId} />
       )}
       {showCashBreakdown && (
         <CashBreakdownModal onBack={() => setShowCashBreakdown(false)} onClose={() => setShowCashBreakdown(false)} />
@@ -581,17 +621,20 @@ export function RecentActivityCard({ account, readOnly, attendantSales, attendan
           onClose={() => setSelectedAttendant(null)}
           sales={attendantSales?.[selectedAttendant]}
           gradeSales={attendantGradeSales?.[selectedAttendant]}
+          shiftId={shiftId}
         />
       )}
       {showManageAttendants && (
         <ManageAttendantsModal
           onClose={() => setShowManageAttendants(false)}
+          shiftId={shiftId}
         />
       )}
       {showDeposit && (
         <DepositModal
           onBack={() => setShowDeposit(false)}
           onClose={() => setShowDeposit(false)}
+          shiftId={shiftId}
         />
       )}
       {showDepositsBreakdown && (
@@ -600,82 +643,103 @@ export function RecentActivityCard({ account, readOnly, attendantSales, attendan
       {editingRow?.type === 'attendant' && (
         <CashDepositModal
           initialAttendant={editingRow.name}
+          initialDenominations={editingRow.denominations}
+          depositId={editingRow.depositId}
           isEditing
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
+          shiftId={shiftId}
         />
       )}
       {editingRow?.type === 'expenditure' && (
         <ExpenditureModal
-          initialData={{ requestedBy: editingRow.requestedBy, description: editingRow.description }}
+          initialData={{ requestedBy: editingRow.requestedBy, description: editingRow.description, denominations: editingRow.denominations }}
+          depositId={editingRow.depositId}
           isEditing
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
+          shiftId={shiftId}
         />
       )}
       {editingRow?.type === 'charges' && (
         <ChargeModal
           initialData={{ name: editingRow.name, fuelType: editingRow.fuelType, amount: editingRow.amount }}
+          depositId={editingRow.depositId}
           isEditing
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
+          shiftId={shiftId}
         />
       )}
       {editingRow?.type === 'card' && (
         <CardModal
-          initialData={{ name: editingRow.name, bank: editingRow.bank, amount: editingRow.amount }}
+          initialData={{ name: editingRow.name, bank: editingRow.bank, transNo: editingRow.transNo, amount: editingRow.amount }}
+          depositId={editingRow.depositId}
           isEditing
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
+          shiftId={shiftId}
         />
       )}
       {editingRow?.type === 'advance' && (
         <AdvanceModal
           initialData={{ name: editingRow.name, fuelType: editingRow.fuelType, amount: editingRow.amount }}
+          depositId={editingRow.depositId}
           isEditing
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
+          shiftId={shiftId}
         />
       )}
       {editingRow?.type === 'fx' && (
         <FXModal
           initialData={{ name: editingRow.name, currency: editingRow.currency, fxAmount: editingRow.fxAmount }}
+          depositId={editingRow.depositId}
           isEditing
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
+          shiftId={shiftId}
         />
       )}
 
-      {editingRow?.type === 'deposit' && editingRow.depositType === 'Cash' && (
+      {editingRow?.type === 'deposit' && editingRow.depositType === 'CashDeposit' && (
         <CashDepositEntryModal
           isEditing
-          initialData={{ depositedBy: editingRow.name, description: editingRow.description }}
+          depositId={editingRow.depositId}
+          initialData={{ depositedBy: editingRow.name, description: editingRow.description, denominations: editingRow.denominations }}
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
+          shiftId={shiftId}
         />
       )}
-      {editingRow?.type === 'deposit' && editingRow.depositType === 'Card' && (
+      {editingRow?.type === 'deposit' && editingRow.depositType === 'CardDeposit' && (
         <CardDepositModal
           isEditing
-          initialData={{ depositedBy: editingRow.name, description: editingRow.description, amount: editingRow.amount }}
+          depositId={editingRow.depositId}
+          initialData={{ depositedBy: editingRow.name, description: editingRow.description, amount: editingRow.amount, bank: editingRow.bank, transNo: editingRow.transNo }}
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
+          shiftId={shiftId}
         />
       )}
-      {editingRow?.type === 'deposit' && editingRow.depositType === 'FX' && (
+      {editingRow?.type === 'deposit' && editingRow.depositType === 'FXDeposit' && (
         <FXDepositModal
           isEditing
+          depositId={editingRow.depositId}
           initialData={{ depositedBy: editingRow.name, description: editingRow.description, fxAmount: editingRow.fxAmount ?? 0, currency: editingRow.currency ?? 'USD' }}
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
+          shiftId={shiftId}
         />
       )}
       {editingRow?.type === 'deposit' && editingRow.depositType === 'Cheque' && (
         <ChequeDepositModal
           isEditing
-          initialData={{ depositedBy: editingRow.name, description: editingRow.description, amount: editingRow.amount }}
+          depositId={editingRow.depositId}
+          initialData={{ depositedBy: editingRow.name, description: editingRow.description, amount: editingRow.amount, bank: editingRow.bank, chequeNo: editingRow.chequeNo }}
           onBack={() => setEditingRow(null)}
           onClose={() => setEditingRow(null)}
+          shiftId={shiftId}
         />
       )}
       {viewingRow && viewingRow.type !== 'attendants' && (

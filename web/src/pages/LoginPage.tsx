@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { StationSyncLogo } from '../components/StationSyncLogo'
+import { login, type AuthUser } from '../lib/api'
 
 interface Props {
-  onLogin: () => void
+  onLogin: (user: AuthUser) => void
   onGoToSignUp: () => void
 }
 
@@ -11,10 +12,21 @@ export function LoginPage({ onLogin, onGoToSignUp }: Props) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    onLogin()
+    setError('')
+    setLoading(true)
+    try {
+      const user = await login(email, password)
+      onLogin(user)
+    } catch {
+      setError('Invalid email or password')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -79,11 +91,16 @@ export function LoginPage({ onLogin, onGoToSignUp }: Props) {
               </button>
             </div>
 
+            {error && (
+              <p className="text-[12px] font-semibold text-red-300 text-center">{error}</p>
+            )}
+
             <button
               type="submit"
-              className="w-full py-3.5 rounded-2xl bg-black/50 backdrop-blur-sm uppercase border border-white/15 text-white text-[13px] font-bold hover:bg-black/65 transition-colors"
+              disabled={loading}
+              className="w-full py-3.5 rounded-2xl bg-black/50 backdrop-blur-sm uppercase border border-white/15 text-white text-[13px] font-bold hover:bg-black/65 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Sign in
+              {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
 
@@ -97,8 +114,8 @@ export function LoginPage({ onLogin, onGoToSignUp }: Props) {
           {/* Social buttons */}
           <div className="flex gap-3">
             <button
-              onClick={onLogin}
-              className="flex-1 flex items-center justify-center gap-2.5 bg-white/80 border border-white/40 rounded-2xl py-3 text-[13px] font-semibold text-[#333] hover:bg-white/90 transition-colors backdrop-blur-sm "
+              type="button"
+              className="flex-1 flex items-center justify-center gap-2.5 bg-white/80 border border-white/40 rounded-2xl py-3 text-[13px] font-semibold text-[#333] hover:bg-white/90 transition-colors backdrop-blur-sm opacity-50 cursor-not-allowed"
             >
               <svg width="17" height="17" viewBox="0 0 24 24">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -109,8 +126,8 @@ export function LoginPage({ onLogin, onGoToSignUp }: Props) {
               Google
             </button>
             <button
-              onClick={onLogin}
-              className="flex-1 flex items-center justify-center gap-2.5 bg-[#1877F2] rounded-2xl py-3 text-[13px] font-semibold text-white hover:bg-[#1464d0] transition-colors backdrop-blur-sm "
+              type="button"
+              className="flex-1 flex items-center justify-center gap-2.5 bg-[#1877F2] rounded-2xl py-3 text-[13px] font-semibold text-white hover:bg-[#1464d0] transition-colors backdrop-blur-sm opacity-50 cursor-not-allowed"
             >
               <svg width="17" height="17" viewBox="0 0 24 24" fill="white">
                 <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>

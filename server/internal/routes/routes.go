@@ -2,10 +2,10 @@ package routes
 
 import (
 	"project-sync/internal/handlers"
-	"project-sync/internal/routes/days"
+	"project-sync/internal/middleware"
+	"project-sync/internal/routes/auth"
 	"project-sync/internal/routes/fuels"
 	"project-sync/internal/routes/pumps"
-	"project-sync/internal/routes/shiftschedules"
 	"project-sync/internal/routes/shifts"
 	"project-sync/internal/routes/tanks"
 	"project-sync/internal/routes/users"
@@ -15,16 +15,28 @@ import (
 )
 
 func Register(r *gin.Engine, db *pgxpool.Pool) {
-	v1 := r.Group("v1")
+	v1 := r.Group("/v1")
 
-	days.RegisterRoute(v1, db)
-	fuels.RegisterRoute(v1, db)
-	users.RegisterRoute(v1, db)
-	pumps.RegisterRoute(v1, db)
-	tanks.RegisterRoute(v1, db)
-	shiftschedules.RegisterRoute(v1, db)
-	shifts.RegisterRoute(v1, db)
+	// Public routes (no auth required)
+	auth.RegisterRoute(v1, db)
+
+	// Protected routes (require valid session token)
+	protected := v1.Group("")
+	protected.Use(middleware.RequireAuth(db))
+
+	fuels.RegisterRoute(protected, db)
+	users.RegisterRoute(protected, db)
+	pumps.RegisterRoute(protected, db)
+	tanks.RegisterRoute(protected, db)
+	shifts.RegisterRoute(protected, db)
+
+	bh := &handlers.BranchHandler{DB: db}
+	protected.GET("/branches", bh.List)
+	protected.POST("/branches", bh.Create)
+
+	nh := &handlers.NozzleHandler{DB: db}
+	protected.GET("/nozzles", nh.List)
 
 	nlh := &handlers.NozzleLogHandler{DB: db}
-	v1.POST("/nozzle-logs", nlh.Create)
+	protected.POST("/nozzle-logs", nlh.Create)
 }

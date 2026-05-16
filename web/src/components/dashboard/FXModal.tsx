@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Plus } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { useShiftAttendance } from '../../hooks/useApi'
+import { createDeposit, updateDeposit } from '../../lib/api'
 import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
 
 const currencies = ['USD', 'EUR', 'GBP', 'CAD', 'TTD']
-const attendants = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
 
 const ratePerCurrency: Record<string, number> = {
   USD: 150,
@@ -24,18 +26,33 @@ interface Props {
   onBack: () => void
   onClose: () => void
   isEditing?: boolean
+  depositId?: string
   initialData?: { name: string; currency: string; fxAmount: number }
+  shiftId?: string
 }
 
 let nextId = 1
 
-export function FXModal({ onBack, onClose, isEditing, initialData }: Props) {
+export function FXModal({ onBack, onClose, isEditing, depositId, initialData, shiftId }: Props) {
   useEscapeKey(onClose)
+  const queryClient = useQueryClient()
+  const { data: attendance = [] } = useShiftAttendance(shiftId)
+  const attendantOptions = attendance.reduce<{ id: string; name: string }[]>((acc, a) => {
+    if (!acc.some((o) => o.id === a.user_id)) acc.push({ id: a.user_id, name: a.user_name })
+    return acc
+  }, [])
+
   const [records, setRecords] = useState<FXRecord[]>([
-    { id: nextId++, amount: initialData?.fxAmount ? String(initialData.fxAmount) : '', currency: initialData?.currency ?? 'USD' },
+    { id: nextId++, amount: '', currency: initialData?.currency ?? 'USD' },
   ])
   const [attendant, setAttendant] = useState(initialData?.name ?? '')
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 650)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (attendantOptions.length > 0 && !attendant) setAttendant(attendantOptions[0].name)
+  }, [attendantOptions.length])
 
   useEffect(() => {
     function onResize() { setIsNarrow(window.innerWidth < 650) }
@@ -57,6 +74,46 @@ export function FXModal({ onBack, onClose, isEditing, initialData }: Props) {
   }
 
   const total = records.reduce((sum, r) => sum + convertToJMD(r), 0)
+  const effectiveTotal = total > 0 ? total : (isEditing && initialData?.fxAmount
+    ? initialData.fxAmount * (ratePerCurrency[records[0].currency] ?? 0)
+    : 0)
+
+  async function handleSubmit() {
+    if (!shiftId || effectiveTotal === 0) return
+    const entry = attendantOptions.find((a) => a.name === attendant)
+    if (!entry) return
+    setLoading(true)
+    setError('')
+    try {
+      if (isEditing && depositId) {
+        const r = records[0]
+        const fxAmt = parseFloat(r.amount) || (initialData?.fxAmount ?? 0)
+        await updateDeposit(shiftId, depositId, {
+          attendant_id: entry.id,
+          type: 'FX',
+          amount: convertToJMD(r),
+          metadata: JSON.stringify({ fx_amount: fxAmt, currency: r.currency }),
+        })
+      } else {
+        for (const r of records) {
+          const fxAmt = parseFloat(r.amount) || 0
+          if (fxAmt === 0) continue
+          await createDeposit(shiftId, {
+            attendant_id: entry.id,
+            type: 'FX',
+            amount: convertToJMD(r),
+            metadata: JSON.stringify({ fx_amount: fxAmt, currency: r.currency }),
+          })
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['shifts', shiftId, 'deposits'] })
+      onClose()
+    } catch {
+      setError('Failed to save. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div
@@ -99,7 +156,7 @@ export function FXModal({ onBack, onClose, isEditing, initialData }: Props) {
                       type="text"
                       value={fmtInput(r.amount)}
                       onChange={(e) => updateRecord(r.id, 'amount', parseInput(e.target.value))}
-                      placeholder="0.00"
+                      placeholder={i === 0 && initialData?.fxAmount ? String(initialData.fxAmount) : '0.00'}
                       className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent min-w-0"
                     />
                     <span className="text-[11px] font-semibold text-[#bbb] flex-shrink-0">
@@ -159,14 +216,20 @@ export function FXModal({ onBack, onClose, isEditing, initialData }: Props) {
             className="border border-[#ddd] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] bg-white focus:outline-none cursor-pointer min-w-[200px]"
           >
             <option value="">Select...</option>
-            {attendants.map((a) => (
-              <option key={a} value={a}>{a}</option>
+            {attendantOptions.map((a) => (
+              <option key={a.id} value={a.name}>{a.name}</option>
             ))}
           </select>
         </div>
 
-        <button className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
-          Submit
+        {error && <p className="text-[11px] font-semibold text-red-500 mb-3">{error}</p>}
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading || effectiveTotal === 0 || !attendant || !shiftId}
+          className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Saving...' : 'Submit'}
         </button>
       </div>
     </div>

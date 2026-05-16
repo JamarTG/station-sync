@@ -1,11 +1,10 @@
 package model
 
 type TankLog struct {
-	ID              string  `db:"id" json:"id"`
-	TankID          string  `db:"tank_id" json:"tank_id"`
-	ShiftID         string  `db:"shift_id" json:"shift_id"`
-	BeforeVolume    float64 `db:"before_volume" json:"before_volume"`
-	AfterVolume     float64 `db:"after_volume" json:"after_volume"`
-	DispensedVolume float64 `db:"dispensed_volume" json:"dispensed_volume"`
-	Timestamp       string  `db:"timestamp" json:"timestamp"`
+	ID             string   `json:"id"`
+	TankID         string   `json:"tank_id"`
+	ShiftID        string   `json:"shift_id"`
+	OpeningLevel   *float64 `json:"opening_level"`
+	ClosingLevel   *float64 `json:"closing_level"`
+	DeliveryLitres *float64 `json:"delivery_litres"`
 }

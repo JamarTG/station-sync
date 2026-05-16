@@ -16,9 +16,10 @@ const depositTypes = [
 interface Props {
   onBack: () => void
   onClose: () => void
+  shiftId?: string
 }
 
-export function DepositModal({ onBack, onClose }: Props) {
+export function DepositModal({ onBack, onClose, shiftId }: Props) {
   useEscapeKey(onClose)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -147,24 +148,28 @@ export function DepositModal({ onBack, onClose }: Props) {
       <CashDepositEntryModal
         onBack={() => setShowCash(false)}
         onClose={onClose}
+        shiftId={shiftId}
       />
     )}
     {showCheque && (
       <ChequeDepositModal
         onBack={() => setShowCheque(false)}
         onClose={onClose}
+        shiftId={shiftId}
       />
     )}
     {showCard && (
       <CardDepositModal
         onBack={() => setShowCard(false)}
         onClose={onClose}
+        shiftId={shiftId}
       />
     )}
     {showFX && (
       <FXDepositModal
         onBack={() => setShowFX(false)}
         onClose={onClose}
+        shiftId={shiftId}
       />
     )}
     </>

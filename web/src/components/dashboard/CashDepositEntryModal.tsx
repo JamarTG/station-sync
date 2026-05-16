@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { useAuth } from '../../lib/authContext'
+import { createDeposit, updateDeposit } from '../../lib/api'
 import { fmtInput, parseInput } from '../../lib/fmt'
 
 const denominations = [5000, 2000, 1000, 500, 100, 50, 20, 10, 5, 1]
@@ -9,19 +12,62 @@ interface Props {
   onBack: () => void
   onClose: () => void
   isEditing?: boolean
-  initialData?: { depositedBy: string; description: string }
+  depositId?: string
+  initialData?: { depositedBy: string; description: string; denominations?: Record<number, number> }
+  shiftId?: string
 }
 
-export function CashDepositEntryModal({ onBack, onClose, isEditing, initialData }: Props) {
+export function CashDepositEntryModal({ onBack, onClose, isEditing, depositId, initialData, shiftId }: Props) {
   useEscapeKey(onClose)
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+
   const [counts, setCounts] = useState<Record<number, string>>({})
-  const [description, setDescription] = useState(initialData?.description ?? '')
-  const [depositedBy, setDepositedBy] = useState(initialData?.depositedBy ?? '')
+  const [description, setDescription] = useState('')
+  const [depositedBy, setDepositedBy] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const total = denominations.reduce((sum, d) => {
     const n = parseInt(counts[d] ?? '', 10)
     return sum + (isNaN(n) ? 0 : n * d)
   }, 0)
+
+  const denomCounts: Record<number, number> = Object.fromEntries(
+    denominations
+      .map((d) => [d, parseInt(counts[d] ?? '', 10)])
+      .filter(([, n]) => !isNaN(n as number) && (n as number) > 0)
+  )
+
+  const initialTotal = denominations.reduce((sum, d) => sum + (initialData?.denominations?.[d] ?? 0) * d, 0)
+  const effectiveTotal = total > 0 ? total : initialTotal
+  const effectiveCounts = total > 0 ? denomCounts : (initialData?.denominations ?? {})
+
+  async function handleSubmit() {
+    if (!shiftId || !user || effectiveTotal === 0) return
+    setLoading(true)
+    setError('')
+    try {
+      const payload = {
+        attendant_id: user.id,
+        type: 'CashDeposit',
+        amount: effectiveTotal,
+        metadata: JSON.stringify({ deposited_by: depositedBy || (initialData?.depositedBy ?? ''), description: description || (initialData?.description ?? ''), denominations: effectiveCounts }),
+      }
+      if (isEditing && depositId) {
+        await updateDeposit(shiftId, depositId, payload)
+      } else {
+        await createDeposit(shiftId, payload)
+      }
+      queryClient.invalidateQueries({ queryKey: ['shifts', shiftId, 'deposits'] })
+      onClose()
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setError(msg || 'Failed to save. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div
@@ -59,6 +105,7 @@ export function CashDepositEntryModal({ onBack, onClose, isEditing, initialData 
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
+          placeholder={initialData?.description ?? ''}
           className="w-full border border-[#e0e0e0] rounded-xl px-4 py-3 text-[13px] font-medium text-[#333] focus:outline-none mb-6"
         />
 
@@ -72,6 +119,7 @@ export function CashDepositEntryModal({ onBack, onClose, isEditing, initialData 
                     type="text"
                     value={fmtInput(counts[d] ?? '')}
                     onChange={(e) => setCounts((prev) => ({ ...prev, [d]: parseInput(e.target.value) }))}
+                    placeholder={String(initialData?.denominations?.[d] ?? '')}
                     className="w-full text-[13px] font-medium text-[#333] focus:outline-none bg-transparent"
                   />
                 </td>
@@ -95,12 +143,19 @@ export function CashDepositEntryModal({ onBack, onClose, isEditing, initialData 
             type="text"
             value={depositedBy}
             onChange={(e) => setDepositedBy(e.target.value)}
+            placeholder={initialData?.depositedBy ?? ''}
             className="w-full border border-[#e0e0e0] rounded-xl px-4 py-3 text-[13px] font-medium text-[#333] focus:outline-none"
           />
         </div>
 
-        <button className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
-          Submit
+        {error && <p className="text-[11px] font-semibold text-red-500 mb-3">{error}</p>}
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading || effectiveTotal === 0 || !shiftId}
+          className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Saving...' : 'Submit'}
         </button>
       </div>
     </div>

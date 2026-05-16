@@ -1,21 +1,23 @@
 import { useState, useEffect } from 'react'
-import { PumpsPanel, fuelPrices as defaultFuelPrices, type Fuel } from '../components/dashboard/PumpsPanel'
-import { getShiftData, saveShiftData } from '../lib/shiftStore'
+import { useAuth } from '../lib/authContext'
+import { ReportsDashboard } from '../components/dashboard/ReportsDashboard'
+import { AttendantDashboard } from '../components/dashboard/AttendantDashboard'
+import { CashierDashboard } from '../components/dashboard/CashierDashboard'
+import { PumpsPanel, type Fuel } from '../components/dashboard/PumpsPanel'
 import { PumpDetailPanel, type NozzleRow } from '../components/dashboard/PumpDetailPanel'
-import { TanksPanel, type TankGrade } from '../components/dashboard/TanksPanel'
+import { TanksPanel } from '../components/dashboard/TanksPanel'
 import { TankDetailPanel } from '../components/dashboard/TankDetailPanel'
-
-const NOZZLE_COUNT = 12
-const emptyNozzles = (): NozzleRow[] =>
-  Array.from({ length: NOZZLE_COUNT }, () => ({ opening: '', closing: '' }))
 import { AccountsPanel, type AccountType } from '../components/dashboard/AccountsPanel'
 import { TotalSalesCard } from '../components/dashboard/TotalSalesCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
-import { usePumps, useShiftForDate, useFuels } from '../hooks/useApi'
+import { usePumps, useFuels, useNozzles, useOpenShift, useShiftFuelPrices, useShiftAttendance, useTanks, useShiftTankLogs, useShiftFuelReceivals } from '../hooks/useApi'
+import { closeShift, upsertTankLog, type Tank } from '../lib/api'
+import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { EditFuelPricesModal } from '../components/dashboard/EditFuelPricesModal'
 import { ConvenienceStoreBreakdownModal } from '../components/dashboard/ConvenienceStoreBreakdownModal'
+
 
 function NotConfigured({ label }: { label: string }) {
   return (
@@ -28,9 +30,14 @@ function NotConfigured({ label }: { label: string }) {
   )
 }
 
+const managerRoles = new Set(['Super Admin', 'Admin', 'Manager'])
+
 export function DashboardPage() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
   const [selectedFuel, setSelectedFuel] = useState<Fuel | null>(null)
-  const [selectedTank, setSelectedTank] = useState<TankGrade>('87')
+  const [selectedTank, setSelectedTank] = useState<Tank | null>(null)
   const [selectedAccount, setSelectedAccount] = useState<AccountType>('Cash')
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 1237)
   const [calibrationModal, setCalibrationModal] = useState<'pumps' | 'tanks' | null>(null)
@@ -38,25 +45,63 @@ export function DashboardPage() {
   const [showConvenienceBreakdown, setShowConvenienceBreakdown] = useState(false)
   const [shiftEnded, setShiftEnded] = useState(false)
 
-  const fuelPrices = getShiftData()?.fuelPrices ?? defaultFuelPrices
-
   const [nozzleReadings, setNozzleReadings] = useState<Record<string, NozzleRow[]>>({})
   const [tankReadings, setTankReadings] = useState<Record<string, { opening: string; closing: string }>>({})
-  const [savedPumpOpenings, setSavedPumpOpenings] = useState<Record<string, string[]>>(
-    () => getShiftData()?.pumpOpenings ?? {}
-  )
-  const [savedTankOpenings, setSavedTankOpenings] = useState<Record<string, string>>(
-    () => getShiftData()?.tankOpenings ?? {}
-  )
+  const [savedPumpOpenings, setSavedPumpOpenings] = useState<Record<string, string[]>>({})
+  const [savedTankOpenings, setSavedTankOpenings] = useState<Record<string, string>>({})
+
+  const { data: shift, refetch: refetchShift } = useOpenShift()
+  const { data: pumps = [] } = usePumps()
+  const { data: fuels = [] } = useFuels()
+  const { data: tanks = [] } = useTanks()
+  const { data: fuelPricesData = [] } = useShiftFuelPrices(shift?.id)
+  const { data: shiftAttendance = [] } = useShiftAttendance(shift?.id)
+  const { data: tankLogsData = [] } = useShiftTankLogs(shift?.id)
+  const { data: receivalsData = [] } = useShiftFuelReceivals(shift?.id)
+
+  const firstPump = pumps[0]
+
+  const { data: pumpNozzles = [] } = useNozzles()
+
+  function buildNozzleRows(fuelName: string, openings: string[] = []): NozzleRow[] {
+    return pumpNozzles
+      .filter((n) => n.fuel_name === fuelName)
+      .map((n) => ({ nozzle: n, pumpIndex: pumps.findIndex((p) => p.id === n.pump_id) }))
+      .filter((r) => r.pumpIndex >= 0)
+      .sort((a, b) => a.pumpIndex - b.pumpIndex)
+      .map(({ pumpIndex }, i) => ({ opening: openings[i] ?? '', closing: '', pumpNumber: pumpIndex + 1 }))
+  }
+
+  const fuelPrices: Record<string, number> = fuelPricesData.length > 0
+    ? Object.fromEntries(fuelPricesData.map((fp) => [fp.fuel_name, fp.price]))
+    : Object.fromEntries(fuels.map((f) => [f.name, 0]))
+
+  const allFuelGrades = fuels.map((f) => f.name)
+
+  // Map attendant name → pump indices (1-based) from live attendance data
+  const attendantPumpMap: Record<string, number[]> = shiftAttendance
+    .filter((a) => a.pump_id)
+    .reduce<Record<string, number[]>>((acc, a) => {
+      const idx = pumps.findIndex((p) => p.id === a.pump_id)
+      if (idx < 0) return acc
+      const pumpNumber = idx + 1
+      if (!acc[a.user_name]) acc[a.user_name] = []
+      if (!acc[a.user_name].includes(pumpNumber)) acc[a.user_name].push(pumpNumber)
+      return acc
+    }, {})
 
   function getNozzles(fuelType: string): NozzleRow[] {
-    return nozzleReadings[fuelType] ?? emptyNozzles()
+    return nozzleReadings[fuelType] ?? buildNozzleRows(fuelType)
   }
   function setNozzles(fuelType: string, rows: NozzleRow[]) {
-    setNozzleReadings((prev) => ({ ...prev, [fuelType]: rows }))
+    const next = { ...nozzleReadings, [fuelType]: rows }
+    setNozzleReadings(next)
+    if (shift?.id) localStorage.setItem(`pump_readings_${shift.id}`, JSON.stringify(next))
   }
 
-  function handleShiftEnd() {
+  async function handleShiftEnd() {
+    if (!shift?.id) return
+
     const newPumpOpenings: Record<string, string[]> = {}
     for (const grade of allFuelGrades) {
       newPumpOpenings[grade] = getNozzles(grade).map((n) => n.closing)
@@ -64,35 +109,44 @@ export function DashboardPage() {
     setSavedPumpOpenings(newPumpOpenings)
 
     const newTankOpenings: Record<string, string> = {}
-    for (const grade of allFuelGrades) {
-      newTankOpenings[grade] = tankReadings[grade]?.closing ?? ''
+    for (const tank of tanks) {
+      newTankOpenings[tank.id] = tankReadings[tank.id]?.closing ?? ''
     }
     setSavedTankOpenings(newTankOpenings)
 
-    saveShiftData({ status: 'closed', pumpOpenings: newPumpOpenings, tankOpenings: newTankOpenings, fuelPrices })
-
+    await closeShift(shift.id)
+    queryClient.invalidateQueries({ queryKey: ['shifts', 'open'] })
     setShiftEnded(true)
   }
 
   function handleNewShift() {
     const newNozzleReadings: Record<string, NozzleRow[]> = {}
     for (const grade of allFuelGrades) {
-      const openings = savedPumpOpenings[grade] ?? []
-      newNozzleReadings[grade] = Array.from({ length: NOZZLE_COUNT }, (_, i) => ({
-        opening: openings[i] ?? '',
-        closing: '',
-      }))
+      newNozzleReadings[grade] = buildNozzleRows(grade, savedPumpOpenings[grade] ?? [])
     }
     setNozzleReadings(newNozzleReadings)
+    if (shift?.id) localStorage.setItem(`pump_readings_${shift.id}`, JSON.stringify(newNozzleReadings))
 
     const newTankReadings: Record<string, { opening: string; closing: string }> = {}
-    for (const grade of allFuelGrades) {
-      newTankReadings[grade] = { opening: savedTankOpenings[grade] ?? '', closing: '' }
+    for (const tank of tanks) {
+      newTankReadings[tank.id] = { opening: savedTankOpenings[tank.id] ?? '', closing: '' }
     }
     setTankReadings(newTankReadings)
 
     setShiftEnded(false)
   }
+
+  async function handleTankSave(r: { opening: string; closing: string }) {
+    if (!shift?.id || !selectedTank) return
+    const opening = r.opening !== '' ? parseFloat(r.opening) : null
+    const closing = r.closing !== '' ? parseFloat(r.closing) : null
+    await upsertTankLog(shift.id, {
+      tank_id: selectedTank.id,
+      opening_level: opening !== null && !isNaN(opening) ? opening : null,
+      closing_level: closing !== null && !isNaN(closing) ? closing : null,
+    })
+  }
+
   function pumpTotalForGrade(fuelType: string): number {
     return getNozzles(fuelType).reduce((sum, n) => {
       const o = parseFloat(n.opening)
@@ -111,22 +165,18 @@ export function DashboardPage() {
     return active.length > 0 && active.every((n) => n.opening !== '' && n.closing !== '')
   }
 
-  const allFuelGrades = Object.keys(fuelPrices)
-
-  const attendantPumpMap: Record<string, number> = {
-    'S. Lawes': 1,
-    'S. Smith': 2,
-    'T. Brisco': 3,
-  }
   const attendantGradeSalesMap: Record<string, Record<string, number>> = Object.fromEntries(
     Object.entries(attendantPumpMap).map(([name, pump]) => [
       name,
       Object.fromEntries(
         allFuelGrades.map((fuel) => {
-          const nozzle = getNozzles(fuel)[pump - 1]
-          const o = parseFloat(nozzle?.opening ?? '')
-          const c = parseFloat(nozzle?.closing ?? '')
-          const litres = !isNaN(o) && !isNaN(c) && c >= o ? c - o : 0
+          const litres = getNozzles(fuel)
+            .filter((n) => n.pumpNumber !== undefined && pump.includes(n.pumpNumber))
+            .reduce((sum, n) => {
+              const o = parseFloat(n.opening)
+              const c = parseFloat(n.closing)
+              return sum + (!isNaN(o) && !isNaN(c) && c >= o ? c - o : 0)
+            }, 0)
           return [fuel, litres * (fuelPrices[fuel] ?? 0)]
         })
       ),
@@ -155,6 +205,37 @@ export function DashboardPage() {
   )
 
   useEffect(() => {
+    if (!shift?.id) return
+    setNozzleReadings({})
+    try {
+      const raw = localStorage.getItem(`pump_readings_${shift.id}`)
+      if (raw) setNozzleReadings(JSON.parse(raw))
+    } catch {}
+  }, [shift?.id])
+
+  useEffect(() => {
+    if (shift === undefined) refetchShift()
+  }, [shift])
+
+  useEffect(() => {
+    if (tanks.length > 0 && !selectedTank) setSelectedTank(tanks[0])
+  }, [tanks])
+
+  useEffect(() => {
+    if (!tankLogsData.length) return
+    setTankReadings((prev) => {
+      const next = { ...prev }
+      for (const log of tankLogsData) {
+        next[log.tank_id] = {
+          opening: log.opening_level != null ? String(log.opening_level) : '',
+          closing: log.closing_level != null ? String(log.closing_level) : '',
+        }
+      }
+      return next
+    })
+  }, [tankLogsData])
+
+  useEffect(() => {
     function onResize() {
       setIsNarrow(window.innerWidth < 1237)
     }
@@ -162,22 +243,21 @@ export function DashboardPage() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  const today = new Date().toISOString().slice(0, 10)
-  const { data: shift } = useShiftForDate(today)
-  const { data: pumps = [] } = usePumps()
-  const { data: fuels = [] } = useFuels()
-  const firstPump = pumps[0]
-
   function handleFuelSelect(fuel: Fuel) {
     setSelectedFuel(fuel)
-    setSelectedTank(fuel.name as TankGrade)
+    const match = tanks.find((t) => t.fuel_id === fuel.id)
+    if (match) setSelectedTank(match)
   }
 
-  function handleTankSelect(grade: TankGrade) {
-    setSelectedTank(grade)
-    const match = fuels.find((f) => f.name === grade)
+  function handleTankSelect(tank: Tank) {
+    setSelectedTank(tank)
+    const match = fuels.find((f) => f.id === tank.fuel_id)
     if (match) setSelectedFuel(match)
   }
+
+  if (user && managerRoles.has(user.role)) return <ReportsDashboard />
+  if (user?.role === 'Attendant') return <AttendantDashboard />
+  if (user?.role === 'Cashier') return <CashierDashboard />
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -185,11 +265,11 @@ export function DashboardPage() {
       {/* Main scrollable content */}
       <div className="flex-[2] min-w-0 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
         <div className="p-6 flex flex-col gap-5">
-          <ActionBar shiftEnded={shiftEnded} canEndShift={allFuelGrades.every((g) => activeNozzlesComplete(g) && (tankReadings[g]?.opening ?? '') !== '' && (tankReadings[g]?.closing ?? '') !== '')} onShiftEnd={handleShiftEnd} onNewShift={handleNewShift} />
+          <ActionBar shiftEnded={shiftEnded} canEndShift={allFuelGrades.every((g) => activeNozzlesComplete(g)) && tanks.every((t) => (tankReadings[t.id]?.opening ?? '') !== '' && (tankReadings[t.id]?.closing ?? '') !== '')} onShiftEnd={handleShiftEnd} onNewShift={handleNewShift} />
 
           <div>
             <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Service Station</p>
-            <TotalSalesCard totalSales={hasSalesData ? totalSalesAcrossPumps : 0} totalLitres={hasSalesData ? totalLitresAcrossPumps : 0} attendantSales={attendantSales} gradeSales={gradeSales} attendantGradeSales={attendantGradeSalesMap} />
+            <TotalSalesCard totalSales={hasSalesData ? totalSalesAcrossPumps : 0} totalLitres={hasSalesData ? totalLitresAcrossPumps : 0} attendantSales={attendantSales} gradeSales={gradeSales} attendantGradeSales={attendantGradeSalesMap} shiftId={shift?.id} />
           </div>
 
           {isNarrow && (
@@ -216,7 +296,7 @@ export function DashboardPage() {
 
           <div className="bg-white rounded-2xl overflow-hidden border border-[#ebebeb] h-[300px] flex flex-col">
             <AccountsPanel selected={selectedAccount} onSelect={setSelectedAccount} />
-            <RecentActivityCard account={selectedAccount} readOnly={shiftEnded} attendantSales={attendantSales} attendantGradeSales={attendantGradeSalesMap} />
+            <RecentActivityCard account={selectedAccount} readOnly={shiftEnded} attendantSales={attendantSales} attendantGradeSales={attendantGradeSalesMap} shiftId={shift?.id} />
           </div>
 
           <div>
@@ -242,7 +322,7 @@ export function DashboardPage() {
             <NotConfigured label="Pumps" />
           ) : (
             <>
-              <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} onEditPrice={() => setShowEditPrices(true)} />
+              <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} onEditPrice={() => setShowEditPrices(true)} price={selectedFuel ? (fuelPrices[selectedFuel.name] || null) : null} />
               <div className="flex-1 overflow-hidden flex flex-col">
                 {selectedFuel && firstPump && (
                   <PumpDetailPanel
@@ -268,13 +348,16 @@ export function DashboardPage() {
             <NotConfigured label="Tanks" />
           ) : (
             <>
-              <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />
+              <TanksPanel tanks={tanks} selected={selectedTank} onSelect={handleTankSelect} />
               <div className="flex-1 overflow-hidden flex flex-col">
                   <TankDetailPanel
-                    grade={selectedTank}
-                    tankReading={tankReadings[selectedTank] ?? { opening: '', closing: '' }}
-                    onReadingChange={(r) => setTankReadings((prev) => ({ ...prev, [selectedTank]: r }))}
-                    actualLitresSold={hasPumpDataForGrade(selectedTank) ? pumpTotalForGrade(selectedTank) : null}
+                    tank={selectedTank}
+                    tankReading={tankReadings[selectedTank?.id ?? ''] ?? { opening: '', closing: '' }}
+                    onReadingChange={(r) => selectedTank && setTankReadings((prev) => ({ ...prev, [selectedTank.id]: r }))}
+                    onSave={handleTankSave}
+                    actualLitresSold={selectedTank && hasPumpDataForGrade(selectedTank.fuel_name) ? pumpTotalForGrade(selectedTank.fuel_name) : null}
+                    receival={receivalsData.find((r) => r.fuel_name === selectedTank?.fuel_name) ?? null}
+                    shiftId={shift?.id}
                     readOnly={shiftEnded}
                   />
               </div>
@@ -307,7 +390,7 @@ export function DashboardPage() {
             ) : (
               <>
                 <div className="border-b border-[#f0f0f0]">
-                  <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} onEditPrice={() => setShowEditPrices(true)} />
+                  <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} onEditPrice={() => setShowEditPrices(true)} price={selectedFuel ? (fuelPrices[selectedFuel.name] || null) : null} />
                 </div>
                 <div className="h-[850px]">
                   {selectedFuel && firstPump && (
@@ -324,7 +407,7 @@ export function DashboardPage() {
                 </div>
               </>
             )}
-          </div>  
+          </div>
         </div>
       )}
 
@@ -352,14 +435,17 @@ export function DashboardPage() {
             ) : (
               <>
                 <div className="border-b border-[#f0f0f0] flex-shrink-0">
-                  <TanksPanel selected={selectedTank} onSelect={handleTankSelect} />
+                  <TanksPanel tanks={tanks} selected={selectedTank} onSelect={handleTankSelect} />
                 </div>
                 <div className="flex-1 overflow-y-auto">
                     <TankDetailPanel
-                    grade={selectedTank}
-                    tankReading={tankReadings[selectedTank] ?? { opening: '', closing: '' }}
-                    onReadingChange={(r) => setTankReadings((prev) => ({ ...prev, [selectedTank]: r }))}
-                    actualLitresSold={hasPumpDataForGrade(selectedTank) ? pumpTotalForGrade(selectedTank) : null}
+                    tank={selectedTank}
+                    tankReading={tankReadings[selectedTank?.id ?? ''] ?? { opening: '', closing: '' }}
+                    onReadingChange={(r) => selectedTank && setTankReadings((prev) => ({ ...prev, [selectedTank.id]: r }))}
+                    onSave={handleTankSave}
+                    actualLitresSold={selectedTank && hasPumpDataForGrade(selectedTank.fuel_name) ? pumpTotalForGrade(selectedTank.fuel_name) : null}
+                    receival={receivalsData.find((r) => r.fuel_name === selectedTank?.fuel_name) ?? null}
+                    shiftId={shift?.id}
                     readOnly={shiftEnded}
                   />
                 </div>
@@ -370,7 +456,11 @@ export function DashboardPage() {
       )}
       {showEditPrices && (
         <EditFuelPricesModal
+          fuels={fuels}
+          initialPrices={fuelPricesData}
+          shiftId={shift?.id}
           onClose={() => setShowEditPrices(false)}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ['shifts', shift?.id, 'fuel-prices'] })}
         />
       )}
       {showConvenienceBreakdown && (
