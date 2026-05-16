@@ -15,22 +15,24 @@ type PayrollHandler struct {
 	DB *pgxpool.Pool
 }
 
-// Jamaican statutory deduction rates (verify annually with TAJ/NIS/NHT)
+// Jamaican statutory deduction rates — FY 2025/26 (verify annually with TAJ)
 const (
-	nisRate        = 0.03
-	nisMonthlyMax  = 1950.00 // 3% of ~$65,000 monthly insurable wage ceiling
-	nhtRate        = 0.02
-	edTaxRate      = 0.0225
-	payeThreshold  = 125008.00 // monthly personal income threshold
+	nisEmpRate     = 0.03
+	nisAnnualCap   = 5_000_000.00              // NIS contribution ceiling per year
+	nisMonthlyMax  = nisAnnualCap * nisEmpRate / 12 // ~$12,500/month
+	nhtEmpRate     = 0.02
+	edTaxEmpRate   = 0.0225
+	payeThreshold  = 149948.00  // monthly personal income threshold (J$1,799,376 / 12)
 	payeRate1      = 0.25
 	payeRate2      = 0.30
-	payeBracket    = 500000.00 // monthly taxable income where 30% kicks in
+	payeBracket    = 500000.00  // monthly taxable income where 30% kicks in
 )
 
 func calcDeductions(gross float64) (nis, nht, edTax, paye float64) {
-	nis = math.Min(gross*nisRate, nisMonthlyMax)
-	nht = gross * nhtRate
-	edTax = gross * edTaxRate
+	nis = math.Min(gross*nisEmpRate, nisMonthlyMax)
+	nht = gross * nhtEmpRate
+	// Ed Tax is on statutory income (gross minus NIS)
+	edTax = (gross - nis) * edTaxEmpRate
 
 	taxable := gross - payeThreshold
 	if taxable <= 0 {

@@ -6,7 +6,8 @@ import {
 import { api } from '../lib/api'
 import type { User, PayrollPeriod, PayrollRecord } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ChevronRight, Pencil, Plus, X } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Download, Pencil, Plus, Printer, X } from 'lucide-react'
+import { printPaySlip, printPayrollRegister, downloadS01CSV, downloadHeartCSV } from '../lib/payrollExport'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -275,6 +276,12 @@ function RecordCard({ record }: { record: PayrollRecord }) {
             <span className="text-[#111]">Net pay</span>
             <span className="text-[#111]">{fmt(record.net_pay)}</span>
           </div>
+          <button
+            onClick={() => printPaySlip(record)}
+            className="mt-4 flex items-center gap-1.5 text-[12px] text-[#888] hover:text-[#111] transition-colors"
+          >
+            <Printer size={12} /> Print Pay Slip
+          </button>
         </div>
       )}
     </div>
@@ -396,6 +403,7 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
 
 function PeriodOverview({ period, onBack }: { period: PayrollPeriod; onBack: () => void }) {
   const { data: records = [], isLoading } = usePayrollRecords(period.id)
+  const { data: users = [] }              = useUsers()
   const qc = useQueryClient()
 
   const totalGross      = records.reduce((s, r) => s + r.gross_pay, 0)
@@ -413,7 +421,7 @@ function PeriodOverview({ period, onBack }: { period: PayrollPeriod; onBack: () 
         <ArrowLeft size={14} /> Back to Staff
       </button>
 
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-start justify-between mb-4">
         <div>
           <h2 className="text-[20px] font-bold text-[#111]">
             {fmtDate(period.start_date)} – {fmtDate(period.end_date)}
@@ -429,6 +437,23 @@ function PeriodOverview({ period, onBack }: { period: PayrollPeriod; onBack: () 
           <span className="px-3 py-1 bg-[#d1e7dd] text-[#0a5435] text-[12px] font-semibold rounded-full">Published</span>
         )}
       </div>
+
+      {records.length > 0 && (
+        <div className="flex gap-3 mb-6 flex-wrap">
+          <button onClick={() => printPayrollRegister(period, records)}
+            className="flex items-center gap-1.5 px-3 py-2 border border-[#ebebeb] rounded-xl text-[12px] font-semibold text-[#555] hover:bg-[#fafafa] transition-colors">
+            <Printer size={13} /> Print Register
+          </button>
+          <button onClick={() => downloadS01CSV(period, records, users)}
+            className="flex items-center gap-1.5 px-3 py-2 border border-[#ebebeb] rounded-xl text-[12px] font-semibold text-[#555] hover:bg-[#fafafa] transition-colors">
+            <Download size={13} /> S01 Remittance (CSV)
+          </button>
+          <button onClick={() => downloadHeartCSV(period, records)}
+            className="flex items-center gap-1.5 px-3 py-2 border border-[#ebebeb] rounded-xl text-[12px] font-semibold text-[#555] hover:bg-[#fafafa] transition-colors">
+            <Download size={13} /> HEART Levy (CSV)
+          </button>
+        </div>
+      )}
 
       {/* Summary totals */}
       {records.length > 0 && (
