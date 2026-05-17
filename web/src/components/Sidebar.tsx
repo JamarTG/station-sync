@@ -291,7 +291,7 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
           </nav>
         ) : (
           <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
-            <NavLink label="Dashboard" to="/" onClick={onClose} />
+            <NavLink label="Dashboard" to="/" icon={LayoutDashboard} onClick={onClose} />
 
             <div className="pt-4 pb-1 px-4">
               <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">Service Station</p>
