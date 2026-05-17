@@ -1,5 +1,5 @@
-import { createContext, useContext, useState } from 'react'
-import { logout as apiLogout, loadSavedSession } from './api'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { logout as apiLogout, loadSavedSession, clearToken, saveUser, setUnauthorizedHandler } from './api'
 import type { AuthUser } from './api'
 
 interface AuthContextValue {
@@ -22,11 +22,24 @@ function restoreUser(): AuthUser | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(restoreUser)
+  const [user, setUserState] = useState<AuthUser | null>(restoreUser)
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      clearToken()
+      setUserState(null)
+    })
+  }, [])
+
+  function setUser(u: AuthUser | null) {
+    if (u) saveUser(u)
+    setUserState(u)
+  }
 
   function logout() {
+    clearToken()
+    setUserState(null)
     apiLogout().catch(() => {})
-    setUser(null)
   }
 
   return (

@@ -2,6 +2,19 @@ import axios from 'axios'
 
 export const api = axios.create({ baseURL: '/v1' })
 
+let _on401: (() => void) | null = null
+export function setUnauthorizedHandler(fn: () => void) {
+  _on401 = fn
+}
+
+api.interceptors.response.use(
+  (r) => r,
+  (err) => {
+    if (err.response?.status === 401 && _on401) _on401()
+    return Promise.reject(err)
+  },
+)
+
 export interface AuthUser {
   id: string
   business_name?: string
