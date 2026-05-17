@@ -5,7 +5,7 @@ import {
   Outlet,
 } from '@tanstack/react-router'
 import { RootLayout } from './layouts/RootLayout'
-import { NotFoundPage } from './pages/NotFoundPage'
+import { NotFoundPage, AppNotFound } from './pages/NotFoundPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignUpPage } from './pages/SignUpPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -14,6 +14,7 @@ import { AccountsPage } from './pages/AccountsPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { StaffPage } from './pages/StaffPage'
 import { SchedulePage } from './pages/SchedulePage'
+import { ChargesPage } from './pages/ChargesPage'
 import { AccountSettingsPage } from './pages/AccountSettingsPage'
 import { ExpensesPage } from './pages/ExpensesPage'
 
@@ -34,16 +35,54 @@ const signupRoute = createRoute({
 })
 
 // Protected layout route (sidebar, topbar, auth-guarded)
+// notFoundComponent renders inside the sidebar for unmatched app paths
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: '_app',
   component: RootLayout,
+  notFoundComponent: AppNotFound,
 })
 
 const dashboardRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/',
   component: DashboardPage,
+})
+
+const salesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/sales',
+  component: SalesPage,
+})
+
+const accountsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/accounts',
+  component: AccountsPage,
+})
+
+const reportsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/reports',
+  component: ReportsPage,
+})
+
+const staffRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/staff',
+  component: StaffPage,
+})
+
+const scheduleRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/schedule',
+  component: SchedulePage,
+})
+
+const chargesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/charges',
+  component: ChargesPage,
 })
 
 const convSalesRoute = createRoute({
@@ -64,30 +103,6 @@ const convReportsRoute = createRoute({
   component: ReportsPage,
 })
 
-const ssAccountsRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: '/station/accounts',
-  component: AccountsPage,
-})
-
-const ssReportsRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: '/station/reports',
-  component: ReportsPage,
-})
-
-const staffRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: '/station/staff',
-  component: StaffPage,
-})
-
-const scheduleRoute = createRoute({
-  getParentRoute: () => appRoute,
-  path: '/station/schedule',
-  component: SchedulePage,
-})
-
 const settingsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/settings',
@@ -105,14 +120,16 @@ export const routeTree = rootRoute.addChildren([
   signupRoute,
   appRoute.addChildren([
     dashboardRoute,
-    expensesRoute,
+    salesRoute,
+    accountsRoute,
+    reportsRoute,
+    staffRoute,
+    scheduleRoute,
+    chargesRoute,
     convSalesRoute,
     convAccountsRoute,
     convReportsRoute,
-    ssAccountsRoute,
-    ssReportsRoute,
-    staffRoute,
-    scheduleRoute,
+    expensesRoute,
     settingsRoute,
   ]),
 ])

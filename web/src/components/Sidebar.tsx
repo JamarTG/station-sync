@@ -9,20 +9,20 @@ const managerRoles = new Set(['Super Admin', 'Admin', 'Manager'])
 
 const managerItems = [
   { label: 'Dashboard', to: '/' },
-  { label: 'Sales',     to: '/station/sales' },
-  { label: 'Reports',   to: '/station/reports' },
+  { label: 'Sales',     to: '/sales' },
+  { label: 'Reports',   to: '/reports' },
   { label: 'Expenses',  to: '/expenses' },
-  { label: 'Staff',     to: '/station/staff' },
-  { label: 'Schedule',  to: '/station/schedule' },
-  { label: 'Charges',   to: '/station/charges' },
+  { label: 'Staff',     to: '/staff' },
+  { label: 'Schedule',  to: '/schedule' },
+  { label: 'Charges',   to: '/charges' },
 ]
 
 const stationItems = [
-  { label: 'Sales',     to: '/station/sales' },
-  { label: 'Reports',   to: '/station/reports' },
-  { label: 'Staff',     to: '/station/staff' },
-  { label: 'Schedule',  to: '/station/schedule' },
-  { label: 'Charges',   to: '/station/charges' },
+  { label: 'Sales',     to: '/sales' },
+  { label: 'Reports',   to: '/reports' },
+  { label: 'Staff',     to: '/staff' },
+  { label: 'Schedule',  to: '/schedule' },
+  { label: 'Charges',   to: '/charges' },
 ]
 
 const convenienceItems = [

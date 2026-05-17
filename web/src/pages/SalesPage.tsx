@@ -3,7 +3,7 @@ export function SalesPage() {
     <div className="h-full overflow-y-auto">
       <div className="p-6 max-w-[960px] mx-auto flex flex-col gap-6">
         <div>
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Convenience Store</p>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Sales</p>
           <h1 className="text-[28px] font-bold text-[#111] leading-tight">Sales</h1>
         </div>
 
