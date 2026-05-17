@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
-import { AlertCircle, Tv2, ArrowLeft, User, Shield, Bell, Users, Banknote, Fuel, Building2, Search, ChevronRight } from 'lucide-react'
+import { AlertCircle, Tv2, ArrowLeft, User, Shield, Bell, Users, Banknote, Fuel, Building2, Search, ChevronRight, LayoutDashboard, TrendingUp, BarChart2, Receipt, Calendar, Zap, ShoppingCart } from 'lucide-react'
 import clsx from 'clsx'
 import { StationSyncLogo } from './StationSyncLogo'
 import { useAuth } from '../lib/authContext'
@@ -8,27 +8,27 @@ import { useAuth } from '../lib/authContext'
 const managerRoles = new Set(['Super Admin', 'Admin', 'Manager'])
 
 const managerItems = [
-  { label: 'Dashboard', to: '/' },
-  { label: 'Sales',     to: '/sales' },
-  { label: 'Reports',   to: '/reports' },
-  { label: 'Expenses',  to: '/expenses' },
-  { label: 'Staff',     to: '/staff' },
-  { label: 'Schedule',  to: '/schedule' },
-  { label: 'Charges',   to: '/charges' },
+  { label: 'Dashboard', to: '/',         icon: LayoutDashboard },
+  { label: 'Sales',     to: '/sales',    icon: TrendingUp },
+  { label: 'Reports',   to: '/reports',  icon: BarChart2 },
+  { label: 'Expenses',  to: '/expenses', icon: Receipt },
+  { label: 'Staff',     to: '/staff',    icon: Users },
+  { label: 'Schedule',  to: '/schedule', icon: Calendar },
+  { label: 'Charges',   to: '/charges',  icon: Zap },
 ]
 
 const stationItems = [
-  { label: 'Sales',     to: '/sales' },
-  { label: 'Reports',   to: '/reports' },
-  { label: 'Staff',     to: '/staff' },
-  { label: 'Schedule',  to: '/schedule' },
-  { label: 'Charges',   to: '/charges' },
+  { label: 'Sales',     to: '/sales',    icon: TrendingUp },
+  { label: 'Reports',   to: '/reports',  icon: BarChart2 },
+  { label: 'Staff',     to: '/staff',    icon: Users },
+  { label: 'Schedule',  to: '/schedule', icon: Calendar },
+  { label: 'Charges',   to: '/charges',  icon: Zap },
 ]
 
 const convenienceItems = [
-  { label: 'Sales',     to: '/convenience/sales' },
-  { label: 'Staff',     to: '/convenience/staff' },
-  { label: 'Schedule',  to: '/convenience/schedule' },
+  { label: 'Sales',     to: '/convenience/sales',     icon: ShoppingCart },
+  { label: 'Staff',     to: '/convenience/staff',     icon: Users },
+  { label: 'Schedule',  to: '/convenience/schedule',  icon: Calendar },
 ]
 
 const settingsCategories = [
@@ -182,7 +182,7 @@ function SettingsSearchModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-function NavLink({ to, label, onClick }: { to: string; label: string; onClick?: () => void }) {
+function NavLink({ to, label, icon: Icon, onClick }: { to: string; label: string; icon: React.ElementType; onClick?: () => void }) {
   const { location } = useRouterState()
   const isActive = location.pathname === to
 
@@ -191,10 +191,11 @@ function NavLink({ to, label, onClick }: { to: string; label: string; onClick?: 
       to={to}
       onClick={onClick}
       className={clsx(
-        'block px-4 py-2 text-[13px] font-medium rounded-md transition-colors',
+        'flex items-center gap-2.5 px-4 py-2 text-[13px] font-medium rounded-md transition-colors',
         isActive ? 'text-[#111] font-semibold bg-black/[0.06] ring-1 ring-[#ddd]' : 'text-[#888] hover:text-[#111] hover:bg-black/[0.03]'
       )}
     >
+      <Icon size={13} className="flex-shrink-0" />
       {label}
     </Link>
   )
