@@ -43,7 +43,7 @@ export function RootLayout() {
 
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <TopBar onMenuClick={() => setSidebarOpen(true)} onLogout={logout} />
-        <main className="flex-1 overflow-y-auto min-[1200px]:overflow-hidden">
+        <main className="flex-1 overflow-y-scroll">
           {posMode ? <CashierDashboard /> : <Outlet />}
         </main>
       </div>

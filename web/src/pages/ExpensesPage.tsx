@@ -126,8 +126,7 @@ export function ExpensesPage() {
   const pending = expenses.filter((e) => e.status !== 'Paid').reduce((s, e) => s + e.amount, 0)
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="p-6 max-w-[960px] mx-auto flex flex-col gap-6">
+    <div className="p-6 max-w-[960px] mx-auto flex flex-col gap-6">
 
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -239,9 +238,8 @@ export function ExpensesPage() {
           )}
         </div>
 
-      </div>
-
-      {showAdd && <AddExpenseModal onClose={() => setShowAdd(false)} onAdd={addExpense} />}
     </div>
+
+    {showAdd && <AddExpenseModal onClose={() => setShowAdd(false)} onAdd={addExpense} />}
   )
 }
