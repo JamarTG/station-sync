@@ -18,28 +18,28 @@ body {
 
 /* Scrollbar — Firefox */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: #d8d8d8 transparent;
+  scrollbar-width: auto;
+  scrollbar-color: #c0c0c0 transparent;
 }
 
 /* Scrollbar — WebKit */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d8d8d8;
+  background: #c0c0c0;
   border-radius: 999px;
-  transition: background 0.15s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #b0b0b0;
+  background: #888;
 }
 
 ::-webkit-scrollbar-corner {
