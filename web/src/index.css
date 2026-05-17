@@ -16,10 +16,16 @@ body {
   min-height: 100svh;
 }
 
-/* Scrollbar */
+/* Scrollbar — Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d8d8d8 transparent;
+}
+
+/* Scrollbar — WebKit */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -27,12 +33,17 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
+  background: #d8d8d8;
   border-radius: 999px;
+  transition: background 0.15s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #aaa;
+  background: #b0b0b0;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 ::-webkit-scrollbar-button {
