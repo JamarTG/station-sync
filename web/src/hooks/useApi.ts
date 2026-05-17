@@ -1,5 +1,37 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type Fuel, type Pump, type Shift, type FuelSummary, type User, type PayrollPeriod, type PayrollRecord, type ShiftAttendance } from '../lib/api'
+import {
+  api,
+  getBranches,
+  getOpenShift,
+  getShiftFuelPrices,
+  getShiftAttendance,
+  getShiftDeposits,
+  getUsers,
+  getNozzles,
+  getTanks,
+  getShiftTankLogs,
+  getShiftFuelReceivals,
+  type Branch,
+  type Fuel,
+  type FuelReceival,
+  type Nozzle,
+  type Pump,
+  type Shift,
+  type FuelSummary,
+  type Tank,
+  type TankLog,
+  type User,
+  type PayrollPeriod,
+  type PayrollRecord,
+  type ShiftAttendance,
+} from '../lib/api'
+
+export function useBranches() {
+  return useQuery<Branch[]>({
+    queryKey: ['branches'],
+    queryFn: getBranches,
+  })
+}
 
 export function useFuels() {
   return useQuery({
@@ -15,6 +47,51 @@ export function usePumps() {
   })
 }
 
+export function useNozzles() {
+  return useQuery<Nozzle[]>({
+    queryKey: ['nozzles'],
+    queryFn: getNozzles,
+  })
+}
+
+export function useUsers() {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: getUsers,
+  })
+}
+
+export function useOpenShift() {
+  return useQuery({
+    queryKey: ['shifts', 'open'],
+    queryFn: getOpenShift,
+  })
+}
+
+export function useShiftFuelPrices(shiftId: string | undefined) {
+  return useQuery({
+    queryKey: ['shifts', shiftId, 'fuel-prices'],
+    queryFn: () => getShiftFuelPrices(shiftId!),
+    enabled: !!shiftId,
+  })
+}
+
+export function useShiftAttendance(shiftId: string | undefined) {
+  return useQuery({
+    queryKey: ['shifts', shiftId, 'attendance'],
+    queryFn: () => getShiftAttendance(shiftId!),
+    enabled: !!shiftId,
+  })
+}
+
+export function useShiftDeposits(shiftId: string | undefined) {
+  return useQuery({
+    queryKey: ['shifts', shiftId, 'deposits'],
+    queryFn: () => getShiftDeposits(shiftId!),
+    enabled: !!shiftId,
+  })
+}
+
 export function useShiftForDate(date: string) {
   return useQuery({
     queryKey: ['shifts', date],
@@ -25,23 +102,32 @@ export function useShiftForDate(date: string) {
 export function useFuelSummary(pumpId: string | undefined, shiftId: string | undefined) {
   return useQuery({
     queryKey: ['fuel-summary', pumpId, shiftId],
-    queryFn: () => api.get<FuelSummary[]>(`/pumps/${pumpId}/shifts/${shiftId}/fuel-summary`).then((r) => r.data),
+    queryFn: () =>
+      api.get<FuelSummary[]>(`/pumps/${pumpId}/shifts/${shiftId}/fuel-summary`).then((r) => r.data),
     enabled: !!pumpId && !!shiftId,
   })
 }
 
-export function useShiftAttendance(shiftId: string | undefined) {
-  return useQuery({
-    queryKey: ['attendance', shiftId],
-    queryFn: () => api.get<ShiftAttendance[]>(`/shifts/${shiftId}/attendance`).then((r) => r.data),
+export function useTanks() {
+  return useQuery<Tank[]>({
+    queryKey: ['tanks'],
+    queryFn: getTanks,
+  })
+}
+
+export function useShiftTankLogs(shiftId: string | undefined) {
+  return useQuery<TankLog[]>({
+    queryKey: ['shifts', shiftId, 'tank-logs'],
+    queryFn: () => getShiftTankLogs(shiftId!),
     enabled: !!shiftId,
   })
 }
 
-export function useUsers() {
-  return useQuery({
-    queryKey: ['users'],
-    queryFn: () => api.get<User[]>('/users').then((r) => r.data),
+export function useShiftFuelReceivals(shiftId: string | undefined) {
+  return useQuery<FuelReceival[]>({
+    queryKey: ['shifts', shiftId, 'fuel-receivals'],
+    queryFn: () => getShiftFuelReceivals(shiftId!),
+    enabled: !!shiftId,
   })
 }
 

@@ -2,11 +2,9 @@ import { useState, useEffect } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { ExpenditureDetailModal } from './ExpenditureDetailModal'
+import { activityByAccount, type ExpenditureRow } from './RecentActivityCard'
 
-const expenditures = [
-  { description: 'Office supplies', requestedBy: 'A. Lewis', amount: 5000.0 },
-  { description: 'Equipment repair', requestedBy: 'T. Brisco', amount: 12000.0 },
-]
+const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
 interface Props {
   onBack: () => void
@@ -15,8 +13,10 @@ interface Props {
 
 export function ExpenditureBreakdownModal({ onBack, onClose }: Props) {
   useEscapeKey(onClose)
-  const [selected, setSelected] = useState<typeof expenditures[0] | null>(null)
+  const expenditureRows = activityByAccount.Expenditures.filter((r): r is ExpenditureRow => r.type === 'expenditure')
+  const [selected, setSelected] = useState<ExpenditureRow | null>(null)
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 537)
+  const total = expenditureRows.reduce((sum, e) => sum + e.amount, 0)
 
   useEffect(() => {
     function onResize() { setIsNarrow(window.innerWidth < 537) }
@@ -27,8 +27,7 @@ export function ExpenditureBreakdownModal({ onBack, onClose }: Props) {
   if (selected) {
     return (
       <ExpenditureDetailModal
-        description={selected.description}
-        requestedBy={selected.requestedBy}
+        row={selected}
         onBack={() => setSelected(null)}
         onClose={onClose}
       />
@@ -57,20 +56,20 @@ export function ExpenditureBreakdownModal({ onBack, onClose }: Props) {
             <h2 className="text-[36px] font-bold text-[#111] leading-none mb-3">Expenditures</h2>
             <div className="flex items-center justify-between">
               <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Total</p>
-              <p className="text-[11px] font-bold text-[#111]">J$0.00</p>
+              <p className="text-[11px] font-bold text-[#111]">{fmt(total)}</p>
             </div>
           </div>
         ) : (
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-[36px] font-bold text-[#111] leading-none">Expenditures</h2>
-            <p className="text-[36px] font-bold text-[#111] leading-none">J$0.00</p>
+            <p className="text-[36px] font-bold text-[#111] leading-none">{fmt(total)}</p>
           </div>
         )}
 
         <div className="flex-1 overflow-y-auto">
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Breakdown</p>
 
-          {expenditures.map((e, i) => (
+          {expenditureRows.map((e, i) => (
             <div key={i} className="flex items-start justify-between py-2">
               <div>
                 <button
@@ -81,7 +80,7 @@ export function ExpenditureBreakdownModal({ onBack, onClose }: Props) {
                 </button>
                 <p className="text-[11px] font-medium text-[#888] mt-0.5">{e.requestedBy}</p>
               </div>
-              <p className="text-[13px] font-semibold text-[#bbb]">--</p>
+              <p className="text-[13px] font-semibold text-[#333]">{fmt(e.amount)}</p>
             </div>
           ))}
         </div>
@@ -90,7 +89,7 @@ export function ExpenditureBreakdownModal({ onBack, onClose }: Props) {
 
         <div className="flex items-center justify-between pt-4">
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Count</p>
-          <p className="text-[13px] font-semibold text-[#333]">{expenditures.length} Items</p>
+          <p className="text-[13px] font-semibold text-[#333]">{expenditureRows.length} Items</p>
         </div>
       </div>
     </div>

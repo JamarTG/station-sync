@@ -1,0 +1,4 @@
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS address_line1 TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS address_line2 TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS city         TEXT;
+ALTER TABLE businesses ADD COLUMN IF NOT EXISTS parish       TEXT;

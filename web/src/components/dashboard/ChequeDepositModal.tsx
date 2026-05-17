@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, X, Plus } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { useAuth } from '../../lib/authContext'
+import { createDeposit, updateDeposit } from '../../lib/api'
 import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
 
 const banks = ['NCB', 'Scotiabank', 'JMMB', 'Sagicor', 'FirstGlobal']
@@ -16,20 +19,27 @@ interface Props {
   onBack: () => void
   onClose: () => void
   isEditing?: boolean
-  initialData?: { depositedBy: string; description: string; amount: number }
+  depositId?: string
+  initialData?: { depositedBy: string; description: string; amount: number; bank?: string; chequeNo?: string }
+  shiftId?: string
 }
 
 let nextId = 1
 
-export function ChequeDepositModal({ onBack, onClose, isEditing, initialData }: Props) {
+export function ChequeDepositModal({ onBack, onClose, isEditing, depositId, initialData, shiftId }: Props) {
   useEscapeKey(onClose)
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
+
   const [records, setRecords] = useState<ChequeRecord[]>([
-    { id: nextId++, amount: initialData?.amount ? String(initialData.amount) : '', bank: 'NCB', chequeNo: '' },
+    { id: nextId++, amount: '', bank: initialData?.bank ?? 'NCB', chequeNo: '' },
   ])
-  const [depositedBy, setDepositedBy] = useState(initialData?.depositedBy ?? '')
-  const [description, setDescription] = useState(initialData?.description ?? '')
+  const [depositedBy, setDepositedBy] = useState('')
+  const [description, setDescription] = useState('')
   const [touchedChequeNo, setTouchedChequeNo] = useState<Record<number, boolean>>({})
   const [isNarrow, setIsNarrow] = useState(window.innerWidth < 572)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     function onResize() { setIsNarrow(window.innerWidth < 572) }
@@ -54,6 +64,41 @@ export function ChequeDepositModal({ onBack, onClose, isEditing, initialData }: 
 
   const hasDuplicates = records.some(isDuplicateChequeNo)
   const total = records.reduce((sum, r) => sum + (parseFloat(r.amount) || 0), 0)
+  const effectiveTotal = total > 0 ? total : (isEditing && initialData?.amount ? initialData.amount : 0)
+
+  async function handleSubmit() {
+    if (!shiftId || !user || effectiveTotal === 0 || hasDuplicates) return
+    setLoading(true)
+    setError('')
+    try {
+      if (isEditing && depositId) {
+        const r = records[0]
+        await updateDeposit(shiftId, depositId, {
+          attendant_id: user.id,
+          type: 'Cheque',
+          amount: parseFloat(r.amount) || (initialData?.amount ?? 0),
+          metadata: JSON.stringify({ deposited_by: depositedBy || (initialData?.depositedBy ?? ''), description: description || (initialData?.description ?? ''), bank: r.bank, cheque_no: r.chequeNo || (initialData?.chequeNo ?? '') }),
+        })
+      } else {
+        for (const r of records) {
+          const amt = parseFloat(r.amount) || 0
+          if (amt === 0) continue
+          await createDeposit(shiftId, {
+            attendant_id: user.id,
+            type: 'Cheque',
+            amount: amt,
+            metadata: JSON.stringify({ deposited_by: depositedBy, description, bank: r.bank, cheque_no: r.chequeNo }),
+          })
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ['shifts', shiftId, 'deposits'] })
+      onClose()
+    } catch {
+      setError('Failed to save. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div
@@ -92,7 +137,7 @@ export function ChequeDepositModal({ onBack, onClose, isEditing, initialData }: 
             type="text"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g. Shift end deposit"
+            placeholder={initialData?.description || 'e.g. Shift end deposit'}
             className="w-full border border-[#e0e0e0] rounded-xl px-4 py-3 text-[13px] font-medium text-[#333] focus:outline-none"
           />
         </div>
@@ -112,7 +157,7 @@ export function ChequeDepositModal({ onBack, onClose, isEditing, initialData }: 
                       type="text"
                       value={fmtInput(r.amount)}
                       onChange={(e) => updateRecord(r.id, 'amount', parseInput(e.target.value))}
-                      placeholder="0.00"
+                      placeholder={r.id === records[0].id && initialData?.amount ? fmtInput(String(initialData.amount)) : '0.00'}
                       className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent min-w-0"
                     />
                   </div>
@@ -140,7 +185,7 @@ export function ChequeDepositModal({ onBack, onClose, isEditing, initialData }: 
                     value={r.chequeNo}
                     onChange={(e) => updateRecord(r.id, 'chequeNo', e.target.value)}
                     onBlur={() => setTouchedChequeNo((prev) => ({ ...prev, [r.id]: true }))}
-                    placeholder="—"
+                    placeholder={r.id === records[0].id && initialData?.chequeNo ? initialData.chequeNo : '—'}
                     className={`border rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none w-[120px] ${showChequeError ? 'border-red-400 bg-red-50' : 'border-[#e0e0e0]'}`}
                   />
                 </div>
@@ -172,15 +217,19 @@ export function ChequeDepositModal({ onBack, onClose, isEditing, initialData }: 
             type="text"
             value={depositedBy}
             onChange={(e) => setDepositedBy(e.target.value)}
-            className="w-full border border-[#e0e0e0] rounded-xl px-4 py-3 text-[13px] font-medium text-[#333] focus:outline-none"
+            placeholder={initialData?.depositedBy ?? ''}
+            className="border border-[#ddd] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none min-w-[200px]"
           />
         </div>
 
+        {error && <p className="text-[11px] font-semibold text-red-500 mb-3">{error}</p>}
+
         <button
-          disabled={hasDuplicates}
+          onClick={handleSubmit}
+          disabled={loading || hasDuplicates || effectiveTotal === 0 || !shiftId}
           className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Submit
+          {loading ? 'Saving...' : 'Submit'}
         </button>
       </div>
     </div>

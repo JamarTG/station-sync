@@ -9,9 +9,9 @@ export function fmtInput(raw: string): string {
   return decStr !== undefined ? `${formattedInt}.${decStr}` : formattedInt
 }
 
-/** Strip commas from a formatted input string before storing as raw state. */
+/** Strip everything except digits and decimal point before storing as raw state. */
 export function parseInput(value: string): string {
-  return value.replace(/,/g, '')
+  return value.replace(/[^\d.]/g, '')
 }
 
 /** Format a number for display (2 decimal places, thousand separators). */

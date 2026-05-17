@@ -1,27 +1,53 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { upsertFuelPrice } from '../../lib/api'
 import { fmtInput, parseInput } from '../../lib/fmt'
-
-const fuelGrades = ['87', '90', 'ADO', 'ULSD']
-
-const defaultPrices: Record<string, string> = {
-  '87': '190.90',
-  '90': '190.90',
-  'ADO': '190.90',
-  'ULSD': '190.90',
-}
+import type { Fuel, ShiftFuelPrice } from '../../lib/api'
 
 interface Props {
+  fuels: Fuel[]
+  initialPrices: ShiftFuelPrice[]
+  shiftId?: string
   onClose: () => void
+  onSaved: () => void
 }
 
-export function EditFuelPricesModal({ onClose }: Props) {
+export function EditFuelPricesModal({ fuels, initialPrices, shiftId, onClose, onSaved }: Props) {
   useEscapeKey(onClose)
-  const [prices, setPrices] = useState<Record<string, string>>(defaultPrices)
 
-  function updatePrice(fuel: string, value: string) {
-    setPrices((prev) => ({ ...prev, [fuel]: parseInput(value) }))
+  const [prices, setPrices] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      fuels.map((f) => {
+        const existing = initialPrices.find((p) => p.fuel_id === f.id)
+        return [f.id, existing ? String(existing.price) : '']
+      })
+    )
+  )
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  function updatePrice(fuelId: string, value: string) {
+    setPrices((prev) => ({ ...prev, [fuelId]: parseInput(value) }))
+  }
+
+  async function handleSave() {
+    if (!shiftId) return
+    setSaving(true)
+    setError(null)
+    try {
+      const toSave = fuels.filter((f) => prices[f.id] !== '' && parseFloat(prices[f.id]) > 0)
+      await Promise.all(toSave.map((f) => upsertFuelPrice(shiftId, f.id, parseFloat(prices[f.id]))))
+      onSaved()
+      onClose()
+    } catch (err: unknown) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const axiosMsg = (err as any)?.response?.data?.error
+      const msg = axiosMsg ?? (err instanceof Error ? err.message : String(err))
+      setError(`Failed to save: ${msg}`)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -47,14 +73,14 @@ export function EditFuelPricesModal({ onClose }: Props) {
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <div className="flex flex-col gap-3 mb-8">
-          {fuelGrades.map((fuel, i) => (
-            <div key={fuel} className="flex items-end gap-3">
+          {fuels.map((fuel, i) => (
+            <div key={fuel.id} className="flex items-end gap-3">
               <div className="w-16 flex-shrink-0">
                 {i === 0 && (
                   <label className="text-[13px] font-semibold text-[#888] block mb-2">fuel</label>
                 )}
                 <div className="px-4 py-2.5 text-[13px] font-semibold text-[#333]">
-                  {fuel}
+                  {fuel.name}
                 </div>
               </div>
               <div className="flex-1">
@@ -65,8 +91,9 @@ export function EditFuelPricesModal({ onClose }: Props) {
                   <span className="text-[13px] font-bold text-[#aaa]">J$</span>
                   <input
                     type="text"
-                    value={fmtInput(prices[fuel])}
-                    onChange={(e) => updatePrice(fuel, e.target.value)}
+                    inputMode="decimal"
+                    value={fmtInput(prices[fuel.id])}
+                    onChange={(e) => updatePrice(fuel.id, e.target.value)}
                     placeholder="0.00"
                     className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent min-w-0"
                   />
@@ -76,11 +103,15 @@ export function EditFuelPricesModal({ onClose }: Props) {
           ))}
         </div>
 
+        {error && (
+          <p className="text-[12px] font-semibold text-red-500 mb-3">{error}</p>
+        )}
         <button
-          onClick={onClose}
-          className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+          onClick={handleSave}
+          disabled={saving || !shiftId}
+          className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Update
+          {saving ? 'Saving...' : 'Update'}
         </button>
       </div>
     </div>
