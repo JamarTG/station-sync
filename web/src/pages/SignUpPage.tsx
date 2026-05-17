@@ -1,13 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
 import { Eye, EyeOff, Check, Plus, Fuel, Trash2, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import { StationSyncLogo } from '../components/StationSyncLogo'
 import { signUp, createFuel, createPump, createNozzle } from '../lib/api'
-import type { AuthUser } from '../lib/api'
-
-interface Props {
-  onSignUp: (user: AuthUser) => void
-  onGoToLogin: () => void
-}
+import { useAuth } from '../lib/authContext'
 
 const categories = [
   {
@@ -670,7 +666,9 @@ function ConfigurePumpsPanel({ grades, onBack, onDone }: { grades: string[]; onB
 
 type Step = 'form' | 'interests' | 'plans' | 'business' | 'pumps'
 
-export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
+export function SignUpPage() {
+  const { setUser } = useAuth()
+  const navigate = useNavigate()
   const [step, setStep] = useState<Step>('form')
   const [grades, setGrades] = useState<string[]>([])
   const [fullName, setFullName] = useState('')
@@ -744,7 +742,8 @@ export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
               }
             }
           }
-          onSignUp(createdUser!)
+          setUser(createdUser!)
+          navigate({ to: '/' })
         }}
       />
     )
@@ -931,7 +930,7 @@ export function SignUpPage({ onSignUp, onGoToLogin }: Props) {
 
             <p className="text-center text-[13px] text-white/50 font-medium mt-8">
               Already have an account?{' '}
-              <button onClick={onGoToLogin} className="text-white font-bold hover:underline transition-colors">
+              <button onClick={() => navigate({ to: '/login' })} className="text-white font-bold hover:underline transition-colors">
                 Sign in
               </button>
             </p>

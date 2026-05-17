@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import { StationSyncLogo } from '../components/StationSyncLogo'
-import { login, type AuthUser } from '../lib/api'
+import { login } from '../lib/api'
+import { useAuth } from '../lib/authContext'
 
-interface Props {
-  onLogin: (user: AuthUser) => void
-  onGoToSignUp: () => void
-}
-
-export function LoginPage({ onLogin, onGoToSignUp }: Props) {
+export function LoginPage() {
+  const { setUser } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -21,7 +20,8 @@ export function LoginPage({ onLogin, onGoToSignUp }: Props) {
     setLoading(true)
     try {
       const user = await login(email, password)
-      onLogin(user)
+      setUser(user)
+      navigate({ to: '/' })
     } catch {
       setError('Invalid email or password')
     } finally {
@@ -138,7 +138,7 @@ export function LoginPage({ onLogin, onGoToSignUp }: Props) {
 
           <p className="text-center text-[13px] text-white/50 font-medium mt-6">
             Don't have an account?{' '}
-            <button onClick={onGoToSignUp} className="text-white font-bold hover:underline transition-colors">Sign up</button>
+            <button onClick={() => navigate({ to: '/signup' })} className="text-white font-bold hover:underline transition-colors">Sign up</button>
           </p>
         </div>
 

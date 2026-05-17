@@ -2,12 +2,10 @@ import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { StationSyncLogo } from '../components/StationSyncLogo'
 import { changePassword } from '../lib/api'
+import { useAuth } from '../lib/authContext'
 
-interface Props {
-  onDone: () => void
-}
-
-export function ChangePasswordPage({ onDone }: Props) {
+export function ChangePasswordPage({ onDone }: { onDone?: () => void }) {
+  const { user, setUser } = useAuth()
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -27,7 +25,8 @@ export function ChangePasswordPage({ onDone }: Props) {
     setError('')
     try {
       await changePassword(current, next)
-      onDone()
+      if (user) setUser({ ...user, must_change_password: false })
+      onDone?.()
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
       setError(msg === 'current password is incorrect' ? 'The current password you entered is incorrect.' : 'Failed to update password. Please try again.')
