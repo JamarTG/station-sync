@@ -14,6 +14,7 @@ func RegisterRoute(g *gin.RouterGroup, db *pgxpool.Pool) {
 	users.GET("", h.List)
 	users.POST("", h.Create)
 	users.GET("/:id", h.Get)
+	users.PATCH("/:id/pay", h.UpdatePay)
 	users.PATCH("/:id", h.Update)
 	users.PATCH("/me/password", h.ChangePassword)
 }

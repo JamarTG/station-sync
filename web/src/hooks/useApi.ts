@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   api,
   getBranches,
@@ -8,7 +8,6 @@ import {
   getShiftDeposits,
   getUsers,
   getNozzles,
-  getPumpNozzles,
   getTanks,
   getShiftTankLogs,
   getShiftFuelReceivals,
@@ -21,6 +20,10 @@ import {
   type FuelSummary,
   type Tank,
   type TankLog,
+  type User,
+  type PayrollPeriod,
+  type PayrollRecord,
+  type ShiftAttendance,
 } from '../lib/api'
 
 export function useBranches() {
@@ -125,5 +128,56 @@ export function useShiftFuelReceivals(shiftId: string | undefined) {
     queryKey: ['shifts', shiftId, 'fuel-receivals'],
     queryFn: () => getShiftFuelReceivals(shiftId!),
     enabled: !!shiftId,
+  })
+}
+
+export function usePayrollWeeklySummary() {
+  return useQuery({
+    queryKey: ['payroll-weekly-summary'],
+    queryFn: () => api.get<{ total_overage: number; total_shortage: number; week_start: string; week_end: string }>('/payroll/weekly-summary').then((r) => r.data),
+  })
+}
+
+export function usePayrollPeriods() {
+  return useQuery({
+    queryKey: ['payroll-periods'],
+    queryFn: () => api.get<PayrollPeriod[]>('/payroll/periods').then((r) => r.data),
+  })
+}
+
+export function usePayrollRecords(periodId: string | null) {
+  return useQuery({
+    queryKey: ['payroll-records', periodId],
+    queryFn: () => api.get<PayrollRecord[]>(`/payroll/periods/${periodId}/records`).then((r) => r.data),
+    enabled: !!periodId,
+  })
+}
+
+export function useCreateUser() {
+  const qc = useQueryClient()
+  return async (body: {
+    name: string; role: string; password: string; phone: string
+    nis: string; trn: string; email: string; employed_on: string; pay_rate: string; pay_type: string
+  }) => {
+    const res = await api.post<User>('/users', body)
+    await qc.invalidateQueries({ queryKey: ['users'] })
+    return res.data
+  }
+}
+
+export function useUpdatePay() {
+  const qc = useQueryClient()
+  return async (userId: string, pay_rate: number | null, pay_type: string | null) => {
+    const res = await api.patch<User>(`/users/${userId}/pay`, { pay_rate, pay_type })
+    await qc.invalidateQueries({ queryKey: ['users'] })
+    return res.data
+  }
+}
+
+export function useUserPayroll(userId: string | null) {
+  return useQuery({
+    queryKey: ['user-payroll', userId],
+    queryFn: () => api.get<PayrollRecord[]>(`/users/${userId}/payroll`).then((r) => r.data),
+    enabled: !!userId,
   })
 }

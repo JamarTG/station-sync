@@ -31,6 +31,7 @@ func (h *ShiftHandler) List(c *gin.Context) {
 		query += ` AND date = $3`
 		args = append(args, date)
 	}
+	
 	query += ` ORDER BY date DESC, start_time`
 
 	rows, err := h.DB.Query(c.Request.Context(), query, args...)

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
@@ -16,22 +17,28 @@ type UserHandler struct {
 
 const userSelectCols = `id::text, business_id::text, branch_id::text, name, role, email, active,
 	COALESCE(phone,''), COALESCE(nis,''), COALESCE(trn,''),
-	employed_on::text, date_of_birth::text, must_change_password`
+	employed_on::text, date_of_birth::text, must_change_password, pay_rate, pay_type`
 
 func scanUser(row interface {
 	Scan(...any) error
 }, u *model.User) error {
 	return row.Scan(&u.ID, &u.BusinessID, &u.BranchID, &u.Name, &u.Role, &u.Email, &u.Active,
-		&u.Phone, &u.NIS, &u.TRN, &u.EmployedOn, &u.DateOfBirth, &u.MustChangePassword)
+		&u.Phone, &u.NIS, &u.TRN, &u.EmployedOn, &u.DateOfBirth, &u.MustChangePassword,
+		&u.PayRate, &u.PayType)
 }
 
 func (h *UserHandler) List(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	branchID := c.GetString("branch_id")
-	rows, err := h.DB.Query(c.Request.Context(),
-		`SELECT `+userSelectCols+` FROM users
-		 WHERE business_id = $1 AND ($2 = '' OR branch_id::text = $2)
-		 ORDER BY name`,
+	rows, err := h.DB.Query(c.Request.Context(), `
+		SELECT `+userSelectCols+`,
+			(SELECT pr.net_pay FROM payroll_records pr
+			 JOIN payroll_periods pp ON pp.id = pr.period_id
+			 WHERE pr.user_id = u.id
+			 ORDER BY pp.start_date DESC LIMIT 1) AS latest_net_pay
+		FROM users u
+		WHERE business_id = $1 AND ($2 = '' OR branch_id::text = $2)
+		ORDER BY name`,
 		businessID, branchID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -42,7 +49,11 @@ func (h *UserHandler) List(c *gin.Context) {
 	users := []model.User{}
 	for rows.Next() {
 		var u model.User
-		if err := scanUser(rows, &u); err != nil {
+		if err := rows.Scan(
+			&u.ID, &u.BusinessID, &u.BranchID, &u.Name, &u.Role, &u.Email, &u.Active,
+			&u.Phone, &u.NIS, &u.TRN, &u.EmployedOn, &u.DateOfBirth, &u.MustChangePassword,
+			&u.PayRate, &u.PayType, &u.LatestNetPay,
+		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -62,6 +73,34 @@ func (h *UserHandler) Get(c *gin.Context) {
 	)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	c.JSON(http.StatusOK, u)
+}
+
+func (h *UserHandler) UpdatePay(c *gin.Context) {
+	var body struct {
+		PayRate *float64 `json:"pay_rate"`
+		PayType *string  `json:"pay_type"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var u model.User
+	err := scanUser(h.DB.QueryRow(c.Request.Context(), `
+		UPDATE users SET pay_rate = $1, pay_type = $2
+		WHERE id = $3
+		RETURNING `+userSelectCols,
+		body.PayRate, body.PayType, c.Param("id"),
+	), &u)
+	if err == pgx.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, u)

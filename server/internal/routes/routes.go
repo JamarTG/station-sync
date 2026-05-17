@@ -4,9 +4,12 @@ import (
 	"project-sync/internal/handlers"
 	"project-sync/internal/middleware"
 	"project-sync/internal/routes/auth"
+	"project-sync/internal/routes/days"
 	"project-sync/internal/routes/fuels"
+	"project-sync/internal/routes/payroll"
 	"project-sync/internal/routes/pumps"
 	"project-sync/internal/routes/shifts"
+	"project-sync/internal/routes/shiftschedules"
 	"project-sync/internal/routes/tanks"
 	"project-sync/internal/routes/users"
 
@@ -24,11 +27,14 @@ func Register(r *gin.Engine, db *pgxpool.Pool) {
 	protected := v1.Group("")
 	protected.Use(middleware.RequireAuth(db))
 
+	days.RegisterRoute(protected, db)
 	fuels.RegisterRoute(protected, db)
 	users.RegisterRoute(protected, db)
 	pumps.RegisterRoute(protected, db)
 	tanks.RegisterRoute(protected, db)
+	shiftschedules.RegisterRoute(protected, db)
 	shifts.RegisterRoute(protected, db)
+	payroll.RegisterRoute(protected, db)
 
 	bh := &handlers.BranchHandler{DB: db}
 	protected.GET("/branches", bh.List)

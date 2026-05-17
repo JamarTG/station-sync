@@ -44,6 +44,34 @@ func (h *ShiftAttendanceHandler) ListByShift(c *gin.Context) {
 	c.JSON(http.StatusOK, records)
 }
 
+func (h *ShiftAttendanceHandler) UpdateTimes(c *gin.Context) {
+	var body struct {
+		ClockIn  string  `json:"clock_in"`
+		ClockOut *string `json:"clock_out"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var a model.ShiftAttendance
+	err := h.DB.QueryRow(c.Request.Context(), `
+		UPDATE shift_attendance
+		SET clock_in  = NULLIF($1, '')::timestamptz,
+		    clock_out = NULLIF($2, '')::timestamptz
+		WHERE id = $3 AND shift_id = $4
+		RETURNING id::text, shift_id::text, user_id::text,
+		          (SELECT name FROM users WHERE id = user_id),
+		          clock_in::text, clock_out::text`,
+		body.ClockIn, body.ClockOut, c.Param("id"), c.Param("shiftId"),
+	).Scan(&a.ID, &a.ShiftID, &a.UserID, &a.UserName, &a.ClockIn, &a.ClockOut)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "attendance record not found"})
+		return
+	}
+	c.JSON(http.StatusOK, a)
+}
+
 func (h *ShiftAttendanceHandler) ClockIn(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	var body struct {

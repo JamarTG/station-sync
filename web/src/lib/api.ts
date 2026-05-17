@@ -27,7 +27,17 @@ export interface AuthUser {
   role: string
   email: string
   must_change_password?: boolean
+  active?: boolean
+  employed_on?: string | null
+  phone?: string
+  nis?: string
+  trn?: string
+  pay_rate?: number | null
+  pay_type?: 'Hourly' | 'Salary' | null
+  latest_net_pay?: number | null
 }
+
+export type User = AuthUser
 
 export interface Branch {
   id: string
@@ -122,6 +132,35 @@ export interface FuelSummary {
   pricePerLitre: number
   totalLitresSold: number
   totalSales: number
+}
+
+export interface PayrollPeriod {
+  id: string
+  start_date: string
+  end_date: string
+  status: 'Draft' | 'Published'
+  created_at: string
+}
+
+export interface PayrollRecord {
+  id: string
+  period_id: string
+  period_start_date: string
+  period_end_date: string
+  period_status: string
+  user_id: string
+  user_name: string
+  user_role: string
+  gross_pay: number
+  nis: number
+  nht: number
+  ed_tax: number
+  paye: number
+  net_pay: number
+  hours_worked: number | null
+  overage: number
+  shortage: number
+  created_at: string
 }
 
 interface AuthResponse {
