@@ -5,6 +5,7 @@ import {
   Outlet,
 } from '@tanstack/react-router'
 import { RootLayout } from './layouts/RootLayout'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { LoginPage } from './pages/LoginPage'
 import { SignUpPage } from './pages/SignUpPage'
 import { DashboardPage } from './pages/DashboardPage'
@@ -17,7 +18,7 @@ import { AccountSettingsPage } from './pages/AccountSettingsPage'
 import { ExpensesPage } from './pages/ExpensesPage'
 
 // Root: just renders <Outlet /> — no layout, no auth logic
-const rootRoute = createRootRoute({ component: Outlet })
+const rootRoute = createRootRoute({ component: Outlet, notFoundComponent: NotFoundPage })
 
 // Public routes (no sidebar, no auth required)
 const loginRoute = createRoute({
