@@ -4,6 +4,7 @@ import {
   createRouter,
 } from '@tanstack/react-router'
 import { RootLayout } from './layouts/RootLayout'
+import { NotFoundPage } from './pages/NotFoundPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SalesPage } from './pages/SalesPage'
 import { AccountsPage } from './pages/AccountsPage'
@@ -13,7 +14,7 @@ import { SchedulePage } from './pages/SchedulePage'
 import { AccountSettingsPage } from './pages/AccountSettingsPage'
 import { ExpensesPage } from './pages/ExpensesPage'
 
-const rootRoute = createRootRoute({ component: RootLayout })
+const rootRoute = createRootRoute({ component: RootLayout, notFoundComponent: NotFoundPage })
 
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
