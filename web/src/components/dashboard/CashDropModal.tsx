@@ -98,7 +98,7 @@ export function CashDepositModal({ initialAttendant, initialDenominations, onBac
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit a Cash Drop' : 'Record cash drop'}</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit a cash drop' : 'Record cash drop'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <p className="text-[13px] font-semibold text-[#888] mb-2">amount</p>

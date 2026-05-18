@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { StationSyncLogo } from '../components/StationSyncLogo'
@@ -13,6 +13,16 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const clickTimes = useRef<number[]>([])
+
+  function handleLogoClick() {
+    const now = Date.now()
+    clickTimes.current = [...clickTimes.current, now].filter((t) => now - t < 3000)
+    if (clickTimes.current.length >= 5) {
+      clickTimes.current = []
+      window.location.href = '/platform-signup'
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -46,7 +56,7 @@ export function LoginPage() {
         <div className="bg-white/20 backdrop-blur-xl rounded-3xl shadow-xl border border-white/30 p-10">
           {/* Brand */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-white/20 border border-white/30 rounded-2xl mb-4">
+            <div onClick={handleLogoClick} className="inline-flex items-center justify-center w-12 h-12 bg-white/20 border border-white/30 rounded-2xl mb-4 cursor-pointer select-none">
               <StationSyncLogo size={26} color="white" />
             </div>
             <h1 className="text-[24px] font-bold text-white leading-none mb-2">Welcome back</h1>

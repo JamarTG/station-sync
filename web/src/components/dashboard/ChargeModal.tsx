@@ -97,7 +97,7 @@ export function ChargeModal({ onBack, onClose, isEditing, depositId, initialData
           </button>
         </div>
 
-        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit a Charge' : 'Record charge'}</h2>
+        <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{isEditing ? 'Edit a charge' : 'Record charge'}</h2>
         <p className="text-[14px] text-[#888] font-medium mb-6">Please use accurate info</p>
 
         <div className="mb-6">

@@ -18,34 +18,39 @@ body {
 
 /* Scrollbar — Firefox */
 * {
-  scrollbar-width: auto;
-  scrollbar-color: #c0c0c0 transparent;
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d4 transparent;
 }
 
 /* Scrollbar — WebKit */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 4px;
+  height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.04);
-  border-radius: 999px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c0c0c0;
+  background: #d4d4d4;
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #888;
+  background: #aaa;
 }
 
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-::-webkit-scrollbar-button {
+::-webkit-scrollbar-button:single-button:vertical:decrement,
+::-webkit-scrollbar-button:single-button:vertical:increment,
+::-webkit-scrollbar-button:single-button:horizontal:decrement,
+::-webkit-scrollbar-button:single-button:horizontal:increment {
+  width: 0;
+  height: 0;
+  background: none;
   display: none;
 }

@@ -16,7 +16,7 @@ interface Props {
   readOnly?: boolean
 }
 
-export function TankDetailPanel({ tank, tankReading, onReadingChange, onSave, actualLitresSold, receival = null, shiftId, readOnly }: Props) {
+export function TankDetailPanel({ tank, tankReading, onReadingChange, onSave, actualLitresSold, receival = null, shiftId: _shiftId, readOnly }: Props) {
   const [showAdd, setShowAdd] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [touched, setTouched] = useState(false)
@@ -61,8 +61,12 @@ export function TankDetailPanel({ tank, tankReading, onReadingChange, onSave, ac
     <div className="h-full flex flex-col">
       <div className="bg-white rounded-none border border-[#ebebeb] overflow-hidden flex flex-col flex-1">
         <table className="w-full">
+          
           <thead>
-            <tr className="border-b border-[#f0f0f0]">
+                        <tr>
+              <th className="py-6.5 text-[11px] font-semibold text-[#000] tracking-widest pl-5"></th>
+            </tr>
+            <tr className="border border-[#f0f0f0]">
               <th className="py-2 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pl-5">OPENING</th>
               <th className="py-2 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pr-5">CLOSING</th>
             </tr>

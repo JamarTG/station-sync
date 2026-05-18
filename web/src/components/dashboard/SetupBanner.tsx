@@ -13,8 +13,8 @@ interface Task {
 
 const tasks: Task[] = [
   { id: 'business', label: 'Add business details',  description: 'Address and contact info',              tab: 'business' },
-  { id: 'pumps',    label: 'Configure pumps',        description: 'Add your fuel pumps and nozzles',       tab: 'pumps' },
-  { id: 'fuels',    label: 'Set up fuel grades',     description: 'Define available fuel types',           tab: 'pumps' },
+  { id: 'pumps',    label: 'Configure pumps',        description: 'Add your fuel pumps and nozzles',       tab: 'forecourt' },
+  { id: 'fuels',    label: 'Set up fuel grades',     description: 'Define available fuel types',           tab: 'forecourt' },
   { id: 'team',     label: 'Invite team members',    description: 'Add supervisors and staff',             tab: 'team' },
   { id: 'payroll',  label: 'Configure payroll',      description: 'Set pay periods, rates and deductions', tab: 'payroll' },
   { id: 'fx',       label: 'Configure FX rates',     description: 'Set exchange rates for foreign currency transactions', tab: 'profile' },

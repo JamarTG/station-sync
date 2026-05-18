@@ -18,12 +18,12 @@ type DepositHandler struct {
 func (h *DepositHandler) ListByShift(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	rows, err := h.DB.Query(c.Request.Context(), `
-		SELECT d.id::text, d.shift_id::text, d.attendant_id::text, u.name, d.type, d.amount, d.metadata
+		SELECT d.id::text, d.shift_id::text, d.attendant_id::text, u.name, d.type, d.amount, d.metadata, d.created_at::text
 		FROM deposits d
 		JOIN shifts s ON s.id = d.shift_id AND s.business_id = $2
 		JOIN users u ON d.attendant_id = u.id
 		WHERE d.shift_id = $1
-		ORDER BY d.id`,
+		ORDER BY d.created_at`,
 		c.Param("shiftId"), businessID,
 	)
 	if err != nil {
@@ -35,7 +35,7 @@ func (h *DepositHandler) ListByShift(c *gin.Context) {
 	deposits := []model.Deposit{}
 	for rows.Next() {
 		var d model.Deposit
-		if err := rows.Scan(&d.ID, &d.ShiftID, &d.AttendantID, &d.AttendantName, &d.Type, &d.Amount, &d.Metadata); err != nil {
+		if err := rows.Scan(&d.ID, &d.ShiftID, &d.AttendantID, &d.AttendantName, &d.Type, &d.Amount, &d.Metadata, &d.CreatedAt); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

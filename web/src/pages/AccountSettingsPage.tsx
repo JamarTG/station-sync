@@ -3,11 +3,11 @@ import { useRouterState } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { MoreHorizontal, X, Plus } from 'lucide-react'
 import { useAuth } from '../lib/authContext'
-import { usePumps, useNozzles, useFuels, useUsers } from '../hooks/useApi'
+import { usePumps, useNozzles, useFuels, useUsers, useTanks } from '../hooks/useApi'
 import { createUser, updateUser } from '../lib/api'
 import type { AuthUser } from '../lib/api'
 
-type Category = 'profile' | 'security' | 'notifications' | 'team' | 'payroll' | 'pumps' | 'business'
+type Category = 'profile' | 'security' | 'notifications' | 'team' | 'payroll' | 'forecourt' | 'business'
 
 const categoryLabels: Record<Category, string> = {
   profile:       'Profile',
@@ -15,7 +15,7 @@ const categoryLabels: Record<Category, string> = {
   notifications: 'Notifications',
   team:          'Team',
   payroll:       'Payroll',
-  pumps:         'Pumps',
+  forecourt:     'Forecourt',
   business:      'Business',
 }
 
@@ -383,10 +383,11 @@ function PayrollPanel() {
   )
 }
 
-function PumpsPanel() {
+function ForecourtPanel() {
   const { data: pumps = [], isLoading: loadingPumps } = usePumps()
   const { data: nozzles = [], isLoading: loadingNozzles } = useNozzles()
   const { data: fuels = [] } = useFuels()
+  const { data: tanks = [], isLoading: loadingTanks } = useTanks()
 
   const fuelName = (fuelId: string) => fuels.find((f) => f.id === fuelId)?.name ?? fuelId
   const pumpNozzles = (pumpId: string) => nozzles.filter((n) => n.pump_id === pumpId)
@@ -446,6 +447,32 @@ function PumpsPanel() {
           ))
         )}
         <SaveButton label="Add fuel grade" />
+      </Section>
+      <Section title="Tanks">
+        {loadingTanks ? (
+          <div className="py-6 flex items-center justify-center">
+            <p className="text-[13px] font-medium text-[#bbb]">Loading…</p>
+          </div>
+        ) : tanks.length === 0 ? (
+          <div className="py-6 flex items-center justify-center">
+            <p className="text-[13px] font-medium text-[#bbb]">No tanks configured</p>
+          </div>
+        ) : (
+          tanks.map((tank) => (
+            <div key={tank.id} className="flex items-center justify-between gap-4 py-1">
+              <div>
+                <p className="text-[13px] font-semibold text-[#111]">{tank.name}</p>
+                <p className="text-[12px] font-medium text-[#aaa] mt-0.5">
+                  {tank.fuel_name} · {tank.capacity_litres.toLocaleString()} L capacity
+                </p>
+              </div>
+              <span className="px-2.5 py-1 bg-[#f4f4f4] rounded-lg text-[11px] font-bold text-[#555]">
+                {tank.fuel_name}
+              </span>
+            </div>
+          ))
+        )}
+        <SaveButton label="Add tank" />
       </Section>
     </div>
   )
@@ -553,7 +580,7 @@ export function AccountSettingsPage() {
         {active === 'notifications' && <NotificationsPanel />}
         {active === 'team'          && <TeamPanel />}
         {active === 'payroll'       && <PayrollPanel />}
-        {active === 'pumps'         && <PumpsPanel />}
+        {active === 'forecourt'     && <ForecourtPanel />}
         {active === 'business'      && <BusinessPanel />}
       </div>
     </div>

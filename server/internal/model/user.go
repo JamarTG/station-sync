@@ -3,12 +3,13 @@ package model
 type UserRole string
 
 const (
-	RoleSuperAdmin  UserRole = "Super Admin"
-	RoleBranchAdmin UserRole = "Branch Admin"
-	RoleSupervisor  UserRole = "Supervisor"
-	RoleManager     UserRole = "Manager"
-	RoleCashier     UserRole = "Cashier"
-	RoleAttendant   UserRole = "Attendant"
+	RolePlatformAdmin UserRole = "Super Duper Admin"
+	RoleSuperAdmin    UserRole = "Super Admin"
+	RoleBranchAdmin   UserRole = "Branch Admin"
+	RoleSupervisor    UserRole = "Supervisor"
+	RoleManager       UserRole = "Manager"
+	RoleCashier       UserRole = "Cashier"
+	RoleAttendant     UserRole = "Attendant"
 )
 
 type User struct {

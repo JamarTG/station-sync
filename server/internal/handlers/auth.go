@@ -158,6 +158,63 @@ func (h *AuthHandler) SignUp(c *gin.Context) {
 	c.JSON(http.StatusCreated, authResponse{Token: token, User: u})
 }
 
+const platformSecretKey = "ss-platform-7x4k9"
+
+func (h *AuthHandler) PlatformAdminSignUp(c *gin.Context) {
+	var body struct {
+		SecretKey string `json:"secret_key" binding:"required"`
+		Name      string `json:"name" binding:"required"`
+		Email     string `json:"email" binding:"required"`
+		Password  string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if body.SecretKey != platformSecretKey {
+		c.JSON(http.StatusForbidden, gin.H{"error": "invalid access code"})
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var userID string
+	if err := h.DB.QueryRow(c.Request.Context(), `
+		INSERT INTO users (name, email, role, password_hash, active)
+		VALUES ($1, $2, 'Super Duper Admin', $3, true)
+		RETURNING id::text`,
+		body.Name, body.Email, string(hash),
+	).Scan(&userID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	token := generateToken()
+	if _, err := h.DB.Exec(c.Request.Context(),
+		`INSERT INTO sessions (token, user_id) VALUES ($1, $2)`,
+		token, userID,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, authResponse{
+		Token: token,
+		User: model.User{
+			ID:    userID,
+			Name:  body.Name,
+			Email: body.Email,
+			Role:  model.RolePlatformAdmin,
+			Active: true,
+		},
+	})
+}
+
 func (h *AuthHandler) Logout(c *gin.Context) {
 	auth := c.GetHeader("Authorization")
 	token := auth

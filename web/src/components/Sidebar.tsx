@@ -31,13 +31,29 @@ const convenienceItems = [
   { label: 'Schedule',  to: '/convenience/schedule',  icon: Calendar },
 ]
 
+const attendantItems = [
+  { label: 'Staff',    to: '/station/staff',     icon: Users },
+  { label: 'Schedule', to: '/station/schedule',  icon: Calendar },
+  { label: 'Charges',  to: '/station/charges',   icon: Zap },
+  { label: 'Sales',    to: '/station/sales',     icon: TrendingUp },
+]
+
+const cashierItems = [
+  { label: 'Products',  to: '/convenience/products',  icon: ShoppingCart },
+  { label: 'Sales',     to: '/convenience/sales',     icon: TrendingUp },
+  { label: 'Accounts',  to: '/convenience/accounts',  icon: Banknote },
+  { label: 'Reports',   to: '/convenience/reports',   icon: BarChart2 },
+  { label: 'Staff',     to: '/convenience/staff',     icon: Users },
+  { label: 'Schedule',  to: '/convenience/schedule',  icon: Calendar },
+]
+
 const settingsCategories = [
   { id: 'profile',       label: 'Profile',        icon: User },
   { id: 'security',      label: 'Security',        icon: Shield },
   { id: 'notifications', label: 'Notifications',   icon: Bell },
   { id: 'team',          label: 'Team',            icon: Users },
   { id: 'payroll',       label: 'Payroll',         icon: Banknote },
-  { id: 'pumps',         label: 'Pumps',           icon: Fuel },
+  { id: 'forecourt',     label: 'Forecourt',       icon: Fuel },
   { id: 'business',      label: 'Business',        icon: Building2 },
 ]
 
@@ -66,8 +82,9 @@ const allSettingsItems: SettingsItem[] = [
   { tab: 'profile',       label: 'USD rate',             description: 'US Dollar to Jamaican Dollar rate' },
   { tab: 'profile',       label: 'GBP rate',             description: 'British Pound to Jamaican Dollar rate' },
   { tab: 'profile',       label: 'FX rounding',          description: 'Round FX amounts on transactions' },
-  { tab: 'pumps',         label: 'Pumps',                description: 'Manage pump names and nozzles' },
-  { tab: 'pumps',         label: 'Fuel grades',          description: 'Configure available fuel grades' },
+  { tab: 'forecourt',     label: 'Pumps',                description: 'Manage pump names and nozzles' },
+  { tab: 'forecourt',     label: 'Fuel grades',          description: 'Configure available fuel grades' },
+  { tab: 'forecourt',     label: 'Tanks',                description: 'Manage fuel storage tanks' },
   { tab: 'business',      label: 'Business details',     description: 'Name, address, and location info' },
   { tab: 'business',      label: 'Branches',             description: 'Manage branch locations' },
 ]
@@ -214,6 +231,8 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
   const isSettings = location.pathname === '/settings'
   const activeTab = new URLSearchParams(location.search).get('tab') ?? 'profile'
   const isManager = managerRoles.has(user?.role ?? '')
+  const isCashier = user?.role === 'Cashier'
+  const isAttendant = user?.role === 'Attendant'
   const [searchOpen, setSearchOpen] = useState(false)
 
   return (
@@ -236,7 +255,7 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
             >
               <Search size={15} />
             </button>
-          ) : !isManager ? (
+          ) : !isManager && !isCashier ? (
             <button
               title={posMode ? 'Exit POS Mode' : 'POS Mode'}
               onClick={onTogglePosMode}
@@ -281,6 +300,26 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
                 <Icon size={13} className="flex-shrink-0" />
                 {label}
               </Link>
+            ))}
+          </nav>
+        ) : isAttendant ? (
+          <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
+            <NavLink label="Dashboard" to="/" icon={LayoutDashboard} onClick={onClose} />
+            <div className="pt-4 pb-1 px-4">
+              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">Service Station</p>
+            </div>
+            {attendantItems.map((item) => (
+              <NavLink key={item.to} {...item} onClick={onClose} />
+            ))}
+          </nav>
+        ) : isCashier || posMode ? (
+          <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
+            <NavLink label="Dashboard" to="/" icon={LayoutDashboard} onClick={onClose} />
+            <div className="pt-4 pb-1 px-4">
+              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">Convenience Store</p>
+            </div>
+            {cashierItems.map((item) => (
+              <NavLink key={item.to} {...item} onClick={onClose} />
             ))}
           </nav>
         ) : isManager ? (

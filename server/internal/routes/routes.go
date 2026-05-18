@@ -7,6 +7,7 @@ import (
 	"project-sync/internal/routes/days"
 	"project-sync/internal/routes/fuels"
 	"project-sync/internal/routes/payroll"
+	"project-sync/internal/routes/platform"
 	"project-sync/internal/routes/pumps"
 	"project-sync/internal/routes/shifts"
 	"project-sync/internal/routes/shiftschedules"
@@ -45,4 +46,6 @@ func Register(r *gin.Engine, db *pgxpool.Pool) {
 
 	nlh := &handlers.NozzleLogHandler{DB: db}
 	protected.POST("/nozzle-logs", nlh.Create)
+
+	platform.RegisterRoute(protected, db)
 }

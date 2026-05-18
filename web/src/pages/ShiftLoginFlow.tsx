@@ -97,7 +97,11 @@ export function ShiftLoginFlow({ user, onComplete }: Props) {
   useEffect(() => {
     if (!loadingShift && !loadingUsers && step === 'loading') {
       if (openShift) {
-        setStep('takeover')
+        if (openShift.supervisor_id === user.id) {
+          onComplete()
+        } else {
+          setStep('takeover')
+        }
       } else if (!isSupervisor) {
         setStep('invite')
       } else if (attendants.length === 0) {

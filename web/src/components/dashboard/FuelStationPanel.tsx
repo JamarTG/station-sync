@@ -267,15 +267,15 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
 
             return (
             <>
-              <table className="w-full">
+              <table className="w-full bg-[#F4F4F4]">
                 <thead>
-                  <tr className="border-b border-[#f0f0f0]">
-                    <th className="py-3 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pl-5">OPENING</th>
-                    <th className="py-3 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pr-5">CLOSING</th>
+                  <tr className="border-b border-[#ebebeb]">
+                    <th className="pt-6 pb-3 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pl-5">OPENING</th>
+                    <th className="pt-6 pb-3 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pr-5">CLOSING</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr className={clsx('border-b border-[#f9f9f9]', tankError && 'bg-red-50')}>
+                  <tr className={clsx(tankError ? 'bg-red-50' : 'bg-[#F4F4F4]')}>
                     <td className="py-4 text-center">
                       <input
                         type="text"

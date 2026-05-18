@@ -17,8 +17,8 @@ func RequireAuth(db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 
-		var userID, businessID, role string
-		var branchID *string
+		var userID, role string
+		var businessID, branchID *string
 		err := db.QueryRow(c.Request.Context(), `
 			SELECT s.user_id::text, s.business_id::text, u.role, s.branch_id::text
 			FROM sessions s
@@ -32,8 +32,12 @@ func RequireAuth(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		c.Set("user_id", userID)
-		c.Set("business_id", businessID)
 		c.Set("role", role)
+		if businessID != nil {
+			c.Set("business_id", *businessID)
+		} else {
+			c.Set("business_id", "")
+		}
 		if branchID != nil {
 			c.Set("branch_id", *branchID)
 		} else {
@@ -41,4 +45,12 @@ func RequireAuth(db *pgxpool.Pool) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func RequirePlatformAdmin(c *gin.Context) {
+	if c.GetString("role") != "Super Duper Admin" {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+		return
+	}
+	c.Next()
 }

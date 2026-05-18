@@ -12,14 +12,14 @@ const attendants = ['T. Brisco', 'S. Smith', 'S. Lawes', 'A. Lewis']
 const pumps = ['Pump 1', 'Pump 2', 'Pump 3', 'Pump 4']
 
 function title(row: ActivityRow): string {
-  if (row.type === 'attendant') return 'Edit a Cash Drop'
-  if (row.type === 'expenditure') return 'Edit an Expenditure'
-  if (row.type === 'charges') return 'Edit a Charge'
-  if (row.type === 'card') return 'Edit a Card Record'
-  if (row.type === 'advance') return 'Edit an Advance'
-  if (row.type === 'fx') return 'Edit an FX Record'
-  if (row.type === 'deposit') return 'Edit a Deposit'
-  if (row.type === 'attendants') return 'Edit an Attendant'
+  if (row.type === 'attendant') return 'Edit a cash drop'
+  if (row.type === 'expenditure') return 'Edit an expenditure'
+  if (row.type === 'charges') return 'Edit a charge'
+  if (row.type === 'card') return 'Edit a card'
+  if (row.type === 'advance') return 'Edit an advance'
+  if (row.type === 'fx') return 'Edit an FX record'
+  if (row.type === 'deposit') return 'Edit a deposit'
+  if (row.type === 'attendants') return 'Edit an attendant'
   return 'Edit Record'
 }
 

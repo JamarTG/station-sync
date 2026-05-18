@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { MoreHorizontal, Search, GlassWater, Package, Utensils, Sparkles, Home, Wrench, Snowflake, Flame, ChevronLeft, ChevronRight } from 'lucide-react'
+import { MoreHorizontal, Search, GlassWater, Package, Utensils, Sparkles, Home, Wrench, Snowflake, Flame, ChevronLeft, ChevronRight, Cigarette } from 'lucide-react'
 import { useAuth } from '../../lib/authContext'
 import { useOpenShift, useShiftDeposits } from '../../hooks/useApi'
 import { CashDepositModal } from './CashDropModal'
@@ -18,11 +18,11 @@ function getGreeting() {
 
 const categories = [
   { label: 'Liquors &\nBeverages', icon: GlassWater },
-  { label: 'Snacks &\nConfecti...', icon: Package },
-  { label: 'Lunches &\nQuick Meals', icon: Utensils },
-  { label: 'Hygiene &\nSelf Care', icon: Sparkles },
-  { label: 'House-\nhold Items', icon: Home },
-  { label: 'Lubes &\nCar Care', icon: Wrench },
+  { label: 'Snacks &\nConfectionaries', icon: Package },
+  { label: 'Quick Meals', icon: Utensils },
+  { label: 'Smoking \nProducts', icon: Cigarette },
+  { label: 'Household Items', icon: Home },
+  { label: 'Lubes &\n Car Care', icon: Wrench },
   { label: 'Frozen\nFoods', icon: Snowflake },
   { label: 'LPG', icon: Flame },
 ]

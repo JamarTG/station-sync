@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { Menu, Settings, LogOut } from 'lucide-react'
+import { Menu, Settings, LogOut, Bell } from 'lucide-react'
 import { useAuth } from '../lib/authContext'
 
 interface Props {
@@ -17,7 +17,9 @@ function initials(name: string): string {
 export function TopBar({ onMenuClick, onLogout }: Props) {
   const { user } = useAuth()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
   const now = new Date()
@@ -30,9 +32,8 @@ export function TopBar({ onMenuClick, onLogout }: Props) {
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false)
-      }
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false)
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setNotifOpen(false)
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
@@ -66,10 +67,30 @@ export function TopBar({ onMenuClick, onLogout }: Props) {
         <span className="font-bold text-[#111]">{ampm}</span>
         <span className="font-semibold text-[#555] tracking-wide">{dateStr}</span>
 
+        {/* Notifications */}
+        <div ref={notifRef} className="relative">
+          <button
+            onClick={() => { setNotifOpen((o) => !o); setDropdownOpen(false) }}
+            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#f4f4f4] transition-colors text-[#888] hover:text-[#111] relative"
+          >
+            <Bell size={16} />
+          </button>
+          {notifOpen && (
+            <div className="absolute right-0 top-full mt-2 bg-white border border-[#e0e0e0] rounded-xl shadow-lg z-50 w-[280px]">
+              <div className="px-4 py-3 border-b border-[#f4f4f4]">
+                <p className="text-[13px] font-bold text-[#111]">Notifications</p>
+              </div>
+              <div className="py-8 flex items-center justify-center">
+                <p className="text-[12px] font-medium text-[#bbb]">No new notifications</p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Avatar + dropdown */}
         <div ref={dropdownRef} className="relative ml-1">
           <button
-            onClick={() => setDropdownOpen((o) => !o)}
+            onClick={() => { setDropdownOpen((o) => !o); setNotifOpen(false) }}
             className="w-8 h-8 rounded-full bg-[#111] flex items-center justify-center text-white text-[11px] font-bold hover:bg-[#333] transition-colors"
           >
             {user ? initials(user.name) : '?'}

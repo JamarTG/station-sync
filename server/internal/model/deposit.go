@@ -19,4 +19,5 @@ type Deposit struct {
 	Type          DepositType `db:"type" json:"type"`
 	Amount        float64     `db:"amount" json:"amount"`
 	Metadata      *string     `db:"metadata" json:"metadata"`
+	CreatedAt     string      `db:"created_at" json:"created_at"`
 }

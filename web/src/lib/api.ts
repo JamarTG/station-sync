@@ -92,6 +92,7 @@ export interface Deposit {
   type: string
   amount: number
   metadata: string | null
+  created_at: string
 }
 
 export interface Nozzle {
@@ -389,6 +390,26 @@ export interface FuelReceival {
 
 export function getShiftFuelReceivals(shiftId: string) {
   return api.get<FuelReceival[]>(`/shifts/${shiftId}/fuel-receivals`).then((r) => r.data)
+}
+
+export interface AccountSummary {
+  id: string
+  name: string
+  user_count: number
+  branch_count: number
+  created_at: string
+}
+
+export function platformSignUp(data: { secret_key: string; name: string; email: string; password: string }) {
+  return api.post<AuthResponse>('/auth/platform-signup', data).then((r) => {
+    setToken(r.data.token)
+    saveUser(r.data.user)
+    return r.data.user
+  })
+}
+
+export function getPlatformAccounts() {
+  return api.get<AccountSummary[]>('/platform/accounts').then((r) => r.data)
 }
 
 export function createFuelReceival(

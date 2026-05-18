@@ -8,7 +8,6 @@ import { PumpDetailPanel, type NozzleRow } from '../components/dashboard/PumpDet
 import { TanksPanel } from '../components/dashboard/TanksPanel'
 import { TankDetailPanel } from '../components/dashboard/TankDetailPanel'
 import { AccountsPanel, type AccountType } from '../components/dashboard/AccountsPanel'
-import { AttendancePanel } from '../components/dashboard/AttendancePanel'
 import { TotalSalesCard } from '../components/dashboard/TotalSalesCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
@@ -299,8 +298,6 @@ export function DashboardPage() {
             <AccountsPanel selected={selectedAccount} onSelect={setSelectedAccount} />
             <RecentActivityCard account={selectedAccount} readOnly={shiftEnded} attendantSales={attendantSales} attendantGradeSales={attendantGradeSalesMap} shiftId={shift?.id} />
           </div>
-
-          <AttendancePanel shiftId={shift?.id} />
 
           <div>
             <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Convenience Store</p>

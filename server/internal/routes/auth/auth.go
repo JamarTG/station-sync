@@ -11,4 +11,5 @@ func RegisterRoute(g *gin.RouterGroup, db *pgxpool.Pool) {
 	h := &handlers.AuthHandler{DB: db}
 	g.POST("/auth/login", h.Login)
 	g.POST("/auth/signup", h.SignUp)
+	g.POST("/auth/platform-signup", h.PlatformAdminSignUp)
 }
