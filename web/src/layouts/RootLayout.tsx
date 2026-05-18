@@ -24,7 +24,7 @@ export function RootLayout() {
     return <ChangePasswordPage />
   }
 
-  const skipShiftFlow = ['Super Admin', 'Admin', 'Manager', 'Attendant'].includes(user.role)
+  const skipShiftFlow = ['Super Admin', 'Admin', 'Manager', 'Cashier', 'Attendant'].includes(user.role)
 
   if (!shiftFlowDone && !skipShiftFlow) {
     return <ShiftLoginFlow user={user} onComplete={() => setShiftFlowDone(true)} />
