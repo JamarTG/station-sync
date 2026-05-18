@@ -17,6 +17,7 @@ import { SchedulePage } from './pages/SchedulePage'
 import { ChargesPage } from './pages/ChargesPage'
 import { AccountSettingsPage } from './pages/AccountSettingsPage'
 import { ExpensesPage } from './pages/ExpensesPage'
+import { ConvenienceStaffPage } from './pages/ConvenienceStaffPage'
 
 // Root: just renders <Outlet /> — no layout, no auth logic
 const rootRoute = createRootRoute({ component: Outlet, notFoundComponent: NotFoundPage })
@@ -103,6 +104,12 @@ const convReportsRoute = createRoute({
   component: ReportsPage,
 })
 
+const convStaffRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/convenience/staff',
+  component: ConvenienceStaffPage,
+})
+
 const settingsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/settings',
@@ -129,6 +136,7 @@ export const routeTree = rootRoute.addChildren([
     convSalesRoute,
     convAccountsRoute,
     convReportsRoute,
+    convStaffRoute,
     expensesRoute,
     settingsRoute,
   ]),
