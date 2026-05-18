@@ -20,6 +20,8 @@ CREATE TABLE payroll_records (
     paye         NUMERIC(10, 2) NOT NULL,
     net_pay      NUMERIC(10, 2) NOT NULL,
     hours_worked NUMERIC(8, 2),
+    overage      NUMERIC(10, 2) NOT NULL DEFAULT 0,
+    shortage     NUMERIC(10, 2) NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (period_id, user_id)
 );

@@ -640,7 +640,7 @@ function StaffList({ onSelect }: { onSelect: (u: User) => void }) {
                 <p className="text-[12px] text-[#999] truncate">{u.email}</p>
               </div>
               {u.pay_rate == null ? (
-                <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-200 shrink-0">No Pay Set</span>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#f0f0f0] text-[#999] shrink-0">No Pay Set</span>
               ) : u.latest_net_pay != null ? (
                 <div className="text-right shrink-0">
                   <p className="text-[13px] font-semibold text-[#111]">{fmt(u.latest_net_pay)}</p>
