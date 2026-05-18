@@ -205,7 +205,7 @@ export function ShiftLoginFlow({ user, onComplete }: Props) {
                 onClick={onComplete}
                 className="w-[260px] flex flex-col items-center justify-center rounded-2xl bg-white border border-[#ebebeb] text-[#111] hover:border-[#ccc] hover:bg-[#fafafa] transition-colors text-center px-6 py-10"
               >
-                <span className="text-[14px] font-bold mb-2 leading-snug">Continue to weekly schedule</span>
+                <span className="text-[14px] font-bold mb-2 leading-snug">Continue to schedule</span>
                 <span className="text-[11px] font-medium text-[#aaa] leading-snug">View the weekly schedule without taking over the active shift.</span>
               </button>
             </div>
