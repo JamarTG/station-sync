@@ -28,11 +28,14 @@ func (h *ShiftHandler) List(c *gin.Context) {
 	args := []any{businessID, branchID}
 
 	if date := c.Query("date"); date != "" {
-		query += ` AND date = $3`
+		query += fmt.Sprintf(` AND date = $%d`, len(args)+1)
 		args = append(args, date)
+	} else if start, end := c.Query("start"), c.Query("end"); start != "" && end != "" {
+		query += fmt.Sprintf(` AND date >= $%d AND date <= $%d`, len(args)+1, len(args)+2)
+		args = append(args, start, end)
 	}
-	
-	query += ` ORDER BY date DESC, start_time`
+
+	query += ` ORDER BY date ASC, start_time`
 
 	rows, err := h.DB.Query(c.Request.Context(), query, args...)
 	if err != nil {

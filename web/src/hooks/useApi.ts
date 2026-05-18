@@ -92,6 +92,13 @@ export function useShiftDeposits(shiftId: string | undefined) {
   })
 }
 
+export function useShiftsInRange(start: string, end: string) {
+  return useQuery({
+    queryKey: ['shifts', 'range', start, end],
+    queryFn: () => api.get<Shift[]>(`/shifts?start=${start}&end=${end}`).then((r) => r.data),
+  })
+}
+
 export function useShiftForDate(date: string) {
   return useQuery({
     queryKey: ['shifts', date],
