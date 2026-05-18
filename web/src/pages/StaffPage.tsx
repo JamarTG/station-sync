@@ -745,18 +745,21 @@ export function StaffPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4 max-w-2xl">
-        <h2 className="text-[20px] font-bold text-[#111]">Staff</h2>
+    <div className="p-6 max-w-[960px] mx-auto flex flex-col gap-6">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Service Station</p>
+          <h1 className="text-[28px] font-bold text-[#111] leading-tight">Staff</h1>
+        </div>
         {tab === 'employees' && (
           <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#111] text-white text-[13px] font-semibold rounded-xl hover:bg-[#333] transition-colors">
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#111] text-white text-[13px] font-semibold rounded-xl hover:bg-[#333] transition-colors">
             <Plus size={14} /> Add Employee
           </button>
         )}
       </div>
 
-      <div className="flex gap-1 mb-6 border-b border-[#ebebeb] max-w-2xl">
+      <div className="flex gap-1 border-b border-[#ebebeb]">
         {(['employees', 'payroll'] as const).map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px capitalize transition-colors ${
