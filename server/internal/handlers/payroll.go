@@ -51,9 +51,10 @@ func calcDeductions(gross float64) (nis, nht, edTax, paye float64) {
 }
 
 func (h *PayrollHandler) ListPeriods(c *gin.Context) {
+	businessID := c.GetString("business_id")
 	rows, err := h.DB.Query(c.Request.Context(),
 		`SELECT id::text, start_date, end_date, status, created_at
-		 FROM payroll_periods ORDER BY start_date DESC`)
+		 FROM payroll_periods WHERE business_id = $1 ORDER BY start_date DESC`, businessID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -98,13 +99,14 @@ func (h *PayrollHandler) CreatePeriod(c *gin.Context) {
 	}
 
 	ctx := c.Request.Context()
+	businessID := c.GetString("business_id")
 
 	var period model.PayrollPeriod
 	err = h.DB.QueryRow(ctx,
-		`INSERT INTO payroll_periods (start_date, end_date)
-		 VALUES ($1, $2)
+		`INSERT INTO payroll_periods (business_id, start_date, end_date)
+		 VALUES ($1, $2, $3)
 		 RETURNING id::text, start_date, end_date, status, created_at`,
-		startDate, endDate,
+		businessID, startDate, endDate,
 	).Scan(&period.ID, &period.StartDate, &period.EndDate, &period.Status, &period.CreatedAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -119,7 +121,8 @@ func (h *PayrollHandler) CreatePeriod(c *gin.Context) {
 	}
 	empRows, err := h.DB.Query(ctx,
 		`SELECT id::text, pay_rate, pay_type FROM users
-		 WHERE active = true AND pay_rate IS NOT NULL AND pay_type IS NOT NULL`)
+		 WHERE business_id = $1 AND active = true AND pay_rate IS NOT NULL AND pay_type IS NOT NULL`,
+		businessID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -203,13 +206,14 @@ func scanRecord(rows interface{ Scan(...any) error }, r *model.PayrollRecord) er
 }
 
 func (h *PayrollHandler) ListRecords(c *gin.Context) {
+	businessID := c.GetString("business_id")
 	rows, err := h.DB.Query(c.Request.Context(), `
 		SELECT `+recordSelectCols+`
 		FROM payroll_records pr
 		JOIN payroll_periods pp ON pp.id = pr.period_id
 		JOIN users u ON u.id = pr.user_id
-		WHERE pr.period_id = $1
-		ORDER BY u.name`, c.Param("id"))
+		WHERE pr.period_id = $1 AND pp.business_id = $2
+		ORDER BY u.name`, c.Param("id"), businessID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -255,9 +259,11 @@ func (h *PayrollHandler) ListRecordsForUser(c *gin.Context) {
 }
 
 func (h *PayrollHandler) PublishPeriod(c *gin.Context) {
+	businessID := c.GetString("business_id")
 	periodID := c.Param("id")
 	_, err := h.DB.Exec(c.Request.Context(),
-		`UPDATE payroll_periods SET status = 'Published' WHERE id = $1`, periodID)
+		`UPDATE payroll_periods SET status = 'Published' WHERE id = $1 AND business_id = $2`,
+		periodID, businessID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -266,6 +272,7 @@ func (h *PayrollHandler) PublishPeriod(c *gin.Context) {
 }
 
 func (h *PayrollHandler) WeeklySummary(c *gin.Context) {
+	businessID := c.GetString("business_id")
 	now := time.Now()
 	weekday := int(now.Weekday())
 	if weekday == 0 {
@@ -279,7 +286,8 @@ func (h *PayrollHandler) WeeklySummary(c *gin.Context) {
 		SELECT COALESCE(SUM(pr.overage), 0), COALESCE(SUM(pr.shortage), 0)
 		FROM payroll_records pr
 		JOIN payroll_periods pp ON pp.id = pr.period_id
-		WHERE pp.end_date >= $1 AND pp.start_date <= $2`,
+		WHERE pp.business_id = $1 AND pp.end_date >= $2 AND pp.start_date <= $3`,
+		businessID,
 		weekStart.Format("2006-01-02"),
 		weekEnd.Format("2006-01-02"),
 	).Scan(&totalOverage, &totalShortage)
@@ -310,10 +318,15 @@ func (h *PayrollHandler) UpdateRecord(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	businessID := c.GetString("business_id")
+
 	var gross, nis, nht, edTax, paye float64
-	err := h.DB.QueryRow(ctx,
-		`SELECT gross_pay, nis, nht, ed_tax, paye FROM payroll_records WHERE id = $1 AND period_id = $2`,
-		recordID, periodID,
+	err := h.DB.QueryRow(ctx, `
+		SELECT pr.gross_pay, pr.nis, pr.nht, pr.ed_tax, pr.paye
+		FROM payroll_records pr
+		JOIN payroll_periods pp ON pp.id = pr.period_id
+		WHERE pr.id = $1 AND pr.period_id = $2 AND pp.business_id = $3`,
+		recordID, periodID, businessID,
 	).Scan(&gross, &nis, &nht, &edTax, &paye)
 	if err == pgx.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "record not found"})
