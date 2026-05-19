@@ -103,6 +103,19 @@ func (h *TimeOffRequestHandler) Create(c *gin.Context) {
 		return
 	}
 
+	var recentExists bool
+	if err := h.DB.QueryRow(c.Request.Context(),
+		`SELECT EXISTS(SELECT 1 FROM time_off_requests WHERE user_id = $1 AND created_at > NOW() - INTERVAL '3 hours')`,
+		userID,
+	).Scan(&recentExists); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if recentExists {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "you already submitted a request recently — please wait a few hours before submitting another"})
+		return
+	}
+
 	var r model.TimeOffRequest
 	err := h.DB.QueryRow(c.Request.Context(), `
 		INSERT INTO time_off_requests (business_id, user_id, user_name, date, reason)
