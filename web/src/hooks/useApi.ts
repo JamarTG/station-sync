@@ -11,6 +11,7 @@ import {
   getTanks,
   getShiftTankLogs,
   getShiftFuelReceivals,
+  getTimeOffRequests,
   type Branch,
   type Fuel,
   type FuelReceival,
@@ -20,6 +21,7 @@ import {
   type FuelSummary,
   type Tank,
   type TankLog,
+  type TimeOffRequest,
   type User,
   type PayrollPeriod,
   type PayrollRecord,
@@ -179,6 +181,13 @@ export function useUpdatePay() {
     await qc.invalidateQueries({ queryKey: ['users'] })
     return res.data
   }
+}
+
+export function useTimeOffRequests() {
+  return useQuery<TimeOffRequest[]>({
+    queryKey: ['time-off-requests'],
+    queryFn: getTimeOffRequests,
+  })
 }
 
 export function useUserPayroll(userId: string | null) {

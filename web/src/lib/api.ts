@@ -376,6 +376,32 @@ export function upsertTankLog(
   return api.post<TankLog>(`/shifts/${shiftId}/tank-logs`, data).then((r) => r.data)
 }
 
+export interface TimeOffRequest {
+  id: string
+  business_id: string
+  user_id: string
+  user_name: string
+  date: string
+  reason: string | null
+  status: 'Pending' | 'Approved' | 'Rejected'
+  reviewed_by: string | null
+  reviewed_by_name: string | null
+  reviewed_at: string | null
+  created_at: string
+}
+
+export function getTimeOffRequests() {
+  return api.get<TimeOffRequest[]>('/time-off-requests').then((r) => r.data)
+}
+
+export function createTimeOffRequest(data: { date: string; reason?: string }) {
+  return api.post<TimeOffRequest>('/time-off-requests', data).then((r) => r.data)
+}
+
+export function reviewTimeOffRequest(id: string, action: 'approve' | 'reject') {
+  return api.patch<TimeOffRequest>(`/time-off-requests/${id}/${action}`).then((r) => r.data)
+}
+
 export interface FuelReceival {
   id: string
   shift_id: string

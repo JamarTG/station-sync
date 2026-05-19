@@ -1,7 +1,12 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useShiftsInRange, useShiftAttendance, useShiftDeposits, useShiftFuelPrices } from '../hooks/useApi'
-import type { Shift } from '../lib/api'
+import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
+import { useShiftsInRange, useShiftAttendance, useShiftDeposits, useShiftFuelPrices, useTimeOffRequests } from '../hooks/useApi'
+import { createTimeOffRequest, reviewTimeOffRequest, type Shift, type TimeOffRequest } from '../lib/api'
+import { useAuth } from '../lib/authContext'
+import { useQueryClient } from '@tanstack/react-query'
+
+const approverRoles = new Set(['Super Admin', 'Admin', 'Manager'])
+const requesterRoles = new Set(['Supervisor', 'Attendant'])
 
 type ViewMode = 'month' | 'week'
 
@@ -56,6 +61,139 @@ function buildWeekDays(anchor: Date): Date[] {
     d.setDate(sun.getDate() + i)
     return d
   })
+}
+
+// ── Request day off modal ─────────────────────────────────────────────────────
+
+function RequestModal({ defaultDate, onClose }: { defaultDate: string; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [date, setDate] = useState(defaultDate)
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function submit() {
+    setSaving(true)
+    try {
+      await createTimeOffRequest({ date, reason: reason.trim() || undefined })
+      await qc.invalidateQueries({ queryKey: ['time-off-requests'] })
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl w-full max-w-[360px] shadow-xl">
+        <div className="px-5 py-4 border-b border-[#ebebeb] flex items-center justify-between">
+          <p className="text-[13px] font-semibold text-[#111]">Request Day Off</p>
+          <button onClick={onClose} className="text-[#bbb] hover:text-[#555] text-[18px] leading-none transition-colors">&times;</button>
+        </div>
+        <div className="p-5 flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] text-[#aaa]">Date</label>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="border border-[#ebebeb] rounded-lg px-3 py-2 text-[13px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] text-[#aaa]">Reason <span className="text-[#ccc]">(optional)</span></label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="Add a note…"
+              className="border border-[#ebebeb] rounded-lg px-3 py-2 text-[13px] text-[#111] placeholder:text-[#ccc] focus:outline-none focus:border-[#111] transition-colors resize-none"
+            />
+          </div>
+          <button
+            onClick={submit}
+            disabled={!date || saving}
+            className="w-full py-2.5 rounded-lg bg-[#111] text-white text-[13px] font-semibold disabled:opacity-40 transition-opacity"
+          >
+            {saving ? 'Submitting…' : 'Submit Request'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Approvals modal ───────────────────────────────────────────────────────────
+
+function statusChip(status: TimeOffRequest['status']) {
+  if (status === 'Approved') return <span className="text-[11px] font-medium text-[#2e7d32]">Approved</span>
+  if (status === 'Rejected') return <span className="text-[11px] font-medium text-[#c62828]">Rejected</span>
+  return <span className="text-[11px] font-medium text-[#888]">Pending</span>
+}
+
+function ApprovalsModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient()
+  const { data: requests = [] } = useTimeOffRequests()
+  const [loading, setLoading] = useState<string | null>(null)
+
+  async function review(id: string, action: 'approve' | 'reject') {
+    setLoading(id + action)
+    try {
+      await reviewTimeOffRequest(id, action)
+      await qc.invalidateQueries({ queryKey: ['time-off-requests'] })
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl w-full max-w-[420px] shadow-xl max-h-[80vh] flex flex-col">
+        <div className="px-5 py-4 border-b border-[#ebebeb] flex items-center justify-between flex-shrink-0">
+          <p className="text-[13px] font-semibold text-[#111]">Day Off Requests</p>
+          <button onClick={onClose} className="text-[#bbb] hover:text-[#555] text-[18px] leading-none transition-colors">&times;</button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {requests.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="text-[13px] font-semibold text-[#bbb]">No requests</p>
+            </div>
+          ) : (
+            requests.map((r) => (
+              <div key={r.id} className="flex items-center justify-between px-5 py-3.5 border-b border-[#f4f4f4] last:border-0 gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-[#111] truncate">{r.user_name}</p>
+                  <p className="text-[11px] text-[#aaa]">
+                    {new Date(r.date + 'T00:00:00').toLocaleDateString('en-JM', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    {r.reason && ` · ${r.reason}`}
+                  </p>
+                </div>
+                {r.status === 'Pending' ? (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={() => review(r.id, 'approve')}
+                      disabled={!!loading}
+                      className="w-7 h-7 flex items-center justify-center rounded-full bg-[#e8f5e9] text-[#2e7d32] hover:bg-[#c8e6c9] transition-colors disabled:opacity-40"
+                    >
+                      <Check size={13} />
+                    </button>
+                    <button
+                      onClick={() => review(r.id, 'reject')}
+                      disabled={!!loading}
+                      className="w-7 h-7 flex items-center justify-center rounded-full bg-[#ffebee] text-[#c62828] hover:bg-[#ffcdd2] transition-colors disabled:opacity-40"
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="shrink-0">{statusChip(r.status)}</div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ── Shift pill ────────────────────────────────────────────────────────────────
@@ -297,11 +435,20 @@ export function SchedulePage() {
   const now   = new Date()
   const today = now.toISOString().slice(0, 10)
 
+  const { user } = useAuth()
+  const isApprover  = approverRoles.has(user?.role ?? '')
+  const isRequester = requesterRoles.has(user?.role ?? '')
+
   const [view, setView]         = useState<ViewMode>('month')
   const [year, setYear]         = useState(now.getFullYear())
   const [month, setMonth]       = useState(now.getMonth())
   const [weekAnchor, setWeekAnchor] = useState(now)
   const [selected, setSelected] = useState<string | null>(null)
+  const [showRequest, setShowRequest]   = useState(false)
+  const [showApprovals, setShowApprovals] = useState(false)
+
+  const { data: timeOffRequests = [] } = useTimeOffRequests()
+  const pendingCount = timeOffRequests.filter((r) => r.status === 'Pending').length
 
   // Date range for the current view
   const [rangeStart, rangeEnd] = view === 'month'
@@ -398,6 +545,29 @@ export function SchedulePage() {
             Today
           </button>
 
+          {/* Time-off buttons */}
+          {isApprover && (
+            <button
+              onClick={() => setShowApprovals(true)}
+              className="relative px-3 py-1.5 text-[12px] font-semibold text-[#555] border border-[#e0e0e0] rounded-lg hover:border-[#ccc] hover:text-[#111] transition-colors"
+            >
+              Requests
+              {pendingCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 flex items-center justify-center rounded-full bg-[#111] text-white text-[9px] font-bold">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          )}
+          {isRequester && (
+            <button
+              onClick={() => setShowRequest(true)}
+              className="px-3 py-1.5 text-[12px] font-semibold text-[#555] border border-[#e0e0e0] rounded-lg hover:border-[#ccc] hover:text-[#111] transition-colors"
+            >
+              Request Day Off
+            </button>
+          )}
+
           {/* View toggle */}
           <div className="flex items-center bg-[#f4f4f4] rounded-lg p-0.5 ml-1">
             {(['month', 'week'] as ViewMode[]).map((v) => (
@@ -452,6 +622,15 @@ export function SchedulePage() {
         )}
       </div>
 
+      {showRequest && (
+        <RequestModal
+          defaultDate={selected ?? today}
+          onClose={() => setShowRequest(false)}
+        />
+      )}
+      {showApprovals && (
+        <ApprovalsModal onClose={() => setShowApprovals(false)} />
+      )}
     </div>
   )
 }

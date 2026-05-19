@@ -12,6 +12,7 @@ import (
 	"project-sync/internal/routes/shifts"
 	"project-sync/internal/routes/shiftschedules"
 	"project-sync/internal/routes/tanks"
+	"project-sync/internal/routes/timeoff"
 	"project-sync/internal/routes/users"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,7 @@ func Register(r *gin.Engine, db *pgxpool.Pool) {
 	shiftschedules.RegisterRoute(protected, db)
 	shifts.RegisterRoute(protected, db)
 	payroll.RegisterRoute(protected, db)
+	timeoff.RegisterRoute(protected, db)
 
 	bh := &handlers.BranchHandler{DB: db}
 	protected.GET("/branches", bh.List)
