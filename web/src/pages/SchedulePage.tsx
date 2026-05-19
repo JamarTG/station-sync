@@ -63,11 +63,11 @@ function buildWeekDays(anchor: Date): Date[] {
 function ShiftPill({ shift }: { shift: Shift }) {
   const open = shift.end_time == null
   return (
-    <div className="flex items-center rounded-lg bg-white border border-[#ebebeb] overflow-hidden w-full">
-      <div className={`w-[3px] self-stretch shrink-0 ${open ? 'bg-[#2e7d32]' : 'bg-[#ddd]'}`} />
-      <span className="text-[11px] font-semibold text-[#333] truncate py-1.5 px-2">
+    <div className="flex items-center gap-1.5 truncate">
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${open ? 'bg-[#2e7d32]' : 'bg-[#ccc]'}`} />
+      <span className="text-[11px] text-[#555] truncate">
         {fmt12(shift.start_time)}
-        {shift.end_time && <span className="text-[#aaa] font-normal"> – {fmt12(shift.end_time)}</span>}
+        {shift.end_time && ` – ${fmt12(shift.end_time)}`}
       </span>
     </div>
   )
@@ -83,35 +83,33 @@ function ShiftCard({ s }: { s: Shift }) {
   const open = s.end_time == null
 
   return (
-    <div className="bg-white rounded-2xl border border-[#ebebeb]">
-      <div className="px-5 py-4 flex items-center justify-between">
-        <p className="text-[14px] font-bold text-[#111]">
+    <div className="border border-[#ebebeb] rounded-xl bg-white">
+      <div className="px-4 py-3 flex items-center justify-between">
+        <p className="text-[13px] font-semibold text-[#111]">
           {fmt12(s.start_time)}{s.end_time ? ` – ${fmt12(s.end_time)}` : ''}
         </p>
-        <span className={`text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-full ${
-          open ? 'text-[#2e7d32] bg-[#e8f5e9]' : 'text-[#888] bg-[#f4f4f4]'
-        }`}>
+        <span className={`text-[11px] font-medium ${open ? 'text-[#2e7d32]' : 'text-[#aaa]'}`}>
           {open ? 'Open' : 'Closed'}
         </span>
       </div>
 
       {s.supervisor_name && (
-        <div className="px-5 py-3 border-t border-[#f0f0f0] flex items-center justify-between">
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Supervisor</p>
-          <p className="text-[13px] font-semibold text-[#333]">{s.supervisor_name}</p>
+        <div className="px-4 py-2.5 border-t border-[#f4f4f4] flex items-center justify-between">
+          <p className="text-[11px] text-[#aaa]">Supervisor</p>
+          <p className="text-[12px] font-medium text-[#333]">{s.supervisor_name}</p>
         </div>
       )}
 
       {attendance.length > 0 && (
-        <div className="px-5 py-3 border-t border-[#f0f0f0]">
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Staff</p>
-          <div className="flex flex-col gap-2">
+        <div className="px-4 py-2.5 border-t border-[#f4f4f4]">
+          <p className="text-[11px] text-[#aaa] mb-2">Staff</p>
+          <div className="flex flex-col gap-1.5">
             {attendance.map((a) => (
-              <div key={a.id} className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-full bg-[#111] text-white flex items-center justify-center text-[11px] font-bold shrink-0">
+              <div key={a.id} className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-[#111] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
                   {a.user_name.charAt(0).toUpperCase()}
                 </div>
-                <p className="text-[13px] font-semibold text-[#333]">{a.user_name}</p>
+                <p className="text-[12px] text-[#333]">{a.user_name}</p>
               </div>
             ))}
           </div>
@@ -119,22 +117,22 @@ function ShiftCard({ s }: { s: Shift }) {
       )}
 
       {deposits.length > 0 && (
-        <div className="px-5 py-3 border-t border-[#f0f0f0] flex items-center justify-between">
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Deposits</p>
-          <p className="text-[13px] font-semibold text-[#333]">
+        <div className="px-4 py-2.5 border-t border-[#f4f4f4] flex items-center justify-between">
+          <p className="text-[11px] text-[#aaa]">Deposits</p>
+          <p className="text-[12px] font-medium text-[#333]">
             J${depositTotal.toLocaleString('en-JM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
         </div>
       )}
 
       {fuelPrices.length > 0 && (
-        <div className="px-5 py-3 border-t border-[#f0f0f0]">
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Fuel Prices</p>
-          <div className="flex flex-col gap-1.5">
+        <div className="px-4 py-2.5 border-t border-[#f4f4f4]">
+          <p className="text-[11px] text-[#aaa] mb-2">Fuel Prices</p>
+          <div className="flex flex-col gap-1">
             {fuelPrices.map((fp) => (
               <div key={fp.fuel_id} className="flex items-center justify-between">
-                <p className="text-[13px] text-[#888]">{fp.fuel_name}</p>
-                <p className="text-[13px] font-semibold text-[#333]">J${fp.price.toFixed(2)}</p>
+                <p className="text-[12px] text-[#888]">{fp.fuel_name}</p>
+                <p className="text-[12px] font-medium text-[#333]">J${fp.price.toFixed(2)}</p>
               </div>
             ))}
           </div>
@@ -150,18 +148,10 @@ function DayPanel({ date, shifts, onClose }: { date: Date; shifts: Shift[]; onCl
   const label = date.toLocaleDateString('en-JM', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
-    <div className="w-[300px] shrink-0 border-l border-[#ebebeb] bg-[#fafafa] flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between px-5 pt-4 pb-3 bg-white border-b border-[#f0f0f0]">
-        <div>
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase leading-none mb-1">Schedule</p>
-          <p className="text-[13px] font-bold text-[#111]">{label}</p>
-        </div>
-        <button
-          onClick={onClose}
-          className="w-7 h-7 flex items-center justify-center rounded-full text-[#bbb] hover:text-[#555] hover:bg-[#f4f4f4] transition-colors text-[16px] leading-none"
-        >
-          &times;
-        </button>
+    <div className="w-[280px] shrink-0 border-l border-[#ebebeb] bg-white flex flex-col overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[#ebebeb]">
+        <p className="text-[13px] font-semibold text-[#111]">{label}</p>
+        <button onClick={onClose} className="text-[#bbb] hover:text-[#555] text-[18px] leading-none transition-colors">&times;</button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
