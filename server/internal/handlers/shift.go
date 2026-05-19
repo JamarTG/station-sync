@@ -15,27 +15,28 @@ type ShiftHandler struct {
 	DB *pgxpool.Pool
 }
 
-const shiftSelectCols = `id::text, business_id::text, COALESCE(branch_id::text,''), supervisor_id::text, date::text, start_time::text, end_time::text, created_at::text`
+const shiftSelectCols = `s.id::text, s.business_id::text, COALESCE(s.branch_id::text,''), s.supervisor_id::text, COALESCE(u.name,'') as supervisor_name, s.date::text, s.start_time::text, s.end_time::text, s.created_at::text`
+const shiftFrom = `shifts s LEFT JOIN users u ON u.id = s.supervisor_id`
 
 func scanShift(rows pgx.Rows, s *model.Shift) error {
-	return rows.Scan(&s.ID, &s.BusinessID, &s.BranchID, &s.SupervisorID, &s.Date, &s.StartTime, &s.EndTime, &s.CreatedAt)
+	return rows.Scan(&s.ID, &s.BusinessID, &s.BranchID, &s.SupervisorID, &s.SupervisorName, &s.Date, &s.StartTime, &s.EndTime, &s.CreatedAt)
 }
 
 func (h *ShiftHandler) List(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	branchID := c.GetString("branch_id")
-	query := fmt.Sprintf(`SELECT %s FROM shifts WHERE business_id = $1 AND ($2 = '' OR branch_id::text = $2)`, shiftSelectCols)
+	query := fmt.Sprintf(`SELECT %s FROM %s WHERE s.business_id = $1 AND ($2 = '' OR s.branch_id::text = $2)`, shiftSelectCols, shiftFrom)
 	args := []any{businessID, branchID}
 
 	if date := c.Query("date"); date != "" {
-		query += fmt.Sprintf(` AND date = $%d`, len(args)+1)
+		query += fmt.Sprintf(` AND s.date = $%d`, len(args)+1)
 		args = append(args, date)
 	} else if start, end := c.Query("start"), c.Query("end"); start != "" && end != "" {
-		query += fmt.Sprintf(` AND date >= $%d AND date <= $%d`, len(args)+1, len(args)+2)
+		query += fmt.Sprintf(` AND s.date >= $%d AND s.date <= $%d`, len(args)+1, len(args)+2)
 		args = append(args, start, end)
 	}
 
-	query += ` ORDER BY date ASC, start_time`
+	query += ` ORDER BY s.date ASC, s.start_time`
 
 	rows, err := h.DB.Query(c.Request.Context(), query, args...)
 	if err != nil {
@@ -60,9 +61,9 @@ func (h *ShiftHandler) GetOpen(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	branchID := c.GetString("branch_id")
 	rows, err := h.DB.Query(c.Request.Context(),
-		`SELECT `+shiftSelectCols+` FROM shifts
-		 WHERE business_id = $1 AND ($2 = '' OR branch_id::text = $2) AND end_time IS NULL
-		 ORDER BY created_at DESC LIMIT 1`, businessID, branchID)
+		`SELECT `+shiftSelectCols+` FROM `+shiftFrom+`
+		 WHERE s.business_id = $1 AND ($2 = '' OR s.branch_id::text = $2) AND s.end_time IS NULL
+		 ORDER BY s.created_at DESC LIMIT 1`, businessID, branchID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -84,7 +85,7 @@ func (h *ShiftHandler) GetOpen(c *gin.Context) {
 func (h *ShiftHandler) Get(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	rows, err := h.DB.Query(c.Request.Context(),
-		`SELECT `+shiftSelectCols+` FROM shifts WHERE id = $1 AND business_id = $2`,
+		`SELECT `+shiftSelectCols+` FROM `+shiftFrom+` WHERE s.id = $1 AND s.business_id = $2`,
 		c.Param("shiftId"), businessID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -119,9 +120,12 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 	}
 
 	rows, err := h.DB.Query(c.Request.Context(), `
-		INSERT INTO shifts (business_id, branch_id, supervisor_id, date, start_time, end_time)
-		VALUES ($1, NULLIF($2,'')::uuid, $3, $4, $5, $6)
-		RETURNING `+shiftSelectCols,
+		WITH ins AS (
+			INSERT INTO shifts (business_id, branch_id, supervisor_id, date, start_time, end_time)
+			VALUES ($1, NULLIF($2,'')::uuid, $3, $4, $5, $6)
+			RETURNING id, business_id, branch_id, supervisor_id, date, start_time, end_time, created_at
+		)
+		SELECT `+shiftSelectCols+` FROM `+shiftFrom+` WHERE s.id = (SELECT id FROM ins)`,
 		businessID, branchID, body.SupervisorID, body.Date, body.StartTime, body.EndTime,
 	)
 	if err != nil {
@@ -150,9 +154,12 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 func (h *ShiftHandler) Close(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	rows, err := h.DB.Query(c.Request.Context(), `
-		UPDATE shifts SET end_time = NOW()::time
-		WHERE id = $1 AND business_id = $2 AND end_time IS NULL
-		RETURNING `+shiftSelectCols,
+		WITH upd AS (
+			UPDATE shifts SET end_time = NOW()::time
+			WHERE id = $1 AND business_id = $2 AND end_time IS NULL
+			RETURNING id, business_id, branch_id, supervisor_id, date, start_time, end_time, created_at
+		)
+		SELECT `+shiftSelectCols+` FROM `+shiftFrom+` WHERE s.id = (SELECT id FROM upd)`,
 		c.Param("shiftId"), businessID,
 	)
 	if err != nil {

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Clock, CheckCircle2, Circle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, CheckCircle2, Circle, User } from 'lucide-react'
 import { useShiftsInRange } from '../hooks/useApi'
 import type { Shift } from '../lib/api'
 
@@ -110,6 +110,12 @@ function DayPanel({ date, shifts, onClose }: { date: Date; shifts: Shift[]; onCl
                       {s.end_time && <> &ndash; {fmt12(s.end_time)}</>}
                     </span>
                   </div>
+                  {s.supervisor_name && (
+                    <div className="flex items-center gap-2">
+                      <User size={12} className="text-[#aaa] shrink-0" />
+                      <span className="text-[12px] text-[#555]">{s.supervisor_name}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

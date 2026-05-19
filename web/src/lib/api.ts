@@ -61,6 +61,7 @@ export interface Pump {
 export interface Shift {
   id: string
   supervisor_id: string
+  supervisor_name: string
   date: string
   start_time: string
   end_time: string | null
