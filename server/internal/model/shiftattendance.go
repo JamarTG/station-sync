@@ -6,6 +6,7 @@ type ShiftAttendance struct {
 	UserID   string  `db:"user_id" json:"user_id"`
 	UserName string  `db:"user_name" json:"user_name"`
 	PumpID   *string `db:"pump_id" json:"pump_id"`
+	PumpName *string `db:"pump_name" json:"pump_name"`
 	ClockIn  string  `db:"clock_in" json:"clock_in"`
 	ClockOut *string `db:"clock_out" json:"clock_out"`
 }

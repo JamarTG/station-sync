@@ -18,10 +18,11 @@ func (h *ShiftAttendanceHandler) ListByShift(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	rows, err := h.DB.Query(c.Request.Context(), `
 		SELECT sa.id::text, sa.shift_id::text, sa.user_id::text, u.name,
-		       sa.pump_id::text, sa.clock_in::text, sa.clock_out::text
+		       sa.pump_id::text, p.name, sa.clock_in::text, sa.clock_out::text
 		FROM shift_attendance sa
 		JOIN shifts s ON s.id = sa.shift_id AND s.business_id = $2
 		JOIN users u ON sa.user_id = u.id
+		LEFT JOIN pumps p ON p.id = sa.pump_id
 		WHERE sa.shift_id = $1
 		ORDER BY sa.clock_in`,
 		c.Param("shiftId"), businessID,
@@ -35,7 +36,7 @@ func (h *ShiftAttendanceHandler) ListByShift(c *gin.Context) {
 	records := []model.ShiftAttendance{}
 	for rows.Next() {
 		var a model.ShiftAttendance
-		if err := rows.Scan(&a.ID, &a.ShiftID, &a.UserID, &a.UserName, &a.PumpID, &a.ClockIn, &a.ClockOut); err != nil {
+		if err := rows.Scan(&a.ID, &a.ShiftID, &a.UserID, &a.UserName, &a.PumpID, &a.PumpName, &a.ClockIn, &a.ClockOut); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}

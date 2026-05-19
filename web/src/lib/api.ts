@@ -81,6 +81,7 @@ export interface ShiftAttendance {
   user_id: string
   user_name: string
   pump_id: string | null
+  pump_name: string | null
   clock_in: string
   clock_out: string | null
 }

@@ -109,7 +109,10 @@ function ShiftCard({ s }: { s: Shift }) {
                 <div className="w-6 h-6 rounded-full bg-[#111] text-white flex items-center justify-center text-[10px] font-bold shrink-0">
                   {a.user_name.charAt(0).toUpperCase()}
                 </div>
-                <p className="text-[12px] text-[#333]">{a.user_name}</p>
+                <p className="text-[12px] text-[#333] flex-1">{a.user_name}</p>
+                {a.pump_name && (
+                  <p className="text-[11px] text-[#aaa]">{a.pump_name}</p>
+                )}
               </div>
             ))}
           </div>
