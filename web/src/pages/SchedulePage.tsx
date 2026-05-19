@@ -67,16 +67,22 @@ function buildWeekDays(anchor: Date): Date[] {
 
 function RequestModal({ defaultDate, onClose }: { defaultDate: string; onClose: () => void }) {
   const qc = useQueryClient()
-  const [date, setDate] = useState(defaultDate)
+  const today = new Date().toISOString().slice(0, 10)
+  const [date, setDate] = useState(defaultDate < today ? today : defaultDate)
   const [reason, setReason] = useState('')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function submit() {
+    setError(null)
     setSaving(true)
     try {
       await createTimeOffRequest({ date, reason: reason.trim() || undefined })
       await qc.invalidateQueries({ queryKey: ['time-off-requests'] })
       onClose()
+    } catch (err: any) {
+      const msg = err?.response?.data?.error
+      setError(msg ?? 'Something went wrong. Please try again.')
     } finally {
       setSaving(false)
     }
@@ -95,7 +101,8 @@ function RequestModal({ defaultDate, onClose }: { defaultDate: string; onClose: 
             <input
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              min={today}
+              onChange={(e) => { setDate(e.target.value); setError(null) }}
               className="border border-[#ebebeb] rounded-lg px-3 py-2 text-[13px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
             />
           </div>
@@ -109,6 +116,7 @@ function RequestModal({ defaultDate, onClose }: { defaultDate: string; onClose: 
               className="border border-[#ebebeb] rounded-lg px-3 py-2 text-[13px] text-[#111] placeholder:text-[#ccc] focus:outline-none focus:border-[#111] transition-colors resize-none"
             />
           </div>
+          {error && <p className="text-[12px] text-[#c62828]">{error}</p>}
           <button
             onClick={submit}
             disabled={!date || saving}
@@ -187,6 +195,53 @@ function ApprovalsModal({ onClose }: { onClose: () => void }) {
                 ) : (
                   <div className="shrink-0">{statusChip(r.status)}</div>
                 )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── My requests modal (requester view) ───────────────────────────────────────
+
+function MyRequestsModal({ onClose, onNew }: { onClose: () => void; onNew: () => void }) {
+  const { data: requests = [] } = useTimeOffRequests()
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl w-full max-w-[420px] shadow-xl max-h-[80vh] flex flex-col">
+        <div className="px-5 py-4 border-b border-[#ebebeb] flex items-center justify-between flex-shrink-0">
+          <p className="text-[13px] font-semibold text-[#111]">My Day Off Requests</p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onNew}
+              className="px-3 py-1 text-[11px] font-semibold text-[#111] border border-[#e0e0e0] rounded-lg hover:border-[#ccc] transition-colors"
+            >
+              + New
+            </button>
+            <button onClick={onClose} className="text-[#bbb] hover:text-[#555] text-[18px] leading-none transition-colors">&times;</button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {requests.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <p className="text-[13px] font-semibold text-[#bbb]">No requests yet</p>
+            </div>
+          ) : (
+            requests.map((r) => (
+              <div key={r.id} className="flex items-center justify-between px-5 py-3.5 border-b border-[#f4f4f4] last:border-0 gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-[#111]">
+                    {new Date(r.date + 'T00:00:00').toLocaleDateString('en-JM', { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </p>
+                  {r.reason && <p className="text-[11px] text-[#aaa] truncate">{r.reason}</p>}
+                  {r.status === 'Rejected' && r.reviewed_by_name && (
+                    <p className="text-[11px] text-[#aaa]">Reviewed by {r.reviewed_by_name}</p>
+                  )}
+                </div>
+                <div className="shrink-0">{statusChip(r.status)}</div>
               </div>
             ))
           )}
@@ -444,8 +499,9 @@ export function SchedulePage() {
   const [month, setMonth]       = useState(now.getMonth())
   const [weekAnchor, setWeekAnchor] = useState(now)
   const [selected, setSelected] = useState<string | null>(null)
-  const [showRequest, setShowRequest]   = useState(false)
-  const [showApprovals, setShowApprovals] = useState(false)
+  const [showRequest, setShowRequest]       = useState(false)
+  const [showApprovals, setShowApprovals]   = useState(false)
+  const [showMyRequests, setShowMyRequests] = useState(false)
 
   const { data: timeOffRequests = [] } = useTimeOffRequests()
   const pendingCount = timeOffRequests.filter((r) => r.status === 'Pending').length
@@ -560,12 +616,20 @@ export function SchedulePage() {
             </button>
           )}
           {isRequester && (
-            <button
-              onClick={() => setShowRequest(true)}
-              className="px-3 py-1.5 text-[12px] font-semibold text-[#555] border border-[#e0e0e0] rounded-lg hover:border-[#ccc] hover:text-[#111] transition-colors"
-            >
-              Request Day Off
-            </button>
+            <>
+              <button
+                onClick={() => setShowMyRequests(true)}
+                className="px-3 py-1.5 text-[12px] font-semibold text-[#555] border border-[#e0e0e0] rounded-lg hover:border-[#ccc] hover:text-[#111] transition-colors"
+              >
+                My Requests
+              </button>
+              <button
+                onClick={() => setShowRequest(true)}
+                className="px-3 py-1.5 text-[12px] font-semibold text-[#555] border border-[#e0e0e0] rounded-lg hover:border-[#ccc] hover:text-[#111] transition-colors"
+              >
+                Request Day Off
+              </button>
+            </>
           )}
 
           {/* View toggle */}
@@ -630,6 +694,12 @@ export function SchedulePage() {
       )}
       {showApprovals && (
         <ApprovalsModal onClose={() => setShowApprovals(false)} />
+      )}
+      {showMyRequests && (
+        <MyRequestsModal
+          onClose={() => setShowMyRequests(false)}
+          onNew={() => { setShowMyRequests(false); setShowRequest(true) }}
+        />
       )}
     </div>
   )
