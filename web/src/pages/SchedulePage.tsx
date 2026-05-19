@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Clock, CheckCircle2, Circle, User } from 'lucide-react'
-import { useShiftsInRange } from '../hooks/useApi'
+import { ChevronLeft, ChevronRight, Clock, CheckCircle2, Circle, User, Users, Banknote, Fuel } from 'lucide-react'
+import { useShiftsInRange, useShiftAttendance, useShiftDeposits, useShiftFuelPrices } from '../hooks/useApi'
 import type { Shift } from '../lib/api'
 
 type ViewMode = 'month' | 'week'
@@ -36,7 +36,7 @@ function buildMonthGrid(year: number, month: number): (Date | null)[] {
 
 function monthRange(year: number, month: number): [string, string] {
   const start = toISO(year, month, 1)
-  const end   = toISO(year, month + 1, 0) // day 0 of next month = last day of this month
+  const end   = new Date(year, month + 1, 0).toISOString().slice(0, 10)
   return [start, end]
 }
 
@@ -75,6 +75,69 @@ function ShiftPill({ shift }: { shift: Shift }) {
   )
 }
 
+// ── Shift card (in day panel) ─────────────────────────────────────────────────
+
+function ShiftCard({ s }: { s: Shift }) {
+  const { data: attendance = [] }  = useShiftAttendance(s.id)
+  const { data: deposits = [] }    = useShiftDeposits(s.id)
+  const { data: fuelPrices = [] }  = useShiftFuelPrices(s.id)
+  const depositTotal = deposits.reduce((sum, d) => sum + d.amount, 0)
+
+  return (
+    <div className="bg-[#fafafa] rounded-xl border border-[#ebebeb] p-4">
+      <div className="flex items-center gap-2 mb-3">
+        {s.end_time == null
+          ? <span className="text-[10px] font-bold tracking-widest uppercase text-[#2e7d32] bg-[#e8f5e9] px-2 py-0.5 rounded-full">Open</span>
+          : <span className="text-[10px] font-bold tracking-widest uppercase text-[#555] bg-[#f0f0f0] px-2 py-0.5 rounded-full">Closed</span>}
+      </div>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Clock size={12} className="text-[#aaa] shrink-0" />
+          <span className="text-[12px] text-[#555]">
+            {fmt12(s.start_time)}{s.end_time && <> &ndash; {fmt12(s.end_time)}</>}
+          </span>
+        </div>
+        {s.supervisor_name && (
+          <div className="flex items-center gap-2">
+            <User size={12} className="text-[#aaa] shrink-0" />
+            <span className="text-[12px] text-[#555]">{s.supervisor_name}</span>
+          </div>
+        )}
+        {attendance.length > 0 && (
+          <div className="flex items-start gap-2">
+            <Users size={12} className="text-[#aaa] shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-0.5">
+              {attendance.map((a) => (
+                <span key={a.id} className="text-[12px] text-[#555]">{a.user_name}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        {deposits.length > 0 && (
+          <div className="flex items-center gap-2">
+            <Banknote size={12} className="text-[#aaa] shrink-0" />
+            <span className="text-[12px] text-[#555]">
+              ${depositTotal.toLocaleString('en-JM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        )}
+        {fuelPrices.length > 0 && (
+          <div className="flex items-start gap-2">
+            <Fuel size={12} className="text-[#aaa] shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-0.5">
+              {fuelPrices.map((fp) => (
+                <span key={fp.fuel_id} className="text-[12px] text-[#555]">
+                  {fp.fuel_name} — ${fp.price.toFixed(2)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Day detail panel ──────────────────────────────────────────────────────────
 
 function DayPanel({ date, shifts, onClose }: { date: Date; shifts: Shift[]; onClose: () => void }) {
@@ -95,30 +158,7 @@ function DayPanel({ date, shifts, onClose }: { date: Date; shifts: Shift[]; onCl
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {shifts.map((s) => (
-              <div key={s.id} className="bg-[#fafafa] rounded-xl border border-[#ebebeb] p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  {s.end_time == null
-                    ? <span className="text-[10px] font-bold tracking-widest uppercase text-[#2e7d32] bg-[#e8f5e9] px-2 py-0.5 rounded-full">Open</span>
-                    : <span className="text-[10px] font-bold tracking-widest uppercase text-[#555] bg-[#f0f0f0] px-2 py-0.5 rounded-full">Closed</span>}
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <Clock size={12} className="text-[#aaa] shrink-0" />
-                    <span className="text-[12px] text-[#555]">
-                      {fmt12(s.start_time)}
-                      {s.end_time && <> &ndash; {fmt12(s.end_time)}</>}
-                    </span>
-                  </div>
-                  {s.supervisor_name && (
-                    <div className="flex items-center gap-2">
-                      <User size={12} className="text-[#aaa] shrink-0" />
-                      <span className="text-[12px] text-[#555]">{s.supervisor_name}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+            {shifts.map((s) => <ShiftCard key={s.id} s={s} />)}
           </div>
         )}
       </div>
@@ -404,6 +444,11 @@ export function SchedulePage() {
           />
         )}
       </div>
+
+      {/* Debug */}
+      <pre className="text-[10px] text-[#888] bg-[#f9f9f9] border-t border-[#ebebeb] p-4 overflow-auto max-h-[200px]">
+        {JSON.stringify({ range: [rangeStart, rangeEnd], count: shifts.length, shifts }, null, 2)}
+      </pre>
     </div>
   )
 }
