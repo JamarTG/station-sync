@@ -6,6 +6,7 @@ import { CashierDashboard } from '../components/dashboard/CashierDashboard'
 import { ShiftLoginFlow } from '../pages/ShiftLoginFlow'
 import { ChangePasswordPage } from '../pages/ChangePasswordPage'
 import { useAuth } from '../lib/authContext'
+import { useDarkMode } from '../hooks/useDarkMode'
 
 export function RootLayout() {
   const { user, logout } = useAuth()
@@ -13,6 +14,7 @@ export function RootLayout() {
   const [shiftFlowDone, setShiftFlowDone] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [posMode, setPosMode] = useState(false)
+  const { dark, toggle: toggleDark } = useDarkMode()
 
   useEffect(() => {
     if (!user) navigate({ to: '/login' })
@@ -31,7 +33,7 @@ export function RootLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-[#f4f4f4] font-[Manrope]">
+    <div className="flex h-screen bg-white dark:bg-[#0f0f0f] font-[Manrope]">
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/40 min-[668px]:hidden"
@@ -42,7 +44,7 @@ export function RootLayout() {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} posMode={posMode} onTogglePosMode={() => setPosMode((p) => !p)} />
 
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-        <TopBar onMenuClick={() => setSidebarOpen(true)} onLogout={logout} />
+        <TopBar onMenuClick={() => setSidebarOpen(true)} onLogout={logout} dark={dark} onToggleDark={toggleDark} />
         <main className="flex-1 overflow-y-scroll">
           {posMode ? <CashierDashboard /> : <Outlet />}
         </main>

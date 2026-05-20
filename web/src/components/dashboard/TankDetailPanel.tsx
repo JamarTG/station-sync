@@ -59,20 +59,20 @@ export function TankDetailPanel({ tank, tankReading, onReadingChange, onSave, ac
 
   return (
     <div className="h-full flex flex-col">
-      <div className="bg-white rounded-none border border-[#ebebeb] overflow-hidden flex flex-col flex-1">
+      <div className="bg-white rounded-none border border-[#ebebeb] dark:border-[#222] overflow-hidden flex flex-col flex-1">
         <table className="w-full">
           
           <thead>
                         <tr>
               <th className="py-6.5 text-[11px] font-semibold text-[#000] tracking-widest pl-5"></th>
             </tr>
-            <tr className="border border-[#f0f0f0]">
+            <tr className="border border-[#f0f0f0] dark:border-[#1e1e1e]">
               <th className="py-2 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pl-5">OPENING</th>
               <th className="py-2 text-[11px] font-semibold text-[#aaa] text-center tracking-widest pr-5">CLOSING</th>
             </tr>
           </thead>
           <tbody>
-            <tr className={clsx('border-b border-[#f9f9f9]', tankError && 'bg-red-50')}>
+            <tr className={clsx('border-b border-[#f9f9f9] dark:border-[#1a1a1a]', tankError && 'bg-red-50')}>
               <td className="py-3 text-center">
                 <input
                   type="text"
@@ -119,7 +119,7 @@ export function TankDetailPanel({ tank, tankReading, onReadingChange, onSave, ac
           </tbody>
         </table>
 
-        <div className="px-5 pt-4 pb-2 border-t border-[#f0f0f0] space-y-3 mt-auto">
+        <div className="px-5 pt-4 pb-2 border-t border-[#f0f0f0] dark:border-[#1e1e1e] space-y-3 mt-auto">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold tracking-widest text-[#aaa]">SUGGESTED LITRES SOLD</span>
             <span className="text-[12px] font-bold text-[#333]">
@@ -154,15 +154,15 @@ export function TankDetailPanel({ tank, tankReading, onReadingChange, onSave, ac
         const fuelOrdered = receival?.litres_ordered ?? null
         const receivalVariance = fuelReceived != null && fuelOrdered != null ? fuelReceived - fuelOrdered : null
         return (
-          <div className="bg-white rounded-none border border-[#ebebeb] p-5 flex-shrink-0">
+          <div className="bg-white rounded-none border border-[#ebebeb] dark:border-[#222] p-5 flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
               <p className="text-[12px] font-bold tracking-widest text-[#111]">RECEIVAL LOG</p>
               {!readOnly && (receival ? (
-                <button onClick={() => setShowEdit(true)} className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
+                <button onClick={() => setShowEdit(true)} className="text-[12px] font-semibold text-[#333] border border-[#ddd] dark:border-[#333] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
                   Edit
                 </button>
               ) : (
-                <button onClick={() => setShowAdd(true)} className="text-[12px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
+                <button onClick={() => setShowAdd(true)} className="text-[12px] font-semibold text-[#333] border border-[#ddd] dark:border-[#333] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors">
                   Add
                 </button>
               ))}

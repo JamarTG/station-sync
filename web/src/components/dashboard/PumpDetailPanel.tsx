@@ -59,14 +59,14 @@ export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, re
 
   return (
     <div className="h-full flex flex-col">
-      <div className="bg-white rounded-none border border-[#ebebeb] flex flex-col flex-1 overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#f0f0f0] flex-shrink-0">
+      <div className="bg-white rounded-none border border-[#ebebeb] dark:border-[#222] flex flex-col flex-1 overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#f0f0f0] dark:border-[#1e1e1e] flex-shrink-0">
           <p className="text-[12px] font-bold text-[#111] tracking-widest">{label}</p>
         </div>
 
         <table className="w-full flex flex-col flex-1 overflow-hidden">
           <thead className="flex-shrink-0">
-            <tr className="border-b border-[#f0f0f0] flex">
+            <tr className="border-b border-[#f0f0f0] dark:border-[#1e1e1e] flex">
               <th className="w-8 pl-4 py-2" />
               <th className="py-2 text-[11px] font-semibold text-[#aaa] text-center tracking-widest flex-1">OPENING</th>
               <th className="py-2 text-[11px] font-semibold text-[#aaa] text-center tracking-widest flex-1">CLOSING</th>
@@ -89,7 +89,7 @@ export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, re
               const isOpeningReadOnly = readOnly || (openingReadOnly && n.opening !== '')
 
               return (
-                <tr key={i} className={clsx('border-b border-[#f9f9f9] flex', hasError && 'bg-red-50')}>
+                <tr key={i} className={clsx('border-b border-[#f9f9f9] dark:border-[#1a1a1a] flex', hasError && 'bg-red-50')}>
                   <td className="w-8 pl-4 py-3 text-[11px] text-[#ccc] font-medium flex items-center">{n.pumpNumber ?? i + 1}</td>
                   <td className="py-3 flex-1 flex items-center justify-center">
                     <input
@@ -138,14 +138,14 @@ export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, re
           </tbody>
         </table>
 
-        <div className="border-t border-[#ebebeb] px-5 py-3 flex items-center justify-between flex-shrink-0">
+        <div className="border-t border-[#ebebeb] dark:border-[#222] px-5 py-3 flex items-center justify-between flex-shrink-0">
           <span className="text-[12px] font-semibold text-[#888]">TOTAL LITRES</span>
           <span className="text-[13px] font-bold text-[#333]">
             {hasAnyData ? fmtNum(totalLitres) : '—'}
           </span>
         </div>
 
-        <div className="px-5 py-4 border-t border-[#f0f0f0] bg-[#fafafa] flex-shrink-0">
+        <div className="px-5 py-4 border-t border-[#f0f0f0] dark:border-[#1e1e1e] bg-[#fafafa] flex-shrink-0">
           <p className="text-[11px] font-semibold text-[#aaa] mb-1">Total Sales</p>
           <p className="text-[28px] font-bold text-[#111] leading-none tracking-tight">
             {totalSales != null ? `J$${fmtNum(totalSales)}` : 'J$0.00'}

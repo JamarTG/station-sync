@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { LogoLoader } from '../components/StationSyncLogo'
 import { Building2, Users, GitBranch, LogOut } from 'lucide-react'
 import { getPlatformAccounts, clearToken } from '../lib/api'
 import type { AccountSummary } from '../lib/api'
@@ -88,7 +89,7 @@ export function PlatformAdminPage({ userName, onLogout }: Props) {
 
           {loading ? (
             <div className="py-16 flex items-center justify-center">
-              <p className="text-[13px] font-medium text-[#bbb]">Loading…</p>
+              <LogoLoader />
             </div>
           ) : filtered.length === 0 ? (
             <div className="py-16 flex items-center justify-center">

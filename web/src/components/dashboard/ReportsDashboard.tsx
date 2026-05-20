@@ -777,7 +777,7 @@ export function ReportsDashboard() {
   })
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+    <div className="h-full overflow-y-auto scrollbar-hide bg-white" style={{ scrollbarWidth: 'none' }}>
       <div className="p-6 flex flex-col gap-6">
 
         <SetupBanner />

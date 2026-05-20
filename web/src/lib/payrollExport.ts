@@ -79,6 +79,40 @@ export function printPaySlip(record: PayrollRecord, stationName = 'Service Stati
   </body></html>`)
 }
 
+// ── Job Letter ────────────────────────────────────────────────────────────────
+
+export function printJobLetter(user: User, stationName = 'Service Station') {
+  const today = new Date().toLocaleDateString('en-JM', { year: 'numeric', month: 'long', day: 'numeric' })
+  const employedSince = user.employed_on
+    ? new Date(user.employed_on).toLocaleDateString('en-JM', { year: 'numeric', month: 'long', day: 'numeric' })
+    : null
+
+  printHTML(`<!DOCTYPE html><html><head><title>Job Letter</title><style>${printStyles}
+    .letter { max-width: 600px; margin: 0 auto; }
+    .letter p { font-size: 13px; color: #111; line-height: 1.7; margin: 12px 0; }
+    .letter .date { color: #888; font-size: 12px; margin-bottom: 24px; }
+    .letter .closing { margin-top: 48px; }
+    .letter .sig-line { border-top: 1px solid #111; width: 200px; margin-top: 48px; padding-top: 4px; font-size: 11px; color: #888; }
+  </style></head><body>
+    <div class="letter">
+      <h1>${stationName}</h1>
+      <p class="date">${today}</p>
+      <p><strong>To Whom It May Concern,</strong></p>
+      <p>
+        This letter is to certify that <strong>${user.name}</strong> is currently employed at
+        <strong>${stationName}</strong> in the capacity of <strong>${user.role}</strong>.
+        ${employedSince ? `${user.name.split(' ')[0]} has been employed with us since <strong>${employedSince}</strong>.` : ''}
+      </p>
+      <p>
+        ${user.name.split(' ')[0]} is a ${user.active ? 'current and active' : 'former'} member of our team and
+        this letter is issued at ${user.name.split(' ')[0]}'s request for whatever purpose it may serve.
+      </p>
+      <p class="closing">Yours faithfully,</p>
+      <div class="sig-line">Authorised Signatory · ${stationName}</div>
+    </div>
+  </body></html>`)
+}
+
 // ── Payroll Register ──────────────────────────────────────────────────────────
 
 export function printPayrollRegister(period: PayrollPeriod, records: PayrollRecord[], stationName = 'Service Station') {

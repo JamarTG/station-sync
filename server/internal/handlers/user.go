@@ -156,6 +156,40 @@ func (h *UserHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, u)
 }
 
+func (h *UserHandler) ListAttendance(c *gin.Context) {
+	businessID := c.GetString("business_id")
+	rows, err := h.DB.Query(c.Request.Context(), `
+		SELECT sa.id::text, sa.shift_id::text, sa.user_id::text, u.name,
+		       sa.pump_id::text, p.name, sa.clock_in::text, sa.clock_out::text,
+		       s.date::text
+		FROM shift_attendance sa
+		JOIN shifts s ON s.id = sa.shift_id AND s.business_id = $2
+		JOIN users u ON u.id = sa.user_id
+		LEFT JOIN pumps p ON p.id = sa.pump_id
+		WHERE sa.user_id = $1
+		ORDER BY sa.clock_in DESC
+		LIMIT 50`,
+		c.Param("id"), businessID,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	records := []model.ShiftAttendance{}
+	for rows.Next() {
+		var a model.ShiftAttendance
+		if err := rows.Scan(&a.ID, &a.ShiftID, &a.UserID, &a.UserName,
+			&a.PumpID, &a.PumpName, &a.ClockIn, &a.ClockOut, &a.ShiftDate); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		records = append(records, a)
+	}
+	c.JSON(http.StatusOK, records)
+}
+
 func (h *UserHandler) ChangePassword(c *gin.Context) {
 	userID := c.GetString("user_id")
 	var body struct {

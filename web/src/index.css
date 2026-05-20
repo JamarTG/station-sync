@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark, .dark *));
+
 * {
   box-sizing: border-box;
 }
@@ -53,4 +55,84 @@ body {
   height: 0;
   background: none;
   display: none;
+}
+
+/* ── Dark mode overrides ────────────────────────────────────────────────────── */
+/* [class~="..."] attribute selectors avoid CSS identifier escaping issues for  */
+/* Tailwind arbitrary-value classes that contain [ ] and # characters.          */
+
+.dark body { background: #0f0f0f; }
+
+/* Logo */
+.dark .ss-logo rect        { fill: #ffffff; }
+.dark .ss-logo-loader rect { fill: #d0d0d0; }
+
+/* ── Backgrounds ── */
+.dark .bg-white                         { background-color: #111 !important; }
+.dark [class~="bg-[#fafafa]"]           { background-color: #161616 !important; }
+.dark [class~="bg-[#f9f9f9]"]           { background-color: #161616 !important; }
+.dark [class~="bg-[#f4f4f4]"]           { background-color: #1e1e1e !important; }
+.dark [class~="bg-[#f0f0f0]"]           { background-color: #222 !important; }
+.dark [class~="bg-[#ebebeb]"]           { background-color: #252525 !important; }
+.dark [class~="bg-[#e8e8e8]"]           { background-color: #222 !important; }
+
+/* ── Text ── */
+.dark [class~="text-[#111]"]            { color: #f0f0f0 !important; }
+.dark [class~="text-[#222]"]            { color: #e0e0e0 !important; }
+.dark [class~="text-[#333]"]            { color: #d0d0d0 !important; }
+.dark [class~="text-[#444]"]            { color: #c0c0c0 !important; }
+.dark [class~="text-[#555]"]            { color: #aaa !important; }
+.dark [class~="text-[#666]"]            { color: #888 !important; }
+.dark [class~="text-[#888]"]            { color: #666 !important; }
+.dark [class~="text-[#999]"]            { color: #555 !important; }
+.dark [class~="text-[#aaa]"]            { color: #484848 !important; }
+.dark [class~="text-[#bbb]"]            { color: #3a3a3a !important; }
+.dark [class~="text-[#ccc]"]            { color: #2e2e2e !important; }
+
+/* ── Hover text ── */
+.dark [class~="hover:text-[#111]"]:hover { color: #f0f0f0 !important; }
+.dark [class~="hover:text-[#333]"]:hover { color: #d0d0d0 !important; }
+
+/* ── Borders ── */
+.dark [class~="border-[#ebebeb]"]       { border-color: #222 !important; }
+.dark [class~="border-[#e8e8e8]"]       { border-color: #222 !important; }
+.dark [class~="border-[#e0e0e0]"]       { border-color: #282828 !important; }
+.dark [class~="border-[#ddd]"]          { border-color: #282828 !important; }
+.dark [class~="border-[#f0f0f0]"]       { border-color: #1e1e1e !important; }
+.dark [class~="border-[#f4f4f4]"]       { border-color: #1a1a1a !important; }
+.dark [class~="border-[#f8f8f8]"]       { border-color: #171717 !important; }
+.dark [class~="border-[#f9f9f9]"]       { border-color: #161616 !important; }
+
+/* ── Hover backgrounds ── */
+.dark [class~="hover:bg-[#f9f9f9]"]:hover { background-color: #1e1e1e !important; }
+.dark [class~="hover:bg-[#f4f4f4]"]:hover { background-color: #1e1e1e !important; }
+.dark [class~="hover:bg-[#fafafa]"]:hover  { background-color: #1a1a1a !important; }
+
+/* ── Ring ── */
+.dark [class~="ring-[#ddd]"]            { --tw-ring-color: #333 !important; }
+
+/* ── Inputs ── */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #1a1a1a !important;
+  border-color: #2a2a2a !important;
+  color: #e0e0e0 !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder { color: #444 !important; }
+
+/* ── Shadows ── */
+.dark .shadow-lg  { box-shadow: 0 8px 32px rgba(0,0,0,0.65) !important; }
+.dark .shadow-2xl { box-shadow: 0 20px 60px rgba(0,0,0,0.75) !important; }
+
+/* ── Dark scrollbar ── */
+.dark * {
+  scrollbar-color: #333 transparent;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #333;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #444;
 }

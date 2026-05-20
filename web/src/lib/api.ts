@@ -85,6 +85,7 @@ export interface ShiftAttendance {
   pump_name: string | null
   clock_in: string
   clock_out: string | null
+  shift_date?: string
 }
 
 export interface Deposit {
@@ -281,6 +282,10 @@ export function getShiftDeposits(shiftId: string) {
 
 export function getUsers() {
   return api.get<AuthUser[]>('/users').then((r) => r.data)
+}
+
+export function getUserAttendance(userId: string) {
+  return api.get<ShiftAttendance[]>(`/users/${userId}/attendance`).then((r) => r.data)
 }
 
 export function createUser(data: {

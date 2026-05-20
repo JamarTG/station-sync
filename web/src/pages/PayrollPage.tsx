@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LogoLoader } from '../components/StationSyncLogo'
 import { usePayrollPeriods, usePayrollRecords } from '../hooks/useApi'
 import { api } from '../lib/api'
 import type { PayrollPeriod, PayrollRecord } from '../lib/api'
@@ -223,7 +224,7 @@ export function PayrollPage() {
           </button>
         </div>
         {isLoading ? (
-          <p className="text-[13px] text-[#aaa]">Loading...</p>
+          <div className="flex-1 flex items-center justify-center"><LogoLoader /></div>
         ) : periods.length === 0 ? (
           <p className="text-[13px] text-[#bbb]">No periods yet.</p>
         ) : (

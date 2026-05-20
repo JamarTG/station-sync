@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LogoLoader } from '../components/StationSyncLogo'
 import { useRouterState } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { MoreHorizontal, X, Plus, Trash2 } from 'lucide-react'
@@ -301,7 +302,7 @@ function TeamPanel() {
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
-  const members = users.filter((u) => u.id !== me?.id)
+  const members = users
 
   async function toggleActive(u: AuthUser) {
     setTogglingId(u.id)
@@ -320,7 +321,7 @@ function TeamPanel() {
       <Section title="Members">
         {isLoading ? (
           <div className="py-6 flex items-center justify-center">
-            <p className="text-[13px] font-medium text-[#bbb]">Loading…</p>
+            <LogoLoader />
           </div>
         ) : members.length === 0 ? (
           <div className="py-6 flex flex-col items-center justify-center gap-1">
@@ -341,9 +342,10 @@ function TeamPanel() {
                     {u.sick_days != null && ` · ${u.sick_days}d sick`}
                   </p>
                 </div>
-                {!u.active && (
-                  <span className="text-[10px] font-bold tracking-widest text-[#ccc] uppercase">Inactive</span>
-                )}
+                {u.id === me?.id
+                  ? <span className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">You</span>
+                  : !u.active && <span className="text-[10px] font-bold tracking-widest text-[#ccc] uppercase">Inactive</span>
+                }
                 <div className="relative flex-shrink-0">
                   <button
                     onClick={() => setMenuOpen(menuOpen === u.id ? null : u.id)}
@@ -359,13 +361,15 @@ function TeamPanel() {
                       >
                         Edit
                       </button>
-                      <button
-                        disabled={togglingId === u.id}
-                        onClick={() => { toggleActive(u); setMenuOpen(null) }}
-                        className="w-full text-left px-4 py-2 text-[13px] font-semibold hover:bg-[#f9f9f9] disabled:opacity-40 transition-colors text-red-500"
-                      >
-                        {u.active ? 'Deactivate' : 'Reactivate'}
-                      </button>
+                      {u.id !== me?.id && (
+                        <button
+                          disabled={togglingId === u.id}
+                          onClick={() => { toggleActive(u); setMenuOpen(null) }}
+                          className="w-full text-left px-4 py-2 text-[13px] font-semibold hover:bg-[#f9f9f9] disabled:opacity-40 transition-colors text-red-500"
+                        >
+                          {u.active ? 'Deactivate' : 'Reactivate'}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -442,7 +446,7 @@ function ForecourtPanel() {
       <Section title="Pumps">
         {loading ? (
           <div className="py-6 flex items-center justify-center">
-            <p className="text-[13px] font-medium text-[#bbb]">Loading…</p>
+            <LogoLoader />
           </div>
         ) : pumps.length === 0 ? (
           <div className="py-6 flex items-center justify-center">
@@ -494,7 +498,7 @@ function ForecourtPanel() {
       <Section title="Tanks">
         {loadingTanks ? (
           <div className="py-6 flex items-center justify-center">
-            <p className="text-[13px] font-medium text-[#bbb]">Loading…</p>
+            <LogoLoader />
           </div>
         ) : tanks.length === 0 ? (
           <div className="py-6 flex items-center justify-center">

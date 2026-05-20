@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LogoLoader } from '../../components/StationSyncLogo'
 import { Pencil, X, Check } from 'lucide-react'
 import { useShiftAttendance } from '../../hooks/useApi'
 import { api } from '../../lib/api'
@@ -151,7 +152,7 @@ export function AttendancePanel({ shiftId }: Props) {
       {!shiftId ? (
         <p className="text-[13px] text-[#bbb] p-5">No shift for today.</p>
       ) : isLoading ? (
-        <p className="text-[13px] text-[#aaa] p-5">Loading...</p>
+        <div className="py-6 flex items-center justify-center"><LogoLoader /></div>
       ) : records.length === 0 ? (
         <p className="text-[13px] text-[#bbb] p-5">No attendance records. Start a shift to auto-clock in attendants.</p>
       ) : (

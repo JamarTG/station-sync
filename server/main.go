@@ -25,6 +25,10 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 
+	if err := db.EnsureSchema(context.Background(), pool); err != nil {
+		log.Fatalf("failed to ensure schema: %v", err)
+	}
+
 	r := gin.Default()
 
 	routes.Register(r, pool)

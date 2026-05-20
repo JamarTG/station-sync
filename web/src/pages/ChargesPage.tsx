@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Plus, X } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, Search, X } from 'lucide-react'
 import { useAuth } from '../lib/authContext'
+import { LogoLoader } from '../components/StationSyncLogo'
 
 // ── Add Organization Modal ────────────────────────────────────────────────────
 
@@ -107,11 +108,40 @@ function OrganizationsPanel() {
   )
 }
 
+// ── Search Bar ────────────────────────────────────────────────────────────────
+
+function ChargesSearch() {
+  const [query, setQuery] = useState('')
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5 bg-white border border-[#ebebeb] rounded-xl shrink-0">
+      <Search size={14} className="text-[#bbb] shrink-0" />
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search by customer, date, or status…"
+        className="flex-1 text-[13px] text-[#111] placeholder-[#ccc] outline-none bg-transparent"
+      />
+      {query && (
+        <button onClick={() => setQuery('')} className="text-[#bbb] hover:text-[#555] transition-colors">
+          <X size={14} />
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function ChargesPage() {
   const { user: authUser } = useAuth()
   const isManagerOrAdmin = authUser?.role === 'Manager' || authUser?.role === 'Admin'
+  const [isLoading, setIsLoading] = useState(true)
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoading(false), 800)
+    return () => clearTimeout(t)
+  }, [])
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -128,19 +158,24 @@ export function ChargesPage() {
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left: charges table */}
-        <div className="flex-1 overflow-hidden flex flex-col p-6 min-w-0">
+        <div className="flex-1 overflow-hidden flex flex-col p-6 gap-4 min-w-0">
+          <ChargesSearch />
           <div className="flex-1 bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
             <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 px-5 py-2.5 border-b border-[#f0f0f0] bg-[#fafafa] shrink-0">
               {['Customer', 'Date', 'Amount', 'Status'].map((h) => (
                 <p key={h} className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
               ))}
             </div>
-            <div className="flex-1 overflow-y-auto flex items-center justify-center">
-              <div className="flex flex-col items-center gap-1">
-                <p className="text-[13px] font-semibold text-[#bbb]">No charges yet</p>
-                <p className="text-[12px] font-medium text-[#ccc]">Charge records will appear here</p>
+            {isLoading ? (
+              <div className="flex-1 flex items-center justify-center"><LogoLoader /></div>
+            ) : (
+              <div className="flex-1 overflow-y-auto flex items-center justify-center">
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-[13px] font-semibold text-[#bbb]">No charges yet</p>
+                  <p className="text-[12px] font-medium text-[#ccc]">Charge records will appear here</p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 

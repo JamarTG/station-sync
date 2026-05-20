@@ -7,6 +7,7 @@ import {
   getShiftAttendance,
   getShiftDeposits,
   getUsers,
+  getUserAttendance,
   getNozzles,
   getTanks,
   getShiftTankLogs,
@@ -60,6 +61,13 @@ export function useUsers() {
   return useQuery({
     queryKey: ['users'],
     queryFn: getUsers,
+  })
+}
+
+export function useUserAttendance(userId: string) {
+  return useQuery({
+    queryKey: ['user-attendance', userId],
+    queryFn: () => getUserAttendance(userId),
   })
 }
 

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { LogoLoader } from '../components/StationSyncLogo'
 import { ChevronLeft, ChevronRight, Check, X, Sparkles } from 'lucide-react'
 import { useShiftsInRange, useShiftAttendance, useShiftDeposits, useShiftFuelPrices, useTimeOffRequests } from '../hooks/useApi'
 import { createTimeOffRequest, reviewTimeOffRequest, type Shift, type TimeOffRequest } from '../lib/api'
@@ -745,8 +746,10 @@ export function SchedulePage({ storeLabel }: { storeLabel?: string } = {}) {
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#ebebeb] bg-white flex-shrink-0 gap-4 flex-wrap">
         <div>
-          {storeLabel && (
-            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-0.5">{storeLabel}</p>
+          {(storeLabel || isRequester) && (
+            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-0.5">
+              {storeLabel ?? 'Service Station'}
+            </p>
           )}
           <h1 className="text-[20px] font-bold text-[#111]">Schedule</h1>
         </div>
@@ -784,15 +787,6 @@ export function SchedulePage({ storeLabel }: { storeLabel?: string } = {}) {
             Today
           </button>
 
-          {isRequester && (
-            <button
-              onClick={() => setShowTimeOff(true)}
-              className="px-3 py-1.5 text-[12px] font-semibold text-[#555] border border-[#e0e0e0] rounded-lg hover:border-[#ccc] hover:text-[#111] transition-colors"
-            >
-              Day Off
-            </button>
-          )}
-
           {/* View toggle */}
           <div className="flex items-center bg-[#f4f4f4] rounded-lg p-0.5 ml-1">
             {(['week', 'month'] as ViewMode[]).map((v) => (
@@ -812,43 +806,47 @@ export function SchedulePage({ storeLabel }: { storeLabel?: string } = {}) {
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-y-auto bg-white min-w-0">
-          {isLoading ? (
-            <div className="h-64 flex items-center justify-center">
-              <p className="text-[13px] font-semibold text-[#bbb]">Loading…</p>
-            </div>
-          ) : view === 'month' ? (
-            <MonthView
-              year={year}
-              month={month}
-              shiftsByDate={shiftsByDate}
-              today={today}
-              selected={selected}
-              onSelect={setSelected}
-            />
-          ) : (
-            <WeekView
-              anchor={weekAnchor}
-              shiftsByDate={shiftsByDate}
-              today={today}
-              selected={selected}
-              onSelect={setSelected}
-            />
-          )}
+        <div className="flex-1 flex flex-col overflow-hidden bg-white min-w-0">
+          <div className="flex-1 overflow-y-auto">
+            {isLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <LogoLoader />
+              </div>
+            ) : view === 'month' ? (
+              <MonthView
+                year={year}
+                month={month}
+                shiftsByDate={shiftsByDate}
+                today={today}
+                selected={selected}
+                onSelect={setSelected}
+              />
+            ) : (
+              <WeekView
+                anchor={weekAnchor}
+                shiftsByDate={shiftsByDate}
+                today={today}
+                selected={selected}
+                onSelect={setSelected}
+              />
+            )}
+          </div>
 
           {/* Time off requests */}
-          <div className="border-t border-[#e8e8e8] p-5">
+          <div className="border-t border-[#e8e8e8] p-5 flex flex-col shrink-0 h-[360px]">
             <p className="mb-4">
               <span className="text-[13px] font-bold text-[#111]">Time Off</span>
               <span className="text-[13px] font-medium text-[#aaa]"> | Requests</span>
             </p>
-            <div className="grid grid-cols-[28px_1fr_1fr_1fr_auto] gap-3 mb-2">
-              {['#', 'Employee', 'Date', 'Reason', 'Status'].map((h) => (
-                <p key={h} className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
-              ))}
-            </div>
-            <div className="py-8 flex items-center justify-center">
-              <p className="text-[13px] font-medium text-[#bbb]">No time off requests</p>
+            <div className="flex-1 overflow-y-auto">
+              <div className="grid grid-cols-[28px_1fr_1fr_1fr_auto] gap-3 mb-2">
+                {['#', 'Employee', 'Date', 'Reason', 'Status'].map((h) => (
+                  <p key={h} className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
+                ))}
+              </div>
+              <div className="py-8 flex items-center justify-center">
+                <p className="text-[13px] font-medium text-[#bbb]">No time off requests</p>
+              </div>
             </div>
             <div className="flex items-center justify-between border-t border-[#f0f0f0] pt-3">
               <button className="text-[12px] font-semibold text-[#888] hover:text-[#111] transition-colors">view all</button>

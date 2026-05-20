@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { Plus, X, ChevronRight } from 'lucide-react'
-import { StationSyncLogo } from '../components/StationSyncLogo'
+import { StationSyncLogo, LogoLoader } from '../components/StationSyncLogo'
 import { useOpenShift, usePumps, useFuels, useUsers } from '../hooks/useApi'
 import { createShift, clockIn, upsertFuelPrice, type AuthUser } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
@@ -176,10 +176,10 @@ export function ShiftLoginFlow({ user, onComplete }: Props) {
   // ─── Loading ───────────────────────────────────────────────────────────────
   if (step === 'loading') {
     return (
-      <div className="min-h-screen bg-[#f4f4f4] font-[Manrope] flex flex-col">
+      <div className="min-h-screen bg-white font-[Manrope] flex flex-col">
         <FlowTopBar />
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-[13px] font-semibold text-[#bbb]">Loading…</p>
+          <LogoLoader size={56} />
         </div>
       </div>
     )

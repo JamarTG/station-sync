@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LogoLoader } from '../components/StationSyncLogo'
 import {
   useUsers, useUserPayroll, usePayrollPeriods, usePayrollRecords,
   useCreateUser, useUpdatePay, usePayrollWeeklySummary,
@@ -20,14 +21,8 @@ function fmtDate(s: string | null | undefined) {
   return new Date(s).toLocaleDateString('en-JM', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-function roleBadgeColor(role: string) {
-  switch (role) {
-    case 'Supervisor':  return 'bg-[#f0f0f0] text-[#555]'
-    case 'Cashier':     return 'bg-[#d1e7dd] text-[#0a5435]'
-    case 'Stock Clerk': return 'bg-[#cfe2ff] text-[#0a3d91]'
-    case 'Manager':     return 'bg-[#fff3cd] text-[#856404]'
-    default:            return 'bg-[#f0f0f0] text-[#555]'
-  }
+function roleBadgeColor(_role: string) {
+  return 'bg-[#f0f0f0] text-[#555]'
 }
 
 // ── Add Employee Modal ────────────────────────────────────────────────────────
@@ -450,7 +445,7 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
             </button>
           </div>
           {isLoading ? (
-            <p className="text-[13px] text-[#aaa]">Loading...</p>
+            <div className="h-32 flex items-center justify-center"><LogoLoader /></div>
           ) : records.length === 0 ? (
             <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
               <p className="text-[13px] text-[#bbb]">
@@ -547,7 +542,7 @@ function PeriodOverview({ period, onBack }: { period: PayrollPeriod; onBack: () 
         </div>
       )}
       {isLoading ? (
-        <p className="text-[13px] text-[#aaa]">Loading...</p>
+        <div className="py-4 flex items-center justify-center"><LogoLoader /></div>
       ) : records.length === 0 ? (
         <p className="text-[13px] text-[#bbb]">No records for this period.</p>
       ) : (
@@ -595,7 +590,7 @@ function PayrollPanel({ onSelectPeriod }: { onSelectPeriod: (p: PayrollPeriod) =
         </div>
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-[13px] font-medium text-[#bbb]">Loading…</p>
+            <LogoLoader />
           </div>
         ) : periods.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
@@ -656,7 +651,7 @@ function StaffTable({ onSelect }: { onSelect: (u: User) => void }) {
         </div>
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
-            <p className="text-[13px] text-[#aaa]">Loading...</p>
+            <LogoLoader />
           </div>
         ) : active.length === 0 && inactive.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
@@ -668,12 +663,7 @@ function StaffTable({ onSelect }: { onSelect: (u: User) => void }) {
             {active.map((u) => (
               <button key={u.id} onClick={() => onSelect(u)}
                 className="w-full grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 items-center px-5 py-3.5 border-b border-[#f8f8f8] hover:bg-[#fafafa] transition-colors text-left">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-[#111] text-white flex items-center justify-center text-[12px] font-bold shrink-0">
-                    {u.name.charAt(0).toUpperCase()}
-                  </div>
-                  <p className="text-[13px] font-semibold text-[#111] truncate">{u.name}</p>
-                </div>
+                <p className="text-[13px] text-[#111] truncate">{u.name}</p>
                 <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${roleBadgeColor(u.role)}`}>{u.role}</span>
                 <p className="text-[13px] text-[#666] truncate">{u.email || '—'}</p>
                 <p className="text-[13px] text-[#666]">
@@ -694,12 +684,7 @@ function StaffTable({ onSelect }: { onSelect: (u: User) => void }) {
                 {inactive.map((u) => (
                   <button key={u.id} onClick={() => onSelect(u)}
                     className="w-full grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 items-center px-5 py-3.5 border-b border-[#f8f8f8] hover:bg-[#fafafa] transition-colors text-left opacity-50">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-[#111] text-white flex items-center justify-center text-[12px] font-bold shrink-0">
-                        {u.name.charAt(0).toUpperCase()}
-                      </div>
-                      <p className="text-[13px] font-semibold text-[#111] truncate">{u.name}</p>
-                    </div>
+                    <p className="text-[13px] text-[#111] truncate">{u.name}</p>
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${roleBadgeColor(u.role)}`}>{u.role}</span>
                     <p className="text-[13px] text-[#666] truncate">{u.email || '—'}</p>
                     <p className="text-[13px] text-[#666]">—</p>

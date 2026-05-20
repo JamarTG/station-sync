@@ -26,16 +26,17 @@ const stationItems = [
 ]
 
 const convenienceItems = [
-  { label: 'Sales',     to: '/convenience/sales',     icon: ShoppingCart },
-  { label: 'Staff',     to: '/convenience/staff',     icon: Users },
-  { label: 'Schedule',  to: '/convenience/schedule',  icon: Calendar },
+  { label: 'Sales',      to: '/convenience/sales',     icon: ShoppingCart },
+  { label: 'Products',   to: '/convenience/products',  icon: ShoppingCart },
+  { label: 'Customers',  to: '/convenience/accounts',  icon: Banknote },
+  { label: 'Schedule',   to: '/convenience/schedule',  icon: Calendar },
 ]
 
 const attendantItems = [
-  { label: 'Staff',    to: '/station/staff',     icon: Users },
-  { label: 'Schedule', to: '/station/schedule',  icon: Calendar },
-  { label: 'Charges',  to: '/station/charges',   icon: Zap },
-  { label: 'Sales',    to: '/station/sales',     icon: TrendingUp },
+  { label: 'Sales',    to: '/sales',    icon: TrendingUp },
+  { label: 'Staff',    to: '/staff',    icon: Users },
+  { label: 'Schedule', to: '/schedule', icon: Calendar },
+  { label: 'Charges',  to: '/charges',  icon: Zap },
 ]
 
 const cashierItems = [
@@ -209,7 +210,7 @@ function NavLink({ to, label, icon: Icon, onClick }: { to: string; label: string
       onClick={onClick}
       className={clsx(
         'flex items-center gap-2.5 px-4 py-2 text-[13px] font-medium rounded-md transition-colors',
-        isActive ? 'text-[#111] font-semibold bg-black/[0.06] ring-1 ring-[#ddd]' : 'text-[#888] hover:text-[#111] hover:bg-black/[0.03]'
+        isActive ? 'text-[#111] dark:text-white font-semibold bg-black/[0.06] dark:bg-white/[0.08] ring-1 ring-[#ddd] dark:ring-[#333]' : 'text-[#888] hover:text-[#111] dark:hover:text-white hover:bg-black/[0.03] dark:hover:bg-white/[0.05]'
       )}
     >
       <Icon size={13} className="flex-shrink-0" />
@@ -239,7 +240,7 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
     <>
       <aside
         className={clsx(
-          'w-[190px] bg-white border-r border-[#ebebeb] flex flex-col h-full flex-shrink-0',
+          'w-[190px] bg-white dark:bg-[#111] border-r border-[#ebebeb] dark:border-[#222] flex flex-col h-full flex-shrink-0',
           'fixed inset-y-0 left-0 z-40 transition-transform duration-300',
           isOpen ? 'translate-x-0' : '-translate-x-full',
           'min-[668px]:relative min-[668px]:translate-x-0 min-[668px]:z-auto',
@@ -274,14 +275,14 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
             <Link
               to="/"
               onClick={onClose}
-              className="flex items-center gap-2 px-4 py-2 mb-1 text-[13px] font-medium text-[#888] hover:text-[#111] hover:bg-black/[0.03] rounded-md transition-colors"
+              className="flex items-center gap-2 px-4 py-2 mb-1 text-[13px] font-medium text-[#888] dark:text-[#666] hover:text-[#111] dark:hover:text-[#ccc] hover:bg-black/[0.03] dark:hover:bg-white/[0.05] rounded-md transition-colors"
             >
               <ArrowLeft size={13} className="flex-shrink-0" />
               Dashboard
             </Link>
 
             <div className="pt-3 pb-1 px-4">
-              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">Settings</p>
+              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] dark:text-[#555] uppercase">Settings</p>
             </div>
 
             {settingsCategories.map(({ id, label, icon: Icon }) => (
@@ -306,7 +307,7 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
           <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
             <NavLink label="Dashboard" to="/" icon={LayoutDashboard} onClick={onClose} />
             <div className="pt-4 pb-1 px-4">
-              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">Service Station</p>
+              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] dark:text-[#555] uppercase">Service Station</p>
             </div>
             {attendantItems.map((item) => (
               <NavLink key={item.to} {...item} onClick={onClose} />
@@ -316,7 +317,7 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
           <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
             <NavLink label="Dashboard" to="/" icon={LayoutDashboard} onClick={onClose} />
             <div className="pt-4 pb-1 px-4">
-              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">Convenience Store</p>
+              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] dark:text-[#555] uppercase">Convenience Store</p>
             </div>
             {cashierItems.map((item) => (
               <NavLink key={item.to} {...item} onClick={onClose} />
@@ -328,7 +329,7 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
               <NavLink key={item.to} {...item} onClick={onClose} />
             ))}
             <div className="pt-4 pb-1 px-4">
-              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">Convenience Store</p>
+              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] dark:text-[#555] uppercase">Convenience Store</p>
             </div>
             <NavLink label="Sales"     to="/convenience/sales"    icon={TrendingUp}  onClick={onClose} />
             <NavLink label="Products"  to="/convenience/products" icon={ShoppingCart} onClick={onClose} />
@@ -339,14 +340,14 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
             <NavLink label="Dashboard" to="/" icon={LayoutDashboard} onClick={onClose} />
 
             <div className="pt-4 pb-1 px-4">
-              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">Service Station</p>
+              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] dark:text-[#555] uppercase">Service Station</p>
             </div>
             {stationItems.map((item) => (
               <NavLink key={item.to} {...item} onClick={onClose} />
             ))}
 
             <div className="pt-4 pb-1 px-4">
-              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">Convenience Store</p>
+              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] dark:text-[#555] uppercase">Convenience Store</p>
             </div>
             {convenienceItems.map((item) => (
               <NavLink key={item.to} {...item} onClick={onClose} />
@@ -354,8 +355,8 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
           </nav>
         )}
 
-        <div className="p-3 border-t border-[#ebebeb]">
-          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium text-[#888] hover:text-[#111] hover:bg-[#f4f4f4] transition-colors text-left">
+        <div className="p-3 border-t border-[#ebebeb] dark:border-[#222]">
+          <button className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] font-medium text-[#888] dark:text-[#555] hover:text-[#111] dark:hover:text-[#ccc] hover:bg-[#f4f4f4] dark:hover:bg-[#1e1e1e] transition-colors text-left">
             <AlertCircle size={14} className="flex-shrink-0" />
             Report a bug
           </button>
