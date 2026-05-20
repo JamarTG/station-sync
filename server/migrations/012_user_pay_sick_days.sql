@@ -1,0 +1,3 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pay_rate  NUMERIC(10, 2);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pay_type  TEXT CHECK (pay_type IN ('Hourly', 'Salary'));
+ALTER TABLE users ADD COLUMN IF NOT EXISTS sick_days INT;
