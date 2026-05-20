@@ -4,6 +4,10 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './index.css'
 import { routeTree } from './routeTree'
+
+if (localStorage.getItem('darkMode') === 'true') {
+  document.documentElement.classList.add('dark')
+}
 import { AuthProvider } from './lib/authContext'
 
 const router = createRouter({ routeTree })

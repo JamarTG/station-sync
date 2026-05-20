@@ -57,6 +57,20 @@ body {
   display: none;
 }
 
+/* ── Dark mode transition ───────────────────────────────────────────────────── */
+/* Base layer keeps specificity low so utility classes can still override.      */
+
+@layer base {
+  *, *::before, *::after {
+    transition:
+      background-color 250ms ease,
+      border-color     250ms ease,
+      color            200ms ease,
+      fill             200ms ease,
+      box-shadow       250ms ease;
+  }
+}
+
 /* ── Dark mode overrides ────────────────────────────────────────────────────── */
 /* [class~="..."] attribute selectors avoid CSS identifier escaping issues for  */
 /* Tailwind arbitrary-value classes that contain [ ] and # characters.          */
@@ -115,7 +129,7 @@ body {
 .dark input,
 .dark textarea,
 .dark select {
-  background-color: #1a1a1a !important;
+  background-color: transparent !important;
   border-color: #2a2a2a !important;
   color: #e0e0e0 !important;
 }

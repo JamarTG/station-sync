@@ -561,7 +561,7 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
           </div>
           <h2 className="text-[20px] font-bold text-[#111]">{user.name}</h2>
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${user.active ? 'bg-green-100 text-green-700' : 'bg-[#f0f0f0] text-[#999]'}`}>
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${user.active ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-[#f0f0f0] text-[#999] dark:bg-[#222] dark:text-[#555]'}`}>
               {user.active ? 'Active' : 'Inactive'}
             </span>
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${roleBadgeColor(user.role)}`}>{user.role}</span>
@@ -954,11 +954,11 @@ function StaffTable({ onSelect, isManagerOrAdmin }: { onSelect: (u: User) => voi
 
       <div className="grid grid-cols-2 gap-3 shrink-0">
         <div className={`rounded-2xl border p-4 ${(weekly?.total_overage ?? 0) > 0 ? 'bg-green-50 border-green-200' : 'bg-white border-[#ebebeb]'}`}>
-          <p className="text-[11px] text-[#999] mb-1">Overages This Week</p>
+          <p className="text-[11px] mb-1"><span className="text-[#999]">Overages</span><span className="text-[#ccc]"> | Week (current)</span></p>
           <p className={`text-[15px] font-bold ${(weekly?.total_overage ?? 0) > 0 ? 'text-green-700' : 'text-[#bbb]'}`}>{fmt(weekly?.total_overage ?? 0)}</p>
         </div>
         <div className={`rounded-2xl border p-4 ${(weekly?.total_shortage ?? 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-[#ebebeb]'}`}>
-          <p className="text-[11px] text-[#999] mb-1">Shortages This Week</p>
+          <p className="text-[11px] mb-1"><span className="text-[#999]">Shortages</span><span className="text-[#ccc]"> | Week (current)</span></p>
           <p className={`text-[15px] font-bold ${(weekly?.total_shortage ?? 0) > 0 ? 'text-[#c0392b]' : 'text-[#bbb]'}`}>{fmt(weekly?.total_shortage ?? 0)}</p>
         </div>
       </div>
