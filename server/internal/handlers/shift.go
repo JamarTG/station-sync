@@ -15,11 +15,11 @@ type ShiftHandler struct {
 	DB *pgxpool.Pool
 }
 
-const shiftSelectCols = `s.id::text, s.business_id::text, COALESCE(s.branch_id::text,''), s.supervisor_id::text, COALESCE(u.name,'') as supervisor_name, s.date::text, s.start_time::text, s.end_time::text, s.created_at::text`
+const shiftSelectCols = `s.id::text, s.business_id::text, COALESCE(s.branch_id::text,''), s.supervisor_id::text, COALESCE(u.name,'') as supervisor_name, s.date::text, s.start_time::text, s.end_time::text, s.created_at::text, COALESCE(s.shift_type,'service_station')`
 const shiftFrom = `shifts s LEFT JOIN users u ON u.id = s.supervisor_id`
 
 func scanShift(rows pgx.Rows, s *model.Shift) error {
-	return rows.Scan(&s.ID, &s.BusinessID, &s.BranchID, &s.SupervisorID, &s.SupervisorName, &s.Date, &s.StartTime, &s.EndTime, &s.CreatedAt)
+	return rows.Scan(&s.ID, &s.BusinessID, &s.BranchID, &s.SupervisorID, &s.SupervisorName, &s.Date, &s.StartTime, &s.EndTime, &s.CreatedAt, &s.ShiftType)
 }
 
 func (h *ShiftHandler) List(c *gin.Context) {
@@ -62,7 +62,8 @@ func (h *ShiftHandler) GetOpen(c *gin.Context) {
 	branchID := c.GetString("branch_id")
 	rows, err := h.DB.Query(c.Request.Context(),
 		`SELECT `+shiftSelectCols+` FROM `+shiftFrom+`
-		 WHERE s.business_id = $1 AND ($2 = '' OR s.branch_id::text = $2) AND s.end_time IS NULL
+		 WHERE s.business_id = $1 AND ($2 = '' OR s.branch_id::text = $2)
+		   AND s.end_time IS NULL AND COALESCE(s.shift_type,'service_station') = 'service_station'
 		 ORDER BY s.created_at DESC LIMIT 1`, businessID, branchID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -72,6 +73,32 @@ func (h *ShiftHandler) GetOpen(c *gin.Context) {
 
 	if !rows.Next() {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no open shift"})
+		return
+	}
+	var s model.Shift
+	if err := scanShift(rows, &s); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, s)
+}
+
+func (h *ShiftHandler) GetOpenConvenience(c *gin.Context) {
+	businessID := c.GetString("business_id")
+	branchID := c.GetString("branch_id")
+	rows, err := h.DB.Query(c.Request.Context(),
+		`SELECT `+shiftSelectCols+` FROM `+shiftFrom+`
+		 WHERE s.business_id = $1 AND ($2 = '' OR s.branch_id::text = $2)
+		   AND s.end_time IS NULL AND s.shift_type = 'convenience_store'
+		 ORDER BY s.created_at DESC LIMIT 1`, businessID, branchID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	if !rows.Next() {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no open convenience store shift"})
 		return
 	}
 	var s model.Shift
@@ -113,20 +140,24 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		Date         string  `json:"date" binding:"required"`
 		StartTime    string  `json:"start_time" binding:"required"`
 		EndTime      *string `json:"end_time"`
+		ShiftType    string  `json:"shift_type"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if body.ShiftType == "" {
+		body.ShiftType = "service_station"
+	}
 
 	rows, err := h.DB.Query(c.Request.Context(), `
 		WITH ins AS (
-			INSERT INTO shifts (business_id, branch_id, supervisor_id, date, start_time, end_time)
-			VALUES ($1, NULLIF($2,'')::uuid, $3, $4, $5, $6)
-			RETURNING id, business_id, branch_id, supervisor_id, date, start_time, end_time, created_at
+			INSERT INTO shifts (business_id, branch_id, supervisor_id, date, start_time, end_time, shift_type)
+			VALUES ($1, NULLIF($2,'')::uuid, $3, $4, $5, $6, $7)
+			RETURNING id, business_id, branch_id, supervisor_id, date, start_time, end_time, created_at, shift_type
 		)
 		SELECT `+shiftSelectCols+` FROM `+shiftFrom+` WHERE s.id = (SELECT id FROM ins)`,
-		businessID, branchID, body.SupervisorID, body.Date, body.StartTime, body.EndTime,
+		businessID, branchID, body.SupervisorID, body.Date, body.StartTime, body.EndTime, body.ShiftType,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

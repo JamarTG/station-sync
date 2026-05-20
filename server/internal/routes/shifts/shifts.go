@@ -15,11 +15,13 @@ func RegisterRoute(g *gin.RouterGroup, db *pgxpool.Pool) {
 	fph := &handlers.ShiftFuelPriceHandler{DB: db}
 	ah := &handlers.ShiftAttendanceHandler{DB: db}
 	frh := &handlers.FuelReceivalHandler{DB: db}
+	oh := &handlers.OrderHandler{DB: db}
 
 	shifts := g.Group("/shifts")
 	shifts.GET("", sh.List)
 	shifts.POST("", sh.Create)
 	shifts.GET("/open", sh.GetOpen)
+	shifts.GET("/open/convenience", sh.GetOpenConvenience)
 	shifts.GET("/:shiftId", sh.Get)
 	shifts.PATCH("/:shiftId/close", sh.Close)
 
@@ -45,4 +47,8 @@ func RegisterRoute(g *gin.RouterGroup, db *pgxpool.Pool) {
 
 	shifts.GET("/:shiftId/fuel-receivals", frh.ListByShift)
 	shifts.POST("/:shiftId/fuel-receivals", frh.Create)
+
+	shifts.GET("/:shiftId/orders", oh.ListByShift)
+	shifts.POST("/:shiftId/orders", oh.Create)
+	shifts.PATCH("/:shiftId/orders/:orderId", oh.UpdateStatus)
 }

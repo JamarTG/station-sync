@@ -67,6 +67,22 @@ export interface Shift {
   start_time: string
   end_time: string | null
   created_at: string
+  shift_type?: string
+}
+
+export interface Product {
+  id: string
+  business_id: string
+  branch_id: string | null
+  name: string
+  category: string | null
+  sku: string | null
+  price: number
+  cost: number | null
+  stock_qty: number
+  unit: string
+  active: boolean
+  created_at: string
 }
 
 export interface ShiftFuelPrice {
@@ -227,6 +243,12 @@ export function logout() {
 export function getOpenShift() {
   return api
     .get<Shift>('/shifts/open')
+    .then((r) => r.data)
+}
+
+export function getOpenCStoreShift() {
+  return api
+    .get<Shift>('/shifts/open/convenience')
     .then((r) => r.data)
     .catch((err) => {
       if (err.response?.status === 404) return null

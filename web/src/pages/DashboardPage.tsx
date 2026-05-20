@@ -11,13 +11,119 @@ import { AccountsPanel, type AccountType } from '../components/dashboard/Account
 import { TotalSalesCard } from '../components/dashboard/TotalSalesCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
-import { usePumps, useFuels, useNozzles, useOpenShift, useShiftFuelPrices, useShiftAttendance, useTanks, useShiftTankLogs, useShiftFuelReceivals } from '../hooks/useApi'
+import { usePumps, useFuels, useNozzles, useOpenShift, useOpenCStoreShift, useShiftFuelPrices, useShiftAttendance, useTanks, useShiftTankLogs, useShiftFuelReceivals } from '../hooks/useApi'
 import { closeShift, upsertTankLog, upsertNozzleLog, type Tank } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
 import { EditFuelPricesModal } from '../components/dashboard/EditFuelPricesModal'
 import { ConvenienceStoreBreakdownModal } from '../components/dashboard/ConvenienceStoreBreakdownModal'
+import { ReportIssueModal } from '../components/dashboard/ReportIssueModal'
+import { NewShiftLoginModal } from '../components/dashboard/NewShiftLoginModal'
 
+
+const idleBtnClass = 'px-4 py-2 border border-[#ddd] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'
+
+function SupervisorIdleView({ tanks, stationShiftOpen, cstoreShiftOpen }: { tanks: Tank[]; stationShiftOpen: boolean; cstoreShiftOpen: boolean }) {
+  const navigate = useNavigate()
+  const [showReportIssue, setShowReportIssue] = useState(false)
+  const [showNewShiftLogin, setShowNewShiftLogin] = useState(false)
+
+  return (
+    <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col" style={{ scrollbarWidth: 'none' }}>
+      <div className="p-5 space-y-8 flex-1">
+
+        <section>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Service Station</p>
+          <div className="flex gap-2 flex-wrap mb-4">
+            <button onClick={() => setShowReportIssue(true)} className={idleBtnClass}>Report an issue</button>
+            <button onClick={() => navigate({ to: '/schedule' })} className={idleBtnClass}>Request day off</button>
+            <button onClick={() => setShowNewShiftLogin(true)} className={idleBtnClass}>{stationShiftOpen ? 'Takeover shift' : 'Start a new shift'}</button>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
+                Sales <span className="font-medium text-[#ccc] normal-case tracking-normal">| Previous shift</span>
+              </p>
+              <p className="text-[28px] font-bold text-[#111] leading-none mb-5">J$0.00</p>
+              <div className="space-y-2 text-[12px] font-medium text-[#bbb]">
+                <p>Shortages</p>
+                <p>Overages</p>
+                <p>Balance</p>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
+                Tanks <span className="font-medium text-[#ccc] normal-case tracking-normal">| Previous shift</span>
+              </p>
+              <div className="space-y-2">
+                {tanks.map((t) => (
+                  <p key={t.id} className="text-[13px] font-medium text-[#555]">{t.fuel_name}</p>
+                ))}
+                {tanks.length === 0 && <p className="text-[13px] text-[#ccc]">No tanks configured</p>}
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5 flex flex-col">
+              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
+                Sales Breakdown <span className="font-medium text-[#ccc] normal-case tracking-normal">| Previous shift</span>
+              </p>
+              <div className="flex-1 flex items-center justify-center py-4">
+                <svg width="80" height="80" viewBox="0 0 80 80">
+                  <circle cx="40" cy="40" r="34" fill="none" stroke="#e8e8e8" strokeWidth="8" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Convenience Store</p>
+          <div className="flex gap-2 flex-wrap mb-4">
+            <button onClick={() => setShowReportIssue(true)} className={idleBtnClass}>Report an issue</button>
+            <button onClick={() => setShowNewShiftLogin(true)} className={idleBtnClass}>
+              {cstoreShiftOpen ? 'Takeover shift' : 'Start a new shift'}
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
+                Sales <span className="font-medium text-[#ccc] normal-case tracking-normal">| Previous shift</span>
+              </p>
+              <p className="text-[28px] font-bold text-[#111] leading-none mb-5">J$0.00</p>
+              <div className="space-y-2 text-[12px] font-medium text-[#bbb]">
+                <p>Balance</p>
+                <p>Top Product</p>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
+                Customer <span className="font-medium text-[#ccc] normal-case tracking-normal">| Outstanding Balances</span>
+              </p>
+            </div>
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5 flex flex-col">
+              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
+                Sales Breakdown <span className="font-medium text-[#ccc] normal-case tracking-normal">| Previous shift</span>
+              </p>
+              <div className="flex-1 flex items-center justify-center py-4">
+                <svg width="80" height="80" viewBox="0 0 80 80">
+                  <circle cx="40" cy="40" r="34" fill="none" stroke="#e8e8e8" strokeWidth="8" />
+                </svg>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <div className="py-3 text-center border-t border-[#f4f4f4] flex-shrink-0">
+        <span className="text-[10px] font-medium text-[#ccc] tracking-widest">&copy; 2025 STATIONSYNC</span>
+      </div>
+
+      {showReportIssue && <ReportIssueModal onClose={() => setShowReportIssue(false)} />}
+      {showNewShiftLogin && <NewShiftLoginModal onClose={() => setShowNewShiftLogin(false)} onConfirm={() => setShowNewShiftLogin(false)} />}
+    </div>
+  )
+}
 
 function NotConfigured({ label }: { label: string }) {
   return (
@@ -55,6 +161,7 @@ export function DashboardPage() {
   })
 
   const { data: shift, refetch: refetchShift } = useOpenShift()
+  const { data: cstoreShift } = useOpenCStoreShift()
   const { data: pumps = [] } = usePumps()
   const { data: fuels = [] } = useFuels()
   const { data: tanks = [] } = useTanks()
@@ -276,6 +383,10 @@ export function DashboardPage() {
   if (user && managerRoles.has(user.role)) return <ReportsDashboard />
   if (user?.role === 'Attendant') return <AttendantDashboard />
   if (user?.role === 'Cashier') return <CashierDashboard />
+
+  if (!shift || shift.supervisor_id !== user?.id) {
+    return <SupervisorIdleView tanks={tanks} stationShiftOpen={!!shift} cstoreShiftOpen={!!cstoreShift} />
+  }
 
   return (
     <div className="flex h-full overflow-hidden">

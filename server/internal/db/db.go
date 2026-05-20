@@ -72,6 +72,62 @@ func EnsureSchema(ctx context.Context, pool *pgxpool.Pool) error {
 			UNIQUE (period_id, user_id)
 		)`,
 
+		// 013_cstore_products_orders
+		`ALTER TABLE shifts ADD COLUMN IF NOT EXISTS shift_type TEXT NOT NULL DEFAULT 'service_station'
+		  CHECK (shift_type IN ('service_station', 'convenience_store'))`,
+		`CREATE TABLE IF NOT EXISTS products (
+			id          UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+			business_id UUID    NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+			branch_id   UUID    REFERENCES branches(id) ON DELETE SET NULL,
+			name        TEXT    NOT NULL,
+			category    TEXT,
+			sku         TEXT,
+			price       NUMERIC(10,2) NOT NULL DEFAULT 0,
+			cost        NUMERIC(10,2),
+			stock_qty   INT     NOT NULL DEFAULT 0,
+			unit        TEXT    NOT NULL DEFAULT 'each',
+			active      BOOLEAN NOT NULL DEFAULT true,
+			created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`DO $$ BEGIN
+			ALTER TABLE products ADD CONSTRAINT products_business_sku_unique UNIQUE (business_id, sku);
+		EXCEPTION WHEN duplicate_table THEN NULL; END $$`,
+		`CREATE TABLE IF NOT EXISTS orders (
+			id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			business_id    UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+			branch_id      UUID REFERENCES branches(id) ON DELETE SET NULL,
+			shift_id       UUID REFERENCES shifts(id) ON DELETE SET NULL,
+			cashier_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+			cashier_name   TEXT NOT NULL DEFAULT '',
+			order_no       BIGSERIAL,
+			status         TEXT NOT NULL DEFAULT 'open'
+			                 CHECK (status IN ('open', 'paid', 'voided')),
+			payment_method TEXT,
+			subtotal       NUMERIC(10,2) NOT NULL DEFAULT 0,
+			tax            NUMERIC(10,2) NOT NULL DEFAULT 0,
+			total          NUMERIC(10,2) NOT NULL DEFAULT 0,
+			note           TEXT,
+			created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE TABLE IF NOT EXISTS order_items (
+			id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			order_id   UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+			product_id UUID REFERENCES products(id) ON DELETE SET NULL,
+			name       TEXT    NOT NULL,
+			sku        TEXT,
+			quantity   INT     NOT NULL DEFAULT 1,
+			unit_price NUMERIC(10,2) NOT NULL,
+			discount   NUMERIC(10,2) NOT NULL DEFAULT 0,
+			total      NUMERIC(10,2) NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+
+		// 014_cstore_order_fields
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name TEXT`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount      NUMERIC(10,2) NOT NULL DEFAULT 0`,
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS change_given  NUMERIC(10,2)`,
+		`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS discount  NUMERIC(10,2) NOT NULL DEFAULT 0`,
+
 		// time_off_requests table
 		`CREATE TABLE IF NOT EXISTS time_off_requests (
 			id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),

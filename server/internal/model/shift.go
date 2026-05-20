@@ -10,4 +10,5 @@ type Shift struct {
 	StartTime      string  `db:"start_time" json:"start_time"`
 	EndTime        *string `db:"end_time" json:"end_time"`
 	CreatedAt      string  `db:"created_at" json:"created_at"`
+	ShiftType      string  `db:"shift_type" json:"shift_type"`
 }

@@ -3,6 +3,7 @@ import {
   api,
   getBranches,
   getOpenShift,
+  getOpenCStoreShift,
   getShiftFuelPrices,
   getShiftAttendance,
   getShiftDeposits,
@@ -75,6 +76,13 @@ export function useOpenShift() {
   return useQuery({
     queryKey: ['shifts', 'open'],
     queryFn: getOpenShift,
+  })
+}
+
+export function useOpenCStoreShift() {
+  return useQuery({
+    queryKey: ['shifts', 'open', 'convenience'],
+    queryFn: getOpenCStoreShift,
   })
 }
 
@@ -177,7 +185,11 @@ export function useCreateUser() {
     nis: string; trn: string; email: string; employed_on: string
     pay_rate: string; pay_type: string; sick_days: string
   }) => {
-    const res = await api.post<User>('/users', body)
+    const payload = {
+      ...body,
+      sick_days: body.sick_days !== '' ? parseInt(body.sick_days, 10) : null,
+    }
+    const res = await api.post<User>('/users', payload)
     await qc.invalidateQueries({ queryKey: ['users'] })
     return res.data
   }

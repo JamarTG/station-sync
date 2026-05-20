@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { StationSyncLogo } from '../components/StationSyncLogo'
@@ -14,6 +14,13 @@ export function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const clickTimes = useRef<number[]>([])
+
+  useEffect(() => {
+    const html = document.documentElement
+    const wasDark = html.classList.contains('dark')
+    html.classList.remove('dark')
+    return () => { if (wasDark) html.classList.add('dark') }
+  }, [])
 
   function handleLogoClick() {
     const now = Date.now()

@@ -1,11 +1,14 @@
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { useAuth } from '../../lib/authContext'
 import {
   useOpenShift,
+  useOpenCStoreShift,
   useShiftAttendance,
   usePumps,
   useShiftDeposits,
   useFuelSummary,
+  useTanks,
 } from '../../hooks/useApi'
 import type { Deposit, Pump } from '../../lib/api'
 import { CashDepositModal } from './CashDropModal'
@@ -14,8 +17,103 @@ import { ChargeModal } from './ChargeModal'
 import { FXModal } from './FXModal'
 import { AdvanceModal } from './AdvanceModal'
 import { ReportIssueModal } from './ReportIssueModal'
+import { NewShiftLoginModal } from './NewShiftLoginModal'
 
 type RecordType = 'cash' | 'card' | 'charge' | 'fx' | 'advance' | null
+
+const btnClass = 'px-4 py-2 border border-[#ddd] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'
+
+function CardLabel({ title, sub }: { title: string; sub: string }) {
+  return (
+    <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
+      {title} <span className="font-medium text-[#ccc] normal-case tracking-normal">| {sub}</span>
+    </p>
+  )
+}
+
+function EmptyDonut() {
+  return (
+    <div className="flex-1 flex items-center justify-center py-4">
+      <svg width="80" height="80" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="34" fill="none" stroke="#e8e8e8" strokeWidth="8" />
+      </svg>
+    </div>
+  )
+}
+
+function AttendantIdleView({ onReportIssue, onNewShift, cstoreShiftOpen }: { onReportIssue: () => void; onNewShift: () => void; cstoreShiftOpen: boolean }) {
+  const navigate = useNavigate()
+  const { data: tanks = [] } = useTanks()
+
+  return (
+    <div className="flex-1 overflow-y-auto p-5">
+      <div className="space-y-8">
+
+        <section>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Service Station</p>
+          <div className="flex gap-2 flex-wrap mb-4">
+            <button onClick={onReportIssue} className={btnClass}>Report an issue</button>
+            <button onClick={() => navigate({ to: '/schedule' })} className={btnClass}>Request day off</button>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+              <CardLabel title="Sales" sub="Previous shift" />
+              <p className="text-[28px] font-bold text-[#111] leading-none mb-5">J$0.00</p>
+              <div className="space-y-2 text-[12px] font-medium text-[#bbb]">
+                <p>Shortages</p>
+                <p>Overages</p>
+                <p>Balance</p>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+              <CardLabel title="Tanks" sub="Previous shift" />
+              <div className="space-y-2">
+                {tanks.map((t) => (
+                  <p key={t.id} className="text-[13px] font-medium text-[#555]">{t.fuel_name}</p>
+                ))}
+                {tanks.length === 0 && <p className="text-[13px] text-[#ccc]">No tanks configured</p>}
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5 flex flex-col">
+              <CardLabel title="Sales Breakdown" sub="Previous shift" />
+              <EmptyDonut />
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Convenience Store</p>
+          <div className="flex gap-2 flex-wrap mb-4">
+            <button onClick={onReportIssue} className={btnClass}>Report an issue</button>
+            <button onClick={onNewShift} className={btnClass}>{cstoreShiftOpen ? 'Takeover shift' : 'Start a new shift'}</button>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+              <CardLabel title="Sales" sub="Previous shift" />
+              <p className="text-[28px] font-bold text-[#111] leading-none mb-5">J$0.00</p>
+              <div className="space-y-2 text-[12px] font-medium text-[#bbb]">
+                <p>Balance</p>
+                <p>Top Product</p>
+              </div>
+            </div>
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+              <CardLabel title="Customer" sub="Outstanding Balances" />
+            </div>
+            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5 flex flex-col">
+              <CardLabel title="Sales Breakdown" sub="Previous shift" />
+              <EmptyDonut />
+            </div>
+          </div>
+        </section>
+
+      </div>
+
+      <div className="mt-8 py-3 text-center border-t border-[#f4f4f4]">
+        <span className="text-[10px] font-medium text-[#ccc] tracking-widest">&copy; 2025 STATIONSYNC</span>
+      </div>
+    </div>
+  )
+}
 
 
 function fmtTime(iso: string | undefined): string {
@@ -46,12 +144,14 @@ function parseMeta(d: Deposit): Record<string, unknown> {
 export function AttendantDashboard() {
   const { user } = useAuth()
   const { data: shift } = useOpenShift()
+  const { data: cstoreShift } = useOpenCStoreShift()
   const { data: attendance = [] } = useShiftAttendance(shift?.id)
   const { data: pumps = [] } = usePumps()
   const { data: deposits = [] } = useShiftDeposits(shift?.id)
   const [selectedPumpIdx, setSelectedPumpIdx] = useState(0)
   const [recording, setRecording] = useState<RecordType>(null)
   const [showReportIssue, setShowReportIssue] = useState(false)
+  const [showNewShiftLogin, setShowNewShiftLogin] = useState(false)
 
   const myAttendance = attendance.filter((a) => a.user_id === user?.id)
   const clockIn = myAttendance[0]?.clock_in
@@ -116,6 +216,22 @@ export function AttendantDashboard() {
     }
   }
   const fuelBars = Object.entries(fuelSalesMap).sort(([, a], [, b]) => b - a)
+
+  const isIdle = true
+
+  if (isIdle) {
+    return (
+      <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col" style={{ scrollbarWidth: 'none' }}>
+        <AttendantIdleView
+          onReportIssue={() => setShowReportIssue(true)}
+          onNewShift={() => setShowNewShiftLogin(true)}
+          cstoreShiftOpen={!!cstoreShift}
+        />
+        {showReportIssue && <ReportIssueModal onClose={() => setShowReportIssue(false)} />}
+        {showNewShiftLogin && <NewShiftLoginModal onClose={() => setShowNewShiftLogin(false)} onConfirm={() => setShowNewShiftLogin(false)} />}
+      </div>
+    )
+  }
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col" style={{ scrollbarWidth: 'none' }}>
@@ -420,6 +536,9 @@ export function AttendantDashboard() {
       )}
       {showReportIssue && (
         <ReportIssueModal onClose={() => setShowReportIssue(false)} />
+      )}
+      {showNewShiftLogin && (
+        <NewShiftLoginModal onClose={() => setShowNewShiftLogin(false)} onConfirm={() => setShowNewShiftLogin(false)} />
       )}
     </div>
   )
