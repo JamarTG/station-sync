@@ -11,6 +11,7 @@ const gradeLabels: Record<string, string> = {
 }
 
 export interface NozzleRow {
+  nozzleId?: string
   opening: string
   closing: string
   pumpNumber?: number

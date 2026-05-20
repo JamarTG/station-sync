@@ -29,6 +29,7 @@ func RegisterRoute(g *gin.RouterGroup, db *pgxpool.Pool) {
 	shifts.DELETE("/:shiftId/deposits/:id", dh.Delete)
 
 	shifts.GET("/:shiftId/nozzle-logs", nlh.ListByShift)
+	shifts.POST("/:shiftId/nozzle-logs", nlh.Create)
 
 	shifts.GET("/:shiftId/tank-logs", tlh.ListByShift)
 	shifts.POST("/:shiftId/tank-logs", tlh.Upsert)

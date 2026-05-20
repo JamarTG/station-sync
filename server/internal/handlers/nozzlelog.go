@@ -64,6 +64,9 @@ func (h *NozzleLogHandler) Create(c *gin.Context) {
 		)
 		INSERT INTO nozzle_logs (nozzle_id, shift_id, starting_reading, ending_reading)
 		SELECT $1, $2, $3, $4 FROM auth
+		ON CONFLICT (nozzle_id, shift_id) DO UPDATE
+			SET starting_reading = EXCLUDED.starting_reading,
+			    ending_reading   = EXCLUDED.ending_reading
 		RETURNING id::text, nozzle_id::text, shift_id::text, starting_reading, ending_reading`,
 		body.NozzleID, body.ShiftID, body.StartingReading, body.EndingReading, businessID,
 	).Scan(&nl.ID, &nl.NozzleID, &nl.ShiftID, &nl.StartingReading, &nl.EndingReading)

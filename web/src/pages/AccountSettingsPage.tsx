@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useRouterState } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { MoreHorizontal, X, Plus } from 'lucide-react'
+import { MoreHorizontal, X, Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '../lib/authContext'
 import { usePumps, useNozzles, useFuels, useUsers, useTanks } from '../hooks/useApi'
 import { createUser, updateUser } from '../lib/api'
@@ -72,10 +72,42 @@ function ToggleRow({ label, description, defaultOn = false }: { label: string; d
 function SaveButton({ label = 'Save changes' }: { label?: string }) {
   return (
     <div className="pt-1">
-      <button className="px-5 py-2 bg-[#111] text-white text-[13px] font-semibold rounded-xl hover:bg-[#333] transition-colors">
+      <button className="px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors">
         {label}
       </button>
     </div>
+  )
+}
+
+function PlanSection() {
+  return (
+    <Section title="Plan">
+      <div className="flex items-center justify-between py-1">
+        <div>
+          <p className="text-[14px] font-bold text-[#111]">Starter</p>
+          <p className="text-[12px] text-[#aaa] mt-0.5">Your current plan</p>
+        </div>
+        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#f0f0f0] text-[#555] tracking-widest uppercase">Active</span>
+      </div>
+      <div className="border-t border-[#f4f4f4] pt-4 space-y-2">
+        {[
+          '1 branch',
+          'Up to 10 staff members',
+          'Shift management & payroll',
+          'Reports & analytics',
+        ].map((feature) => (
+          <div key={feature} className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#bbb] shrink-0" />
+            <p className="text-[13px] text-[#666]">{feature}</p>
+          </div>
+        ))}
+      </div>
+      <div className="pt-1">
+        <button className="px-5 py-2 border border-[#e0e0e0] text-[13px] font-semibold text-[#555] rounded-xl hover:bg-[#f9f9f9] transition-colors">
+          Manage plan
+        </button>
+      </div>
+    </Section>
   )
 }
 
@@ -105,6 +137,8 @@ function ProfilePanel() {
         <SaveButton />
       </Section>
       <FXRatesPanel />
+      <ShiftsPanel />
+      <PlanSection />
     </div>
   )
 }
@@ -172,13 +206,14 @@ function MemberModal({
   onSave: () => void
 }) {
   const isEdit = !!member
-  const [name, setName]       = useState(member?.name ?? '')
-  const [email, setEmail]     = useState(member?.email ?? '')
-  const [role, setRole]       = useState(member?.role ?? 'Attendant')
-  const [phone, setPhone]     = useState(member?.phone ?? '')
+  const [name, setName]         = useState(member?.name ?? '')
+  const [email, setEmail]       = useState(member?.email ?? '')
+  const [role, setRole]         = useState(member?.role ?? 'Attendant')
+  const [phone, setPhone]       = useState(member?.phone ?? '')
+  const [sickDays, setSickDays] = useState(member?.sick_days?.toString() ?? '')
   const [password, setPassword] = useState('')
-  const [error, setError]     = useState('')
-  const [saving, setSaving]   = useState(false)
+  const [error, setError]       = useState('')
+  const [saving, setSaving]     = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -186,9 +221,10 @@ function MemberModal({
     if (!isEdit && !password) { setError('Password is required'); return }
     setSaving(true)
     setError('')
+    const sick = sickDays !== '' ? parseInt(sickDays, 10) : undefined
     try {
       if (isEdit) {
-        await updateUser(member.id, { name: name.trim(), email: email.trim(), role, phone: phone || undefined })
+        await updateUser(member.id, { name: name.trim(), email: email.trim(), role, phone: phone || undefined, sick_days: sick ?? null })
       } else {
         await createUser({ name: name.trim(), email: email.trim(), role, password, phone: phone || undefined })
       }
@@ -233,6 +269,10 @@ function MemberModal({
             <label className={labelCls}>Phone <span className="normal-case tracking-normal font-normal text-[#ccc]">(optional)</span></label>
             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="876-555-0001" className={inputCls} />
           </div>
+          <div>
+            <label className={labelCls}>Sick Days <span className="normal-case tracking-normal font-normal text-[#ccc]">(optional)</span></label>
+            <input type="number" min="0" value={sickDays} onChange={(e) => setSickDays(e.target.value)} placeholder="0" className={inputCls} />
+          </div>
           {!isEdit && (
             <div>
               <label className={labelCls}>Temporary password</label>
@@ -243,7 +283,7 @@ function MemberModal({
           <button
             type="submit"
             disabled={saving}
-            className="w-full mt-1 py-3 rounded-2xl bg-[#111] text-white text-[13px] font-bold uppercase tracking-widest hover:bg-[#333] transition-colors disabled:opacity-40"
+            className="w-full mt-1 py-2.5 rounded-xl bg-white border border-[#ddd] text-[#333] text-[13px] font-bold uppercase tracking-widest hover:bg-[#f9f9f9] transition-colors disabled:opacity-40"
           >
             {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add member'}
           </button>
@@ -296,7 +336,10 @@ function TeamPanel() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className={`text-[13px] font-semibold ${u.active ? 'text-[#111]' : 'text-[#aaa]'}`}>{u.name}</p>
-                  <p className="text-[11px] font-medium text-[#aaa]">{u.role} · {u.email}</p>
+                  <p className="text-[11px] font-medium text-[#aaa]">
+                    {u.role} · {u.email}
+                    {u.sick_days != null && ` · ${u.sick_days}d sick`}
+                  </p>
                 </div>
                 {!u.active && (
                   <span className="text-[10px] font-bold tracking-widest text-[#ccc] uppercase">Inactive</span>
@@ -333,7 +376,7 @@ function TeamPanel() {
         <div className="pt-2">
           <button
             onClick={() => setModalMember('new')}
-            className="flex items-center gap-2 px-4 py-2 bg-[#111] text-white text-[13px] font-semibold rounded-xl hover:bg-[#333] transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors"
           >
             <Plus size={13} />
             Add member
@@ -528,7 +571,7 @@ function FXRatesPanel() {
         <div className="pt-1">
           <button
             onClick={handleSave}
-            className="px-5 py-2 bg-[#111] text-white text-[13px] font-semibold rounded-xl hover:bg-[#333] transition-colors"
+            className="px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors"
           >
             {saved ? 'Saved' : 'Save rates'}
           </button>
@@ -538,6 +581,160 @@ function FXRatesPanel() {
         <ToggleRow label="Round to nearest dollar" description="Round FX amounts to the nearest J$ when recording transactions" />
         <ToggleRow label="Show FX rate on receipts" description="Display the exchange rate used on printed receipts" defaultOn />
       </Section>
+    </div>
+  )
+}
+
+type ShiftConfig = { id: string; name: string; start: string; end: string }
+
+function calcDuration(start: string, end: string): string {
+  if (!start || !end) return ''
+  const [sh, sm] = start.split(':').map(Number)
+  const [eh, em] = end.split(':').map(Number)
+  let mins = (eh * 60 + em) - (sh * 60 + sm)
+  if (mins <= 0) mins += 24 * 60
+  const h = Math.floor(mins / 60)
+  const m = mins % 60
+  return m === 0 ? `${h}h` : `${h}h ${m}m`
+}
+
+function ShiftRows({
+  shifts,
+  onChange,
+  onAdd,
+  onRemove,
+}: {
+  shifts: ShiftConfig[]
+  onChange: (id: string, field: keyof ShiftConfig, value: string) => void
+  onAdd: () => void
+  onRemove: (id: string) => void
+}) {
+  const inputCls = 'bg-[#f9f9f9] border border-[#ebebeb] rounded-xl px-3 py-2 text-[13px] font-medium text-[#111] outline-none focus:border-[#ccc] transition-colors w-full'
+  return (
+    <div className="space-y-3">
+      {shifts.length === 0 && (
+        <p className="text-[13px] font-medium text-[#bbb] py-2">No shifts configured</p>
+      )}
+      {shifts.map((s) => {
+        const dur = calcDuration(s.start, s.end)
+        return (
+          <div key={s.id} className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <input
+                type="text"
+                value={s.name}
+                onChange={(e) => onChange(s.id, 'name', e.target.value)}
+                placeholder="Shift name"
+                className={inputCls}
+              />
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <input
+                type="time"
+                value={s.start}
+                onChange={(e) => onChange(s.id, 'start', e.target.value)}
+                className="bg-[#f9f9f9] border border-[#ebebeb] rounded-xl px-3 py-2 text-[13px] font-medium text-[#111] outline-none focus:border-[#ccc] transition-colors"
+              />
+              <span className="text-[12px] font-medium text-[#bbb]">to</span>
+              <input
+                type="time"
+                value={s.end}
+                onChange={(e) => onChange(s.id, 'end', e.target.value)}
+                className="bg-[#f9f9f9] border border-[#ebebeb] rounded-xl px-3 py-2 text-[13px] font-medium text-[#111] outline-none focus:border-[#ccc] transition-colors"
+              />
+            </div>
+            {dur && (
+              <span className="text-[11px] font-semibold text-[#aaa] flex-shrink-0 w-10 text-right">{dur}</span>
+            )}
+            <button
+              onClick={() => onRemove(s.id)}
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-[#ccc] hover:text-red-400 hover:bg-red-50 transition-colors flex-shrink-0"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
+        )
+      })}
+      <div className="pt-1">
+        <button
+          onClick={onAdd}
+          className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
+        >
+          <Plus size={13} />
+          Add shift
+        </button>
+      </div>
+    </div>
+  )
+}
+
+const DEFAULT_STATION_SHIFTS: ShiftConfig[] = [
+  { id: '1', name: 'Morning', start: '06:00', end: '14:00' },
+  { id: '2', name: 'Evening', start: '14:00', end: '22:00' },
+  { id: '3', name: 'Night',   start: '22:00', end: '06:00' },
+]
+const DEFAULT_CONV_SHIFTS: ShiftConfig[] = [
+  { id: '1', name: 'Day',   start: '08:00', end: '16:00' },
+  { id: '2', name: 'Night', start: '16:00', end: '00:00' },
+]
+
+function loadShifts(key: string, fallback: ShiftConfig[]): ShiftConfig[] {
+  try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? fallback } catch { return fallback }
+}
+
+function ShiftsPanel() {
+  const [stationShifts, setStationShifts] = useState<ShiftConfig[]>(() => loadShifts('ss_station_shifts', DEFAULT_STATION_SHIFTS))
+  const [convShifts, setConvShifts] = useState<ShiftConfig[]>(() => loadShifts('ss_conv_shifts', DEFAULT_CONV_SHIFTS))
+  const [saved, setSaved] = useState(false)
+
+  function update(
+    setList: React.Dispatch<React.SetStateAction<ShiftConfig[]>>,
+    id: string, field: keyof ShiftConfig, value: string
+  ) {
+    setList((prev) => prev.map((s) => s.id === id ? { ...s, [field]: value } : s))
+  }
+
+  function add(setList: React.Dispatch<React.SetStateAction<ShiftConfig[]>>) {
+    setList((prev) => [...prev, { id: Date.now().toString(), name: '', start: '', end: '' }])
+  }
+
+  function remove(setList: React.Dispatch<React.SetStateAction<ShiftConfig[]>>, id: string) {
+    setList((prev) => prev.filter((s) => s.id !== id))
+  }
+
+  function handleSave() {
+    localStorage.setItem('ss_station_shifts', JSON.stringify(stationShifts))
+    localStorage.setItem('ss_conv_shifts', JSON.stringify(convShifts))
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div className="space-y-4">
+      <Section title="Service Station Shifts">
+        <ShiftRows
+          shifts={stationShifts}
+          onChange={(id, f, v) => update(setStationShifts, id, f, v)}
+          onAdd={() => add(setStationShifts)}
+          onRemove={(id) => remove(setStationShifts, id)}
+        />
+      </Section>
+      <Section title="Convenience Store Shifts">
+        <ShiftRows
+          shifts={convShifts}
+          onChange={(id, f, v) => update(setConvShifts, id, f, v)}
+          onAdd={() => add(setConvShifts)}
+          onRemove={(id) => remove(setConvShifts, id)}
+        />
+      </Section>
+      <div className="pt-1">
+        <button
+          onClick={handleSave}
+          className="px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors"
+        >
+          {saved ? 'Saved' : 'Save shifts'}
+        </button>
+      </div>
     </div>
   )
 }

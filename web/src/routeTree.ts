@@ -10,7 +10,7 @@ import { LoginPage } from './pages/LoginPage'
 import { SignUpPage } from './pages/SignUpPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SalesPage } from './pages/SalesPage'
-import { AccountsPage } from './pages/AccountsPage'
+import { CustomersPage } from './pages/AccountsPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { StaffPage } from './pages/StaffPage'
 import { SchedulePage } from './pages/SchedulePage'
@@ -18,6 +18,9 @@ import { ChargesPage } from './pages/ChargesPage'
 import { AccountSettingsPage } from './pages/AccountSettingsPage'
 import { ExpensesPage } from './pages/ExpensesPage'
 import { ConvenienceStaffPage } from './pages/ConvenienceStaffPage'
+import { ConvenienceSchedulePage } from './pages/ConvenienceSchedulePage'
+import { ProductsPage } from './pages/ProductsPage'
+import { ConvenienceSalesPage } from './pages/ConvenienceSalesPage'
 
 // Root: just renders <Outlet /> — no layout, no auth logic
 const rootRoute = createRootRoute({ component: Outlet, notFoundComponent: NotFoundPage })
@@ -59,7 +62,7 @@ const salesRoute = createRoute({
 const accountsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/accounts',
-  component: AccountsPage,
+  component: CustomersPage,
 })
 
 const reportsRoute = createRoute({
@@ -89,13 +92,13 @@ const chargesRoute = createRoute({
 const convSalesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/convenience/sales',
-  component: SalesPage,
+  component: ConvenienceSalesPage,
 })
 
 const convAccountsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/convenience/accounts',
-  component: AccountsPage,
+  component: CustomersPage,
 })
 
 const convReportsRoute = createRoute({
@@ -108,6 +111,18 @@ const convStaffRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/convenience/staff',
   component: ConvenienceStaffPage,
+})
+
+const convScheduleRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/convenience/schedule',
+  component: ConvenienceSchedulePage,
+})
+
+const convProductsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/convenience/products',
+  component: ProductsPage,
 })
 
 const settingsRoute = createRoute({
@@ -137,6 +152,8 @@ export const routeTree = rootRoute.addChildren([
     convAccountsRoute,
     convReportsRoute,
     convStaffRoute,
+    convScheduleRoute,
+    convProductsRoute,
     expensesRoute,
     settingsRoute,
   ]),

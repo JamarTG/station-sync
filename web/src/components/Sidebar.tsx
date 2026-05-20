@@ -41,7 +41,7 @@ const attendantItems = [
 const cashierItems = [
   { label: 'Products',  to: '/convenience/products',  icon: ShoppingCart },
   { label: 'Sales',     to: '/convenience/sales',     icon: TrendingUp },
-  { label: 'Accounts',  to: '/convenience/accounts',  icon: Banknote },
+  { label: 'Customers', to: '/convenience/accounts',  icon: Banknote },
   { label: 'Reports',   to: '/convenience/reports',   icon: BarChart2 },
   { label: 'Staff',     to: '/convenience/staff',     icon: Users },
   { label: 'Schedule',  to: '/convenience/schedule',  icon: Calendar },
@@ -327,6 +327,12 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
             {managerItems.map((item) => (
               <NavLink key={item.to} {...item} onClick={onClose} />
             ))}
+            <div className="pt-4 pb-1 px-4">
+              <p className="text-[10px] font-semibold tracking-widest text-[#aaa] uppercase">Convenience Store</p>
+            </div>
+            <NavLink label="Sales"     to="/convenience/sales"    icon={TrendingUp}  onClick={onClose} />
+            <NavLink label="Products"  to="/convenience/products" icon={ShoppingCart} onClick={onClose} />
+            <NavLink label="Customers" to="/convenience/accounts" icon={User}         onClick={onClose} />
           </nav>
         ) : (
           <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">

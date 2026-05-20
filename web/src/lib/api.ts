@@ -34,6 +34,7 @@ export interface AuthUser {
   trn?: string
   pay_rate?: number | null
   pay_type?: 'Hourly' | 'Salary' | null
+  sick_days?: number | null
   latest_net_pay?: number | null
 }
 
@@ -306,6 +307,7 @@ export function updateUser(id: string, data: {
   employed_on?: string
   date_of_birth?: string
   active?: boolean
+  sick_days?: number | null
 }) {
   return api.patch<AuthUser>(`/users/${id}`, data).then((r) => r.data)
 }
@@ -367,6 +369,13 @@ export function getTanks() {
 
 export function getShiftTankLogs(shiftId: string) {
   return api.get<TankLog[]>(`/shifts/${shiftId}/tank-logs`).then((r) => r.data)
+}
+
+export function upsertNozzleLog(
+  shiftId: string,
+  data: { nozzle_id: string; starting_reading: number; ending_reading: number }
+) {
+  return api.post(`/shifts/${shiftId}/nozzle-logs`, { ...data, shift_id: shiftId }).then((r) => r.data)
 }
 
 export function upsertTankLog(

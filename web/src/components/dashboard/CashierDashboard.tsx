@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
-import { MoreHorizontal, Search, GlassWater, Package, Utensils, Sparkles, Home, Wrench, Snowflake, Flame, ChevronLeft, ChevronRight, Cigarette } from 'lucide-react'
+import { MoreHorizontal, Search, GlassWater, Candy, Utensils, Sparkles, Home, Wrench, Snowflake, Flame, ChevronLeft, ChevronRight, Cigarette, Smartphone } from 'lucide-react'
 import { useAuth } from '../../lib/authContext'
 import { useOpenShift, useShiftDeposits } from '../../hooks/useApi'
 import { CashDepositModal } from './CashDropModal'
-import { CardModal } from './CardModal'
+
 import { DepositModal } from './DepositModal'
 import { ReportIssueModal } from './ReportIssueModal'
 
-type View = 'cash-deposit' | 'card' | 'deposit' | null
+type View = 'cash-deposit' | 'deposit' | null
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -18,13 +18,14 @@ function getGreeting() {
 
 const categories = [
   { label: 'Liquors &\nBeverages', icon: GlassWater },
-  { label: 'Snacks &\nConfectionaries', icon: Package },
+  { label: 'Snacks &\nCandies', icon: Candy },
   { label: 'Quick Meals', icon: Utensils },
   { label: 'Smoking \nProducts', icon: Cigarette },
   { label: 'Household Items', icon: Home },
   { label: 'Lubes &\n Car Care', icon: Wrench },
   { label: 'Frozen\nFoods', icon: Snowflake },
   { label: 'LPG', icon: Flame },
+  { label: 'Credit &\nElectronics', icon: Smartphone },
 ]
 
 const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
@@ -101,9 +102,6 @@ export function CashierDashboard() {
 
   const firstName = user?.name?.trim().split(/\s+/)[0] ?? ''
   const greeting = getGreeting()
-
-  const cardDeposits = deposits.filter((d) => d.type === 'Card')
-  const cardTotal = cardDeposits.reduce((s, d) => s + d.amount, 0)
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -288,36 +286,24 @@ export function CashierDashboard() {
           })()}
         </div>
 
-        {/* Card | Deposits */}
+        {/* Loyalty | Points Leaderboard */}
         <div className="p-5 border-b border-[#e8e8e8]">
           <p className="mb-4">
-            <span className="text-[13px] font-bold text-[#111]">Card</span>
-            <span className="text-[13px] font-medium text-[#aaa]"> | Deposits</span>
+            <span className="text-[13px] font-bold text-[#111]">Loyalty Points</span>
+            <span className="text-[13px] font-medium text-[#aaa]"> | Leaderboard</span>
           </p>
-          {cardDeposits.length === 0 ? (
-            <div className="py-4 flex items-center justify-center">
-              <p className="text-[13px] font-medium text-[#bbb]">No card deposits</p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-1 mb-3">
-              {cardDeposits.slice(0, 3).map((d) => (
-                <div key={d.id} className="flex items-center justify-between py-1.5">
-                  <p className="text-[13px] font-semibold text-[#111]">{d.attendant_name}</p>
-                  <p className="text-[13px] font-semibold text-[#333]">{fmt(d.amount)}</p>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-[20px_1fr_auto] gap-3 mb-2">
+            <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">#</p>
+            <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">Customer</p>
+            <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase text-right">Points</p>
+          </div>
+          {/* TODO: wire to real loyalty data */}
+          <div className="py-4 flex items-center justify-center">
+            <p className="text-[13px] font-medium text-[#bbb]">No loyalty data yet</p>
+          </div>
           <div className="flex items-center justify-between border-t border-[#f0f0f0] pt-3">
-            <button
-              onClick={() => setView('card')}
-              className="text-[12px] font-semibold text-[#888] hover:text-[#111] transition-colors"
-            >
-              + add
-            </button>
-            <p className={`text-[13px] font-bold ${cardTotal > 0 ? 'text-[#111]' : 'text-[#bbb]'}`}>
-              {fmt(cardTotal)}
-            </p>
+            <button className="text-[12px] font-semibold text-[#888] hover:text-[#111] transition-colors">view all</button>
+            <p className="text-[13px] font-bold text-[#bbb]">0 customers</p>
           </div>
         </div>
 
@@ -342,13 +328,7 @@ export function CashierDashboard() {
           shiftId={shift?.id}
         />
       )}
-      {view === 'card' && (
-        <CardModal
-          onBack={() => setView(null)}
-          onClose={() => setView(null)}
-          shiftId={shift?.id}
-        />
-      )}
+
       {view === 'deposit' && (
         <DepositModal
           onBack={() => setView(null)}

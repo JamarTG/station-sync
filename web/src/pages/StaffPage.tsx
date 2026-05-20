@@ -3,6 +3,7 @@ import {
   useUsers, useUserPayroll, usePayrollPeriods, usePayrollRecords,
   useCreateUser, useUpdatePay, usePayrollWeeklySummary,
 } from '../hooks/useApi'
+import { useAuth } from '../lib/authContext'
 import { api } from '../lib/api'
 import type { User, PayrollPeriod, PayrollRecord } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
@@ -22,21 +23,26 @@ function fmtDate(s: string | null | undefined) {
 
 function roleBadgeColor(role: string) {
   switch (role) {
-    case 'Supervisor': return 'bg-[#f0f0f0] text-[#555]'
-    case 'Manager':    return 'bg-[#fff3cd] text-[#856404]'
-    case 'Admin':      return 'bg-[#cfe2ff] text-[#0a3d91]'
-    case 'Attendant':  return 'bg-[#d1e7dd] text-[#0a5435]'
-    default:           return 'bg-[#f0f0f0] text-[#555]'
+    case 'Supervisor':  return 'bg-[#f0f0f0] text-[#555]'
+    case 'Manager':     return 'bg-[#fff3cd] text-[#856404]'
+    case 'Admin':       return 'bg-[#cfe2ff] text-[#0a3d91]'
+    case 'Attendant':   return 'bg-[#d1e7dd] text-[#0a5435]'
+    case 'Cashier':     return 'bg-[#d1e7dd] text-[#0a5435]'
+    case 'Stock Clerk': return 'bg-[#cfe2ff] text-[#0a3d91]'
+    default:            return 'bg-[#f0f0f0] text-[#555]'
   }
 }
 
+const STATION_ROLES    = new Set(['Attendant', 'Supervisor', 'Manager', 'Admin', 'Super Admin'])
+const CONVENIENCE_ROLES = new Set(['Cashier', 'Stock Clerk'])
+
 // ── Add Employee Modal ────────────────────────────────────────────────────────
 
-function AddEmployeeModal({ onClose }: { onClose: () => void }) {
+function AddEmployeeModal({ onClose, isManagerOrAdmin }: { onClose: () => void; isManagerOrAdmin: boolean }) {
   const createUser = useCreateUser()
   const [form, setForm] = useState({
     name: '', role: 'Attendant', password: '', phone: '',
-    nis: '', trn: '', email: '', employed_on: '', pay_rate: '', pay_type: 'Hourly',
+    nis: '', trn: '', email: '', employed_on: '', pay_rate: '', pay_type: 'Hourly', sick_days: '',
   })
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
@@ -92,7 +98,10 @@ function AddEmployeeModal({ onClose }: { onClose: () => void }) {
             <label className="block text-[11px] font-semibold text-[#888] mb-1 uppercase tracking-widest">Role</label>
             <select value={form.role} onChange={(e) => set('role', e.target.value)}
               className="w-full border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111]">
-              {['Attendant', 'Supervisor', 'Manager', 'Admin'].map((r) => <option key={r}>{r}</option>)}
+              {(isManagerOrAdmin
+                ? ['Attendant', 'Supervisor', 'Manager', 'Admin', 'Cashier', 'Stock Clerk']
+                : ['Attendant', 'Supervisor', 'Manager', 'Admin']
+              ).map((r) => <option key={r}>{r}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -106,9 +115,10 @@ function AddEmployeeModal({ onClose }: { onClose: () => void }) {
               </select>
             </div>
           </div>
+          {field('Sick Days', 'sick_days', 'number')}
           {error && <p className="text-[12px] text-red-500">{error}</p>}
           <button type="submit" disabled={loading}
-            className="w-full bg-[#111] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#333] transition-colors disabled:opacity-40 mt-2">
+            className="w-full bg-white border border-[#ddd] text-[#333] rounded-xl py-2.5 text-[13px] font-semibold hover:bg-[#f9f9f9] transition-colors disabled:opacity-40 mt-2">
             {loading ? 'Adding...' : 'Add Employee'}
           </button>
         </form>
@@ -164,7 +174,7 @@ function EditPayModal({ user, onClose }: { user: User; onClose: () => void }) {
           </div>
           {error && <p className="text-[12px] text-red-500">{error}</p>}
           <button type="submit" disabled={loading}
-            className="w-full bg-[#111] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#333] transition-colors disabled:opacity-40">
+            className="w-full bg-white border border-[#ddd] text-[#333] rounded-xl py-2.5 text-[13px] font-semibold hover:bg-[#f9f9f9] transition-colors disabled:opacity-40">
             {loading ? 'Saving...' : 'Save'}
           </button>
         </form>
@@ -216,7 +226,7 @@ function NewPeriodModal({ onClose }: { onClose: () => void }) {
           ))}
           {error && <p className="text-[12px] text-red-500">{error}</p>}
           <button type="submit" disabled={loading}
-            className="w-full bg-[#111] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#333] transition-colors disabled:opacity-40">
+            className="w-full bg-white border border-[#ddd] text-[#333] rounded-xl py-2.5 text-[13px] font-semibold hover:bg-[#f9f9f9] transition-colors disabled:opacity-40">
             {loading ? 'Generating...' : 'Generate Payroll'}
           </button>
         </form>
@@ -334,7 +344,7 @@ function RecordCard({ record }: { record: PayrollRecord }) {
                 </div>
                 <div className="flex gap-2 mt-2">
                   <button onClick={saveAdjustments} disabled={saving}
-                    className="flex-1 bg-[#111] text-white rounded-lg py-1.5 text-[12px] font-semibold hover:bg-[#333] transition-colors disabled:opacity-40">
+                    className="flex-1 bg-white border border-[#ddd] text-[#333] rounded-xl py-1.5 text-[12px] font-semibold hover:bg-[#f9f9f9] transition-colors disabled:opacity-40">
                     {saving ? 'Saving...' : 'Save'}
                   </button>
                   <button onClick={cancelAdj}
@@ -401,6 +411,7 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
     { label: 'NIS #',       value: user.nis || '—' },
     { label: 'TRN #',       value: user.trn || '—' },
     { label: 'Employed On', value: fmtDate(user.employed_on) },
+    { label: 'Sick Days',   value: user.sick_days != null ? `${user.sick_days} day${user.sick_days !== 1 ? 's' : ''}` : '—' },
   ]
 
   return (
@@ -531,7 +542,7 @@ function PeriodOverview({ period, onBack }: { period: PayrollPeriod; onBack: () 
         </div>
         {period.status === 'Draft' ? (
           <button onClick={handlePublish}
-            className="px-4 py-2 bg-[#111] text-white text-[13px] font-semibold rounded-xl hover:bg-[#333] transition-colors">
+            className="px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors">
             Publish
           </button>
         ) : (
@@ -599,19 +610,121 @@ function PeriodOverview({ period, onBack }: { period: PayrollPeriod; onBack: () 
   )
 }
 
-// ── Staff List ────────────────────────────────────────────────────────────────
+// ── Payroll Panel ─────────────────────────────────────────────────────────────
 
-function StaffList({ onSelect }: { onSelect: (u: User) => void }) {
-  const { data: users = [], isLoading }  = useUsers()
-  const { data: weekly }                 = usePayrollWeeklySummary()
-  const [showAdd, setShowAdd]            = useState(false)
+function PayrollPanel({ onSelectPeriod }: { onSelectPeriod: (p: PayrollPeriod) => void }) {
+  const { data: periods = [], isLoading } = usePayrollPeriods()
+  const [showModal, setShowModal]         = useState(false)
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="p-5 flex-1 flex flex-col min-h-0">
+        <div className="flex items-center justify-between mb-4">
+          <p>
+            <span className="text-[13px] font-bold text-[#111]">Payroll</span>
+            <span className="text-[13px] font-medium text-[#aaa]"> | Periods</span>
+          </p>
+        </div>
+
+        <div className="grid grid-cols-[20px_1fr_auto] gap-3 mb-2">
+          <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">#</p>
+          <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">Period</p>
+          <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase text-right">Status</p>
+        </div>
+
+        {isLoading ? (
+          <div className="py-6 flex items-center justify-center">
+            <p className="text-[13px] font-medium text-[#bbb]">Loading…</p>
+          </div>
+        ) : periods.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-[13px] font-medium text-[#bbb]">No payroll periods yet</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto flex flex-col">
+            {periods.map((p, i) => (
+              <button
+                key={p.id}
+                onClick={() => onSelectPeriod(p)}
+                className="grid grid-cols-[20px_1fr_auto] gap-3 items-center py-2.5 border-b border-[#f8f8f8] last:border-0 hover:bg-[#fafafa] -mx-1 px-1 rounded-lg transition-colors text-left"
+              >
+                <p className="text-[11px] font-bold text-[#ccc]">{i + 1}</p>
+                <p className="text-[13px] font-semibold text-[#111]">
+                  {fmtDate(p.start_date)} – {fmtDate(p.end_date)}
+                </p>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  p.status === 'Published' ? 'bg-[#d1e7dd] text-[#0a5435]' : 'bg-[#f0f0f0] text-[#555]'
+                }`}>
+                  {p.status}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between border-t border-[#f0f0f0] px-5 py-3">
+        <button
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-1 text-[12px] font-semibold text-[#888] hover:text-[#111] transition-colors"
+        >
+          <Plus size={12} /> New
+        </button>
+        <p className="text-[13px] font-bold text-[#bbb]">{periods.length} period{periods.length !== 1 ? 's' : ''}</p>
+      </div>
+
+      {showModal && <NewPeriodModal onClose={() => setShowModal(false)} />}
+    </div>
+  )
+}
+
+// ── Staff Table ───────────────────────────────────────────────────────────────
+
+function StaffRow({ user: u, onSelect, dimmed = false }: { user: User; onSelect: (u: User) => void; dimmed?: boolean }) {
+  return (
+    <button onClick={() => onSelect(u)}
+      className={`w-full grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 items-center px-5 py-3.5 border-b border-[#f8f8f8] hover:bg-[#fafafa] transition-colors text-left ${dimmed ? 'opacity-50' : ''}`}>
+      <div className="flex items-center gap-3 min-w-0">
+        <div className="w-8 h-8 rounded-full bg-[#111] text-white flex items-center justify-center text-[12px] font-bold shrink-0">
+          {u.name.charAt(0).toUpperCase()}
+        </div>
+        <p className="text-[13px] font-semibold text-[#111] truncate">{u.name}</p>
+      </div>
+      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${roleBadgeColor(u.role)}`}>{u.role}</span>
+      <p className="text-[13px] text-[#666] truncate">{u.email || '—'}</p>
+      <p className="text-[13px] text-[#666]">
+        {u.pay_rate != null && !dimmed
+          ? `${fmt(u.pay_rate)}/${u.pay_type === 'Hourly' ? 'hr' : 'mo'}`
+          : dimmed ? '—' : <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#f0f0f0] text-[#999]">Not set</span>}
+      </p>
+      <p className="text-[13px] text-[#666]">{u.sick_days != null ? `${u.sick_days}d` : '—'}</p>
+      <p className="text-[13px] text-[#666]">{!dimmed && u.latest_net_pay != null ? fmt(u.latest_net_pay) : '—'}</p>
+      <ChevronRight size={14} className="text-[#ccc]" />
+    </button>
+  )
+}
+
+function SectionDivider({ label }: { label: string }) {
+  return (
+    <div className="px-5 py-2 bg-[#fafafa] border-t border-b border-[#f0f0f0]">
+      <p className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">{label}</p>
+    </div>
+  )
+}
+
+function StaffTable({ onSelect, isManagerOrAdmin }: { onSelect: (u: User) => void; isManagerOrAdmin: boolean }) {
+  const { data: users = [], isLoading } = useUsers()
+  const { data: weekly }                = usePayrollWeeklySummary()
+
   const active   = users.filter((u) => u.active)
   const inactive = users.filter((u) => !u.active)
 
+  const stationActive     = active.filter((u) => STATION_ROLES.has(u.role))
+  const convenienceActive = active.filter((u) => CONVENIENCE_ROLES.has(u.role))
+
   return (
-    <div className="max-w-2xl">
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+    <div className="flex-1 overflow-hidden flex flex-col p-6 gap-5 min-w-0">
+      <div className="grid grid-cols-2 gap-3 shrink-0">
         <div className={`rounded-2xl border p-4 ${(weekly?.total_overage ?? 0) > 0 ? 'bg-green-50 border-green-200' : 'bg-white border-[#ebebeb]'}`}>
           <p className="text-[11px] text-[#999] mb-1">Overages This Week</p>
           <p className={`text-[15px] font-bold ${(weekly?.total_overage ?? 0) > 0 ? 'text-green-700' : 'text-[#bbb]'}`}>{fmt(weekly?.total_overage ?? 0)}</p>
@@ -622,105 +735,50 @@ function StaffList({ onSelect }: { onSelect: (u: User) => void }) {
         </div>
       </div>
 
-      {isLoading ? (
-        <p className="text-[13px] text-[#aaa]">Loading...</p>
-      ) : (
-        <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
-          {active.length === 0 && inactive.length === 0 && (
-            <p className="text-[13px] text-[#aaa] p-5">No staff found.</p>
-          )}
-          {active.map((u) => (
-            <button key={u.id} onClick={() => onSelect(u)}
-              className="w-full flex items-center gap-4 px-5 py-4 border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors text-left">
-              <div className="w-9 h-9 rounded-full bg-[#111] text-white flex items-center justify-center text-[13px] font-bold shrink-0">
-                {u.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-[#111] truncate">{u.name}</p>
-                <p className="text-[12px] text-[#999] truncate">{u.email}</p>
-              </div>
-              {u.pay_rate == null ? (
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#f0f0f0] text-[#999] shrink-0">No Pay Set</span>
-              ) : u.latest_net_pay != null ? (
-                <div className="text-right shrink-0">
-                  <p className="text-[13px] font-semibold text-[#111]">{fmt(u.latest_net_pay)}</p>
-                  <p className="text-[11px] text-[#999]">last paid</p>
-                </div>
-              ) : (
-                <p className="text-[12px] text-[#bbb] shrink-0">No records</p>
-              )}
-              <ChevronRight size={14} className="text-[#ccc] shrink-0" />
-            </button>
+      <div className="flex-1 bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
+        <div className="grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 px-5 py-2.5 border-b border-[#f0f0f0] bg-[#fafafa] shrink-0">
+          {['Name', 'Role', 'Email', 'Pay Rate', 'Sick Days', 'Last Paid', ''].map((h) => (
+            <p key={h} className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
           ))}
-          {inactive.length > 0 && (
-            <>
-              <div className="px-5 py-2 bg-[#fafafa] border-t border-b border-[#f0f0f0]">
-                <p className="text-[11px] font-semibold text-[#bbb] uppercase tracking-widest">Inactive</p>
-              </div>
-              {inactive.map((u) => (
-                <button key={u.id} onClick={() => onSelect(u)}
-                  className="w-full flex items-center gap-4 px-5 py-4 border-b border-[#f0f0f0] hover:bg-[#fafafa] transition-colors text-left opacity-50">
-                  <div className="w-9 h-9 rounded-full bg-[#111] text-white flex items-center justify-center text-[13px] font-bold shrink-0">
-                    {u.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[14px] font-semibold text-[#111] truncate">{u.name}</p>
-                    <p className="text-[12px] text-[#999] truncate">{u.email}</p>
-                  </div>
-                  <ChevronRight size={14} className="text-[#ccc] shrink-0" />
-                </button>
-              ))}
-            </>
-          )}
         </div>
-      )}
-      {showAdd && <AddEmployeeModal onClose={() => setShowAdd(false)} />}
-    </div>
-  )
-}
 
-// ── Payroll Periods List ──────────────────────────────────────────────────────
-
-function PeriodsList({ onSelect }: { onSelect: (p: PayrollPeriod) => void }) {
-  const { data: periods = [], isLoading } = usePayrollPeriods()
-  const [showModal, setShowModal]         = useState(false)
-
-  return (
-    <div className="max-w-2xl">
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-[11px] font-semibold text-[#bbb] uppercase tracking-widest">
-          {periods.length} Period{periods.length !== 1 ? 's' : ''}
-        </p>
-        <button onClick={() => setShowModal(true)}
-          className="flex items-center gap-1.5 text-[12px] font-semibold text-[#111] hover:text-[#555] transition-colors">
-          <Plus size={13} /> New Period
-        </button>
+        {isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-[13px] text-[#aaa]">Loading...</p>
+          </div>
+        ) : active.length === 0 && inactive.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-[13px] text-[#aaa]">No staff found.</p>
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto">
+            {isManagerOrAdmin ? (
+              <>
+                {stationActive.length > 0 && (
+                  <>
+                    <SectionDivider label="Service Station" />
+                    {stationActive.map((u) => <StaffRow key={u.id} user={u} onSelect={onSelect} />)}
+                  </>
+                )}
+                {convenienceActive.length > 0 && (
+                  <>
+                    <SectionDivider label="Convenience Store" />
+                    {convenienceActive.map((u) => <StaffRow key={u.id} user={u} onSelect={onSelect} />)}
+                  </>
+                )}
+              </>
+            ) : (
+              active.map((u) => <StaffRow key={u.id} user={u} onSelect={onSelect} />)
+            )}
+            {inactive.length > 0 && (
+              <>
+                <SectionDivider label="Inactive" />
+                {inactive.map((u) => <StaffRow key={u.id} user={u} onSelect={onSelect} dimmed />)}
+              </>
+            )}
+          </div>
+        )}
       </div>
-      {isLoading ? (
-        <p className="text-[13px] text-[#aaa]">Loading...</p>
-      ) : periods.length === 0 ? (
-        <p className="text-[13px] text-[#bbb]">No payroll periods yet.</p>
-      ) : (
-        <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
-          {periods.map((p) => (
-            <button key={p.id} onClick={() => onSelect(p)}
-              className="w-full flex items-center gap-4 px-5 py-4 border-b border-[#f0f0f0] last:border-0 hover:bg-[#fafafa] transition-colors text-left">
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-[#111]">
-                  {fmtDate(p.start_date)} – {fmtDate(p.end_date)}
-                </p>
-              </div>
-              <span className={`text-[11px] font-semibold px-2 py-1 rounded-full shrink-0 ${
-                p.status === 'Published' ? 'bg-[#d1e7dd] text-[#0a5435]' : 'bg-[#f0f0f0] text-[#555]'
-              }`}>
-                {p.status}
-              </span>
-              <ChevronRight size={14} className="text-[#ccc] shrink-0" />
-            </button>
-          ))}
-        </div>
-      )}
-      {showModal && <NewPeriodModal onClose={() => setShowModal(false)} />}
     </div>
   )
 }
@@ -733,9 +791,11 @@ type View =
   | { type: 'period'; period: PayrollPeriod }
 
 export function StaffPage() {
-  const [view, setView] = useState<View>({ type: 'list' })
-  const [tab, setTab]   = useState<'employees' | 'payroll'>('employees')
+  const { user: authUser }    = useAuth()
+  const [view, setView]       = useState<View>({ type: 'list' })
   const [showAdd, setShowAdd] = useState(false)
+
+  const isManagerOrAdmin = authUser?.role === 'Manager' || authUser?.role === 'Admin'
 
   if (view.type === 'employee') {
     return <EmployeeView user={view.user} onBack={() => setView({ type: 'list' })} />
@@ -745,37 +805,28 @@ export function StaffPage() {
   }
 
   return (
-    <div className="p-6 max-w-[960px] mx-auto flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#ebebeb] flex-shrink-0">
         <div>
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Service Station</p>
-          <h1 className="text-[28px] font-bold text-[#111] leading-tight">Staff</h1>
+          {!isManagerOrAdmin && (
+            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-0.5">Service Station</p>
+          )}
+          <h1 className="text-[22px] font-bold text-[#111] leading-tight">Staff</h1>
         </div>
-        {tab === 'employees' && (
-          <button onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#111] text-white text-[13px] font-semibold rounded-xl hover:bg-[#333] transition-colors">
-            <Plus size={14} /> Add Employee
-          </button>
-        )}
+        <button onClick={() => setShowAdd(true)}
+          className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors">
+          <Plus size={14} /> Add Employee
+        </button>
       </div>
 
-      <div className="flex gap-1 border-b border-[#ebebeb]">
-        {(['employees', 'payroll'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 text-[13px] font-semibold border-b-2 -mb-px capitalize transition-colors ${
-              tab === t ? 'border-[#111] text-[#111]' : 'border-transparent text-[#999] hover:text-[#555]'
-            }`}>
-            {t}
-          </button>
-        ))}
+      <div className="flex flex-1 overflow-hidden">
+        <StaffTable onSelect={(u) => setView({ type: 'employee', user: u })} isManagerOrAdmin={isManagerOrAdmin} />
+        <div className="w-[600px] shrink-0 border-l border-[#e8e8e8] overflow-y-auto h-full">
+          <PayrollPanel onSelectPeriod={(p) => setView({ type: 'period', period: p })} />
+        </div>
       </div>
 
-      {tab === 'employees'
-        ? <StaffList onSelect={(u) => setView({ type: 'employee', user: u })} />
-        : <PeriodsList onSelect={(p) => setView({ type: 'period', period: p })} />
-      }
-
-      {showAdd && <AddEmployeeModal onClose={() => setShowAdd(false)} />}
+      {showAdd && <AddEmployeeModal onClose={() => setShowAdd(false)} isManagerOrAdmin={isManagerOrAdmin} />}
     </div>
   )
 }

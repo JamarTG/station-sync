@@ -166,7 +166,8 @@ export function useCreateUser() {
   const qc = useQueryClient()
   return async (body: {
     name: string; role: string; password: string; phone: string
-    nis: string; trn: string; email: string; employed_on: string; pay_rate: string; pay_type: string
+    nis: string; trn: string; email: string; employed_on: string
+    pay_rate: string; pay_type: string; sick_days: string
   }) => {
     const res = await api.post<User>('/users', body)
     await qc.invalidateQueries({ queryKey: ['users'] })

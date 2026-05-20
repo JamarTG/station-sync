@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { UserPlus, Receipt, CreditCard, Megaphone, Sparkles, ChevronDown, ChevronUp, Plus, Search, X } from 'lucide-react'
+import { UserPlus, Receipt, CreditCard, Megaphone, Sparkles, ChevronDown, ChevronUp, Plus, Search, X, Calendar, BarChart2, ShoppingCart } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import { SetupBanner } from './SetupBanner'
 import { useAuth } from '../../lib/authContext'
 import { useOpenShift, useShiftDeposits, useTanks, useBranches, useShiftTankLogs, usePumps, useFuelSummary } from '../../hooks/useApi'
@@ -20,9 +21,13 @@ function ordinal(n: number) {
   return `${n}th`
 }
 
-const MONTHLY_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const MONTHLY_SALES       = [840000, 920000, 780000, 1100000,  990000, 1250000, 1180000, 1340000, 1290000, 1050000, 1420000, 1580000]
-const MONTHLY_EXPENDITURE = [120000, 180000,  95000,  220000,  175000,  310000,  280000,  390000,  340000,  260000,  420000,  480000]
+const MONTHLY_LABELS      = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const MONTHLY_SALES       = [840000, 920000, 780000, 1100000, 990000, 1250000, 1180000, 1340000, 1290000, 1050000, 1420000, 1580000]
+const MONTHLY_EXPENDITURE = [120000, 180000,  95000,  220000, 175000,  310000,  280000,  390000,  340000,  260000,  420000,  480000]
+
+const WEEKLY_LABELS      = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const WEEKLY_SALES       = [182000, 210000, 195000, 230000, 278000, 310000, 145000]
+const WEEKLY_EXPENDITURE = [ 28000,  35000,  22000,  41000,  38000,  52000,  18000]
 
 const QUICK_ACTIONS = [
   { icon: UserPlus,  label: 'Invite member' },
@@ -352,6 +357,8 @@ function FuelSalesChart({
   lineData: number[]
   activeIndex?: number
 }) {
+  const [hovered, setHovered] = useState<number | null>(null)
+
   const W = 320, H = 130, padT = 10, padB = 18
   const chartH = H - padT - padB
   const n = barData.length
@@ -364,54 +371,87 @@ function FuelSalesChart({
     return `${x.toFixed(1)},${y.toFixed(1)}`
   }).join(' ')
 
+  const h = hovered
+
   return (
     <div className="flex flex-col gap-3">
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-        {barData.map((d, i) => {
-          const bw = slotW * 0.55
-          const x = i * slotW + (slotW - bw) / 2
-          const bh = Math.max((d.value / max) * chartH, 2)
-          const y = padT + chartH - bh
-          return (
-            <rect
+      <div className="relative">
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+          {barData.map((d, i) => {
+            const bw = slotW * 0.55
+            const x = i * slotW + (slotW - bw) / 2
+            const bh = Math.max((d.value / max) * chartH, 2)
+            const y = padT + chartH - bh
+            return (
+              <rect
+                key={d.label}
+                x={x.toFixed(1)} y={y.toFixed(1)}
+                width={bw.toFixed(1)} height={bh.toFixed(1)}
+                fill={hovered === null ? (activeIndex < 0 || i === activeIndex ? '#111' : '#e8e8e8') : (i === hovered ? '#111' : '#e8e8e8')}
+                rx={2}
+              />
+            )
+          })}
+
+          <polyline
+            points={linePts}
+            fill="none"
+            stroke="#aaa"
+            strokeWidth={1.5}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+          {lineData.map((v, i) => {
+            const x = (i + 0.5) * slotW
+            const y = padT + chartH * (1 - v / max)
+            return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r={2} fill="#aaa" />
+          })}
+
+          {barData.map((d, i) => (
+            <text
               key={d.label}
-              x={x.toFixed(1)} y={y.toFixed(1)}
-              width={bw.toFixed(1)} height={bh.toFixed(1)}
-              fill={activeIndex < 0 || i === activeIndex ? '#111' : '#e8e8e8'}
-              rx={2}
+              x={((i + 0.5) * slotW).toFixed(1)}
+              y={H - 2}
+              textAnchor="middle"
+              fontSize={7}
+              fill="#ccc"
+              fontWeight="700"
+              fontFamily="ui-sans-serif, system-ui, sans-serif"
+            >
+              {d.label.toUpperCase()}
+            </text>
+          ))}
+
+          {/* Invisible hover zones */}
+          {barData.map((_, i) => (
+            <rect
+              key={`hz-${i}`}
+              x={(i * slotW).toFixed(1)} y={0}
+              width={slotW.toFixed(1)} height={H}
+              fill="transparent"
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{ cursor: 'default' }}
             />
-          )
-        })}
+          ))}
+        </svg>
 
-        <polyline
-          points={linePts}
-          fill="none"
-          stroke="#aaa"
-          strokeWidth={1.5}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-        />
-        {lineData.map((v, i) => {
-          const x = (i + 0.5) * slotW
-          const y = padT + chartH * (1 - v / max)
-          return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r={2} fill="#aaa" />
-        })}
-
-        {barData.map((d, i) => (
-          <text
-            key={d.label}
-            x={((i + 0.5) * slotW).toFixed(1)}
-            y={H - 2}
-            textAnchor="middle"
-            fontSize={7}
-            fill="#ccc"
-            fontWeight="700"
-            fontFamily="ui-sans-serif, system-ui, sans-serif"
+        {/* Tooltip */}
+        {hovered !== null && (
+          <div
+            className="absolute -top-1 pointer-events-none -translate-x-1/2 -translate-y-full"
+            style={{ left: `${((hovered! + 0.5) / n) * 100}%` }}
           >
-            {d.label.toUpperCase()}
-          </text>
-        ))}
-      </svg>
+            <div className="bg-[#111] text-white rounded-lg px-2.5 py-1.5 shadow-lg whitespace-nowrap">
+              <p className="text-[11px] font-bold">{fmtJ(barData[hovered!].value)}</p>
+              {lineData[hovered!] != null && (
+                <p className="text-[10px] font-medium text-[#aaa]">Exp: {fmtJ(lineData[hovered!])}</p>
+              )}
+            </div>
+            <div className="w-2 h-2 bg-[#111] rotate-45 mx-auto -mt-1" />
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1.5">
@@ -422,6 +462,257 @@ function FuelSalesChart({
           <div className="w-3 h-px bg-[#aaa]" />
           <span className="text-[10px] font-semibold text-[#aaa]">Expenditure</span>
         </div>
+      </div>
+    </div>
+  )
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  Cash:        '#111',
+  Card:        '#444',
+  Charge:      '#888',
+  FX:          '#aaa',
+  Advance:     '#bbb',
+  Expenditure: '#ddd',
+}
+
+const SHIFT_PERIODS = ['AM', 'PM', 'PM2'] as const
+type ShiftPeriod = typeof SHIFT_PERIODS[number]
+
+const DEFAULT_SHIFTS = [
+  { name: 'Morning', start: '06:00', end: '14:00' },
+  { name: 'Evening', start: '14:00', end: '22:00' },
+  { name: 'Night',   start: '22:00', end: '06:00' },
+]
+
+function timeToMins(t: string): number {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+function depositInShift(createdAt: string, start: string, end: string): boolean {
+  const date = new Date(createdAt)
+  const mins = date.getHours() * 60 + date.getMinutes()
+  const s = timeToMins(start)
+  const e = timeToMins(end)
+  return s < e ? mins >= s && mins < e : mins >= s || mins < e  // handles overnight spans
+}
+
+function SalesBreakdownCard({ deposits }: { deposits: import('../lib/api').Deposit[] }) {
+  const [period, setPeriod] = useState<ShiftPeriod>('AM')
+
+  function cyclePeriod() {
+    setPeriod((p) => SHIFT_PERIODS[(SHIFT_PERIODS.indexOf(p) + 1) % SHIFT_PERIODS.length])
+  }
+
+  const savedShifts: { name: string; start: string; end: string }[] = (() => {
+    try { return JSON.parse(localStorage.getItem('ss_station_shifts') ?? 'null') ?? [] } catch { return [] }
+  })()
+  const shiftConfigs = savedShifts.length >= 3 ? savedShifts : DEFAULT_SHIFTS
+  const shiftIdx = SHIFT_PERIODS.indexOf(period)
+  const activeShift = shiftConfigs[shiftIdx] ?? shiftConfigs[0]
+
+  const shiftDeposits = activeShift.start && activeShift.end
+    ? deposits.filter((d) => depositInShift(d.created_at, activeShift.start, activeShift.end))
+    : deposits
+
+  const ORDER = ['Cash', 'Card', 'Charge', 'FX', 'Advance', 'Expenditure']
+
+  const totals: Record<string, number> = {}
+  for (const d of shiftDeposits) {
+    totals[d.type] = (totals[d.type] ?? 0) + d.amount
+  }
+
+  const segments = ORDER
+    .filter((t) => (totals[t] ?? 0) > 0)
+    .map((t) => ({ type: t, amount: totals[t], color: TYPE_COLORS[t] ?? '#eee' }))
+
+  const grand = segments.reduce((s, seg) => s + seg.amount, 0)
+
+  const R = 42, CX = 60, CY = 60
+  const circ = 2 * Math.PI * R
+  let cum = 0
+  const arcs = segments.map((seg) => {
+    const pct = grand > 0 ? seg.amount / grand : 0
+    const dash = pct * circ
+    const dashOffset = circ / 4 - cum
+    cum += dash
+    return { ...seg, pct, dash, dashOffset }
+  })
+
+  const isEmpty = segments.length === 0
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+      <p className="text-[13px] font-bold text-[#111] mb-0.5">
+        Sales Breakdown{' '}
+        <button onClick={cyclePeriod} className="font-medium text-[#aaa] hover:text-[#555] transition-colors">
+          | {period}
+        </button>
+      </p>
+      <p className="text-[11px] font-medium text-[#bbb] mb-4">
+        {activeShift.name} · {activeShift.start} – {activeShift.end}
+      </p>
+      {isEmpty ? (
+        <div className="py-6 flex items-center justify-center">
+          <p className="text-[12px] font-medium text-[#ccc]">No deposits for {activeShift.name} shift</p>
+        </div>
+      ) : (
+        <div className="flex items-center gap-5">
+          <svg width={120} height={120} viewBox="0 0 120 120" className="flex-shrink-0">
+            <circle cx={CX} cy={CY} r={R} fill="none" stroke="#f0f0f0" strokeWidth={13} />
+            {arcs.map((arc, i) => (
+              <circle
+                key={i}
+                cx={CX} cy={CY} r={R}
+                fill="none"
+                stroke={arc.color}
+                strokeWidth={13}
+                strokeDasharray={`${arc.dash.toFixed(2)} ${circ.toFixed(2)}`}
+                strokeDashoffset={arc.dashOffset.toFixed(2)}
+              />
+            ))}
+            <text x={CX} y={CY - 4} textAnchor="middle" fontSize={11} fontWeight="800" fill="#111" fontFamily="ui-sans-serif,system-ui,sans-serif">
+              {fmtJ(grand)}
+            </text>
+            <text x={CX} y={CY + 9} textAnchor="middle" fontSize={7} fontWeight="700" fill="#bbb" fontFamily="ui-sans-serif,system-ui,sans-serif">TOTAL</text>
+          </svg>
+          <div className="flex flex-col gap-2.5 flex-1 min-w-0">
+            {arcs.map((arc) => (
+              <div key={arc.type} className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: arc.color }} />
+                <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+                  <p className="text-[12px] font-semibold text-[#111]">{arc.type}</p>
+                  <p className="text-[11px] font-medium text-[#aaa] whitespace-nowrap">{(arc.pct * 100).toFixed(0)}%</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FuelSalesCard() {
+  const [view, setView] = useState<'weekly' | 'monthly'>('weekly')
+  const isWeekly = view === 'weekly'
+  const labels = isWeekly ? WEEKLY_LABELS : MONTHLY_LABELS
+  const sales  = isWeekly ? WEEKLY_SALES  : MONTHLY_SALES
+  const expend = isWeekly ? WEEKLY_EXPENDITURE : MONTHLY_EXPENDITURE
+  const activeIdx = isWeekly ? (new Date().getDay() + 6) % 7 : new Date().getMonth()
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+      <p className="text-[13px] font-bold text-[#111] mb-0.5">
+        Fuel Sales{' '}
+        <span className="font-medium text-[#aaa]">|{' '}
+          <button
+            onClick={() => setView('weekly')}
+            className={`transition-colors ${isWeekly ? 'text-[#111] font-semibold' : 'hover:text-[#888]'}`}
+          >Weekly</button>
+          {' / '}
+          <button
+            onClick={() => setView('monthly')}
+            className={`transition-colors ${!isWeekly ? 'text-[#111] font-semibold' : 'hover:text-[#888]'}`}
+          >Monthly</button>
+        </span>
+      </p>
+      <p className="text-[11px] font-medium text-[#bbb] mb-4">
+        J$ revenue — {isWeekly ? 'current week' : 'current year'}
+      </p>
+      <FuelSalesChart
+        key={view}
+        barData={labels.map((label, i) => ({ label, value: sales[i] }))}
+        lineData={expend}
+        activeIndex={activeIdx}
+      />
+    </div>
+  )
+}
+
+function ProductLeaderboard() {
+  const [tab, setTab] = useState<'units' | 'revenue'>('revenue')
+
+  const rows: [string, number][] = []
+  const total = rows.reduce((s, [, v]) => s + v, 0)
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#ebebeb] p-5 flex flex-col h-[450px]">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <p className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">Product Leaderboard</p>
+        <div className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
+          <button
+            onClick={() => setTab('revenue')}
+            className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${tab === 'revenue' ? 'bg-[#111] text-white' : 'text-[#888] hover:bg-[#f4f4f4]'}`}
+          >
+            Revenue
+          </button>
+          <button
+            onClick={() => setTab('units')}
+            className={`px-3 py-1.5 text-[11px] font-bold transition-colors border-l border-[#ddd] ${tab === 'units' ? 'bg-[#111] text-white' : 'text-[#888] hover:bg-[#f4f4f4]'}`}
+          >
+            Units
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+        {rows.length === 0 ? (
+          <div className="h-full flex items-center justify-center">
+            <p className="text-[12px] font-medium text-[#ccc]">No data available</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {rows.map(([name, value], i) => {
+              const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'
+              return (
+                <div key={name} className="flex items-center justify-between bg-[#f9f9f9] rounded-2xl py-4 px-4">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-[10px] font-bold tracking-widest text-[#ccc] uppercase">{ordinal(i + 1)}</span>
+                    <span className="text-[18px] font-black text-[#111] tracking-tight leading-none">{name}</span>
+                  </div>
+                  <div className="flex flex-col items-end gap-0.5">
+                    <span className="text-[18px] font-bold text-[#333] leading-none">{pct}%</span>
+                    <span className="text-[11px] font-semibold text-[#aaa]">
+                      {tab === 'revenue' ? fmtJ(value) : `${value} units`}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function QuickActionsPanel() {
+  const navigate = useNavigate()
+
+  const ACTIONS = [
+    { icon: UserPlus,     label: 'Add Staff',   to: '/staff' },
+    { icon: Receipt,      label: 'Add Expense', to: '/expenses' },
+    { icon: Calendar,     label: 'Schedule',    to: '/schedule' },
+    { icon: ShoppingCart, label: 'Products',    to: '/convenience/products' },
+    { icon: BarChart2,    label: 'Reports',     to: '/reports' },
+    { icon: CreditCard,   label: 'Charges',     to: '/charges' },
+  ]
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
+      <p className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase mb-4">Quick Actions</p>
+      <div className="flex flex-col gap-1.5">
+        {ACTIONS.map(({ icon: Icon, label, to }) => (
+          <button
+            key={label}
+            onClick={() => navigate({ to })}
+            className="flex items-center gap-3 px-4 py-3 bg-white border border-[#ddd] rounded-xl hover:bg-[#f9f9f9] transition-colors text-left"
+          >
+            <Icon size={15} className="text-[#111] shrink-0" />
+            <p className="text-[13px] font-semibold text-[#111]">{label}</p>
+          </button>
+        ))}
       </div>
     </div>
   )
@@ -494,7 +785,6 @@ export function ReportsDashboard() {
         {/* Insights header */}
         <div className="flex flex-col gap-4">
           <div>
-            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-0.5">Dashboard</p>
             <h1 className="text-[26px] font-bold text-[#111] leading-tight">
               {getGreeting()}{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
             </h1>
@@ -606,21 +896,13 @@ export function ReportsDashboard() {
             </div>
 
             <StaffLeaderboard fuelRows={staffBars} fuelTotal={totalStaffDeposited} />
+            <ProductLeaderboard />
           </div>
 
           {/* Right column */}
           <div className="flex flex-col gap-4">
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-              <p className="text-[13px] font-bold text-[#111] mb-0.5">
-                Fuel Sales <span className="font-medium text-[#aaa]">| Monthly</span>
-              </p>
-              <p className="text-[11px] font-medium text-[#bbb] mb-4">J$ revenue — current year</p>
-              <FuelSalesChart
-                barData={MONTHLY_LABELS.map((label, i) => ({ label, value: MONTHLY_SALES[i] }))}
-                lineData={MONTHLY_EXPENDITURE}
-                activeIndex={new Date().getMonth()}
-              />
-            </div>
+            <FuelSalesCard />
+            <SalesBreakdownCard deposits={deposits} />
 
             <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col h-[400px]">
               <div className="flex-shrink-0">
@@ -631,6 +913,8 @@ export function ReportsDashboard() {
                 <p className="text-[12px] font-medium text-[#ccc]">No wet stock data</p>
               </div>
             </div>
+
+            <QuickActionsPanel />
           </div>
 
         </div>

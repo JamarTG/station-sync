@@ -392,7 +392,7 @@ function MonthView({
   const cells = useMemo(() => buildMonthGrid(year, month), [year, month])
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div>
       {/* Day-of-week header */}
       <div className="grid grid-cols-7 border-b border-[#ebebeb]">
         {DAYS.map((d) => (
@@ -454,7 +454,7 @@ function WeekView({
   const days = useMemo(() => buildWeekDays(anchor), [anchor])
 
   return (
-    <div className="flex-1 overflow-auto">
+    <div>
       <div className="grid grid-cols-7 border-b border-[#ebebeb]">
         {days.map((d) => {
           const iso     = d.toISOString().slice(0, 10)
@@ -495,9 +495,173 @@ function WeekView({
   )
 }
 
+// ── Generate modal ────────────────────────────────────────────────────────────
+
+type GeneratePeriod = 'this-week' | 'next-week' | 'this-month' | 'next-month'
+
+const periodLabels: Record<GeneratePeriod, string> = {
+  'this-week':   'This week',
+  'next-week':   'Next week',
+  'this-month':  'This month',
+  'next-month':  'Next month',
+}
+
+function loadShiftConfigs(key: string): { id: string; name: string; start: string; end: string }[] {
+  try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? [] } catch { return [] }
+}
+
+function GenerateModal({ onClose, onManual }: { onClose: () => void; onManual: () => void }) {
+  const stationShifts = loadShiftConfigs('ss_station_shifts')
+  const convShifts    = loadShiftConfigs('ss_conv_shifts')
+
+  const [period, setPeriod]           = useState<GeneratePeriod>('next-week')
+  const [stationEnabled, setStation]  = useState<Record<string, boolean>>(
+    Object.fromEntries(stationShifts.map((s) => [s.id, true]))
+  )
+  const [convEnabled, setConv]        = useState<Record<string, boolean>>(
+    Object.fromEntries(convShifts.map((s) => [s.id, true]))
+  )
+  const [generating, setGenerating]   = useState(false)
+  const [done, setDone]               = useState(false)
+
+  function fmt12(t: string) {
+    if (!t) return ''
+    const [h, m] = t.split(':').map(Number)
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')}${h >= 12 ? 'pm' : 'am'}`
+  }
+
+  function handleGenerate() {
+    setGenerating(true)
+    setTimeout(() => { setGenerating(false); setDone(true) }, 1200)
+  }
+
+  const inputCls = 'bg-[#f9f9f9] border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] font-medium text-[#111] outline-none focus:border-[#ccc] transition-colors'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+      <div className="bg-white rounded-3xl shadow-xl border border-[#ebebeb] w-full max-w-[480px]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-[#f4f4f4]">
+          <div className="flex items-center gap-2.5">
+            <Sparkles size={16} className="text-[#555]" />
+            <h2 className="text-[16px] font-bold text-[#111]">Create Schedule</h2>
+          </div>
+          <button onClick={onClose} className="text-[#bbb] hover:text-[#555] transition-colors">
+            <X size={17} />
+          </button>
+        </div>
+
+        <div className="px-7 py-5 space-y-5">
+          {/* Period */}
+          <div>
+            <label className="block text-[11px] font-semibold tracking-widest text-[#aaa] uppercase mb-2">Period</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(periodLabels) as GeneratePeriod[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`py-2.5 rounded-xl text-[13px] font-semibold border transition-colors ${
+                    period === p
+                      ? 'bg-[#111] text-white border-[#111]'
+                      : 'bg-white text-[#555] border-[#e8e8e8] hover:border-[#ccc]'
+                  }`}
+                >
+                  {periodLabels[p]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Service station shifts */}
+          {stationShifts.length > 0 && (
+            <div>
+              <label className="block text-[11px] font-semibold tracking-widest text-[#aaa] uppercase mb-2">Service Station Shifts</label>
+              <div className="space-y-2">
+                {stationShifts.map((s) => (
+                  <label key={s.id} className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={!!stationEnabled[s.id]}
+                      onChange={(e) => setStation((prev) => ({ ...prev, [s.id]: e.target.checked }))}
+                      className="w-4 h-4 rounded accent-[#111] cursor-pointer"
+                    />
+                    <span className="text-[13px] font-semibold text-[#111] flex-1">{s.name || 'Unnamed'}</span>
+                    {s.start && s.end && (
+                      <span className="text-[12px] font-medium text-[#aaa]">{fmt12(s.start)} – {fmt12(s.end)}</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Convenience store shifts */}
+          {convShifts.length > 0 && (
+            <div>
+              <label className="block text-[11px] font-semibold tracking-widest text-[#aaa] uppercase mb-2">Convenience Store Shifts</label>
+              <div className="space-y-2">
+                {convShifts.map((s) => (
+                  <label key={s.id} className="flex items-center gap-3 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={!!convEnabled[s.id]}
+                      onChange={(e) => setConv((prev) => ({ ...prev, [s.id]: e.target.checked }))}
+                      className="w-4 h-4 rounded accent-[#111] cursor-pointer"
+                    />
+                    <span className="text-[13px] font-semibold text-[#111] flex-1">{s.name || 'Unnamed'}</span>
+                    {s.start && s.end && (
+                      <span className="text-[12px] font-medium text-[#aaa]">{fmt12(s.start)} – {fmt12(s.end)}</span>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {stationShifts.length === 0 && convShifts.length === 0 && (
+            <p className="text-[13px] font-medium text-[#bbb] py-2">
+              No shifts configured. Add shifts in <span className="font-semibold text-[#888]">Settings → Profile</span> first.
+            </p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-7 pb-6 pt-2 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl text-[13px] font-semibold text-[#555] border border-[#e8e8e8] hover:border-[#ccc] transition-colors"
+            >
+              Cancel
+            </button>
+            {done ? (
+              <span className="text-[13px] font-semibold text-green-600">Schedule generated</span>
+            ) : (
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors disabled:opacity-50"
+              >
+                <Sparkles size={13} />
+                {generating ? 'Creating…' : 'Create'}
+              </button>
+            )}
+          </div>
+          <button
+            onClick={onManual}
+            className="w-full text-center text-[12px] font-medium text-[#bbb] hover:text-[#555] transition-colors"
+          >
+            Do manually instead
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-export function SchedulePage() {
+export function SchedulePage({ storeLabel }: { storeLabel?: string } = {}) {
   const now   = new Date()
   const today = now.toISOString().slice(0, 10)
 
@@ -580,14 +744,23 @@ export function SchedulePage() {
     <div className="flex flex-col h-full overflow-hidden">
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-[#ebebeb] bg-white flex-shrink-0 gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div>
-            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase leading-none mb-0.5">Service Station</p>
-            <h1 className="text-[20px] font-bold text-[#111] leading-tight">Schedule</h1>
-          </div>
+        <div>
+          {storeLabel && (
+            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-0.5">{storeLabel}</p>
+          )}
+          <h1 className="text-[20px] font-bold text-[#111]">Schedule</h1>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Create */}
+          <button
+            onClick={() => setShowGenerate(true)}
+            className="flex items-center gap-1.5 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors"
+          >
+            <Sparkles size={13} />
+            Create
+          </button>
+
           {/* Period navigation */}
           <button
             onClick={prevPeriod}
@@ -636,7 +809,7 @@ export function SchedulePage() {
 
           {/* View toggle */}
           <div className="flex items-center bg-[#f4f4f4] rounded-lg p-0.5 ml-1">
-            {(['month', 'week'] as ViewMode[]).map((v) => (
+            {(['week', 'month'] as ViewMode[]).map((v) => (
               <button
                 key={v}
                 onClick={() => { setView(v); setSelected(null) }}
@@ -653,9 +826,9 @@ export function SchedulePage() {
 
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex flex-col flex-1 overflow-hidden bg-white">
+        <div className="flex-1 overflow-y-auto bg-white min-w-0">
           {isLoading ? (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="h-64 flex items-center justify-center">
               <p className="text-[13px] font-semibold text-[#bbb]">Loading…</p>
             </div>
           ) : view === 'month' ? (
@@ -676,6 +849,26 @@ export function SchedulePage() {
               onSelect={setSelected}
             />
           )}
+
+          {/* Time off requests */}
+          <div className="border-t border-[#e8e8e8] p-5">
+            <p className="mb-4">
+              <span className="text-[13px] font-bold text-[#111]">Time Off</span>
+              <span className="text-[13px] font-medium text-[#aaa]"> | Requests</span>
+            </p>
+            <div className="grid grid-cols-[28px_1fr_1fr_1fr_auto] gap-3 mb-2">
+              {['#', 'Employee', 'Date', 'Reason', 'Status'].map((h) => (
+                <p key={h} className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
+              ))}
+            </div>
+            <div className="py-8 flex items-center justify-center">
+              <p className="text-[13px] font-medium text-[#bbb]">No time off requests</p>
+            </div>
+            <div className="flex items-center justify-between border-t border-[#f0f0f0] pt-3">
+              <button className="text-[12px] font-semibold text-[#888] hover:text-[#111] transition-colors">view all</button>
+              <p className="text-[13px] font-bold text-[#bbb]">0 requests</p>
+            </div>
+          </div>
         </div>
 
         {/* Day detail panel */}

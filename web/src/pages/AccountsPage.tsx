@@ -1,14 +1,14 @@
-export function AccountsPage() {
+export function CustomersPage() {
   return (
     <div className="p-6 max-w-[960px] mx-auto flex flex-col gap-6">
         <div>
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Finance</p>
-          <h1 className="text-[28px] font-bold text-[#111] leading-tight">Accounts</h1>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Convenience Store</p>
+          <h1 className="text-[28px] font-bold text-[#111] leading-tight">Customers</h1>
         </div>
 
         <div className="bg-white rounded-2xl border border-[#ebebeb] flex flex-col items-center justify-center py-20 gap-2">
-          <p className="text-[13px] font-semibold text-[#bbb]">No accounts yet</p>
-          <p className="text-[12px] font-medium text-[#ccc]">Account records will appear here</p>
+          <p className="text-[13px] font-semibold text-[#bbb]">No customers yet</p>
+          <p className="text-[12px] font-medium text-[#ccc]">Customer records will appear here</p>
         </div>
     </div>
   )

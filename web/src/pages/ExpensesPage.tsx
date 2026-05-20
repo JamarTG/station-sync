@@ -95,7 +95,7 @@ function AddExpenseModal({ onClose, onAdd }: { onClose: () => void; onAdd: (e: O
 
           <button
             type="submit"
-            className="w-full mt-2 py-3 rounded-2xl bg-[#111] text-white text-[13px] font-bold uppercase tracking-widest hover:bg-[#333] transition-colors"
+            className="w-full mt-2 py-2.5 rounded-xl bg-white border border-[#ddd] text-[#333] text-[13px] font-bold uppercase tracking-widest hover:bg-[#f9f9f9] transition-colors"
           >
             Add expense
           </button>
@@ -137,7 +137,7 @@ export function ExpensesPage() {
           </div>
           <button
             onClick={() => setShowAdd(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#111] text-white text-[13px] font-semibold rounded-xl hover:bg-[#333] transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors"
           >
             <Plus size={14} />
             Add expense

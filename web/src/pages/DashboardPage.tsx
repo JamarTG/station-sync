@@ -12,7 +12,7 @@ import { TotalSalesCard } from '../components/dashboard/TotalSalesCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
 import { usePumps, useFuels, useNozzles, useOpenShift, useShiftFuelPrices, useShiftAttendance, useTanks, useShiftTankLogs, useShiftFuelReceivals } from '../hooks/useApi'
-import { closeShift, upsertTankLog, type Tank } from '../lib/api'
+import { closeShift, upsertTankLog, upsertNozzleLog, type Tank } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { EditFuelPricesModal } from '../components/dashboard/EditFuelPricesModal'
@@ -47,8 +47,12 @@ export function DashboardPage() {
 
   const [nozzleReadings, setNozzleReadings] = useState<Record<string, NozzleRow[]>>({})
   const [tankReadings, setTankReadings] = useState<Record<string, { opening: string; closing: string }>>({})
-  const [savedPumpOpenings, setSavedPumpOpenings] = useState<Record<string, string[]>>({})
-  const [savedTankOpenings, setSavedTankOpenings] = useState<Record<string, string>>({})
+  const [savedPumpOpenings, setSavedPumpOpenings] = useState<Record<string, string[]>>(() => {
+    try { return JSON.parse(localStorage.getItem('ss_pump_closing_openings') ?? 'null') ?? {} } catch { return {} }
+  })
+  const [savedTankOpenings, setSavedTankOpenings] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem('ss_tank_closing_openings') ?? 'null') ?? {} } catch { return {} }
+  })
 
   const { data: shift, refetch: refetchShift } = useOpenShift()
   const { data: pumps = [] } = usePumps()
@@ -69,7 +73,7 @@ export function DashboardPage() {
       .map((n) => ({ nozzle: n, pumpIndex: pumps.findIndex((p) => p.id === n.pump_id) }))
       .filter((r) => r.pumpIndex >= 0)
       .sort((a, b) => a.pumpIndex - b.pumpIndex)
-      .map(({ pumpIndex }, i) => ({ opening: openings[i] ?? '', closing: '', pumpNumber: pumpIndex + 1 }))
+      .map(({ nozzle, pumpIndex }, i) => ({ nozzleId: nozzle.id, opening: openings[i] ?? '', closing: '', pumpNumber: pumpIndex + 1 }))
   }
 
   const fuelPrices: Record<string, number> = fuelPricesData.length > 0
@@ -102,17 +106,31 @@ export function DashboardPage() {
   async function handleShiftEnd() {
     if (!shift?.id) return
 
+    for (const grade of allFuelGrades) {
+      for (const row of getNozzles(grade)) {
+        if (row.nozzleId && row.opening !== '' && row.closing !== '') {
+          await upsertNozzleLog(shift.id, {
+            nozzle_id: row.nozzleId,
+            starting_reading: parseFloat(row.opening),
+            ending_reading: parseFloat(row.closing),
+          })
+        }
+      }
+    }
+
     const newPumpOpenings: Record<string, string[]> = {}
     for (const grade of allFuelGrades) {
       newPumpOpenings[grade] = getNozzles(grade).map((n) => n.closing)
     }
     setSavedPumpOpenings(newPumpOpenings)
+    localStorage.setItem('ss_pump_closing_openings', JSON.stringify(newPumpOpenings))
 
     const newTankOpenings: Record<string, string> = {}
     for (const tank of tanks) {
       newTankOpenings[tank.id] = tankReadings[tank.id]?.closing ?? ''
     }
     setSavedTankOpenings(newTankOpenings)
+    localStorage.setItem('ss_tank_closing_openings', JSON.stringify(newTankOpenings))
 
     await closeShift(shift.id)
     queryClient.invalidateQueries({ queryKey: ['shifts', 'open'] })

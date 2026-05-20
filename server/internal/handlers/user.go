@@ -17,19 +17,18 @@ type UserHandler struct {
 
 const userSelectCols = `id::text, business_id::text, branch_id::text, name, role, email, active,
 	COALESCE(phone,''), COALESCE(nis,''), COALESCE(trn,''),
-	employed_on::text, date_of_birth::text, must_change_password, pay_rate, pay_type`
+	employed_on::text, date_of_birth::text, must_change_password, pay_rate, pay_type, sick_days`
 
 func scanUser(row interface {
 	Scan(...any) error
 }, u *model.User) error {
 	return row.Scan(&u.ID, &u.BusinessID, &u.BranchID, &u.Name, &u.Role, &u.Email, &u.Active,
 		&u.Phone, &u.NIS, &u.TRN, &u.EmployedOn, &u.DateOfBirth, &u.MustChangePassword,
-		&u.PayRate, &u.PayType)
+		&u.PayRate, &u.PayType, &u.SickDays)
 }
 
 func (h *UserHandler) List(c *gin.Context) {
 	businessID := c.GetString("business_id")
-	branchID := c.GetString("branch_id")
 	rows, err := h.DB.Query(c.Request.Context(), `
 		SELECT `+userSelectCols+`,
 			(SELECT pr.net_pay FROM payroll_records pr
@@ -37,9 +36,9 @@ func (h *UserHandler) List(c *gin.Context) {
 			 WHERE pr.user_id = u.id
 			 ORDER BY pp.start_date DESC LIMIT 1) AS latest_net_pay
 		FROM users u
-		WHERE business_id = $1 AND ($2 = '' OR branch_id::text = $2)
+		WHERE business_id = $1
 		ORDER BY name`,
-		businessID, branchID)
+		businessID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -52,7 +51,7 @@ func (h *UserHandler) List(c *gin.Context) {
 		if err := rows.Scan(
 			&u.ID, &u.BusinessID, &u.BranchID, &u.Name, &u.Role, &u.Email, &u.Active,
 			&u.Phone, &u.NIS, &u.TRN, &u.EmployedOn, &u.DateOfBirth, &u.MustChangePassword,
-			&u.PayRate, &u.PayType, &u.LatestNetPay,
+			&u.PayRate, &u.PayType, &u.SickDays, &u.LatestNetPay,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -110,16 +109,17 @@ func (h *UserHandler) Create(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	branchID := c.GetString("branch_id")
 	var body struct {
-		Name        string `json:"name" binding:"required"`
-		Role        string `json:"role" binding:"required"`
-		Password    string `json:"password" binding:"required"`
-		Phone       string `json:"phone"`
-		NIS         string `json:"nis"`
-		TRN         string `json:"trn"`
-		Email       string `json:"email" binding:"required"`
-		EmployedOn  string `json:"employed_on"`
-		DateOfBirth string `json:"date_of_birth"`
-		BranchID    string `json:"branch_id"`
+		Name        string   `json:"name" binding:"required"`
+		Role        string   `json:"role" binding:"required"`
+		Password    string   `json:"password" binding:"required"`
+		Phone       string   `json:"phone"`
+		NIS         string   `json:"nis"`
+		TRN         string   `json:"trn"`
+		Email       string   `json:"email" binding:"required"`
+		EmployedOn  string   `json:"employed_on"`
+		DateOfBirth string   `json:"date_of_birth"`
+		BranchID    string   `json:"branch_id"`
+		SickDays    *int     `json:"sick_days"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -139,13 +139,13 @@ func (h *UserHandler) Create(c *gin.Context) {
 	err = scanUser(
 		h.DB.QueryRow(c.Request.Context(), `
 			INSERT INTO users (business_id, branch_id, name, role, password_hash, phone, nis, trn, email,
-			                   employed_on, date_of_birth, must_change_password)
+			                   employed_on, date_of_birth, must_change_password, sick_days)
 			VALUES ($1, NULLIF($2,'')::uuid, $3, $4, $5, $6, $7, $8, $9,
-			        NULLIF($10,'')::date, NULLIF($11,'')::date, true)
+			        NULLIF($10,'')::date, NULLIF($11,'')::date, true, $12)
 			RETURNING `+userSelectCols,
 			businessID, branchID, body.Name, body.Role, string(hash),
 			body.Phone, body.NIS, body.TRN, body.Email,
-			body.EmployedOn, body.DateOfBirth,
+			body.EmployedOn, body.DateOfBirth, body.SickDays,
 		),
 		&u,
 	)
@@ -209,6 +209,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 		EmployedOn  *string `json:"employed_on"`
 		DateOfBirth *string `json:"date_of_birth"`
 		Active      *bool   `json:"active"`
+		SickDays    *int    `json:"sick_days"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -219,22 +220,23 @@ func (h *UserHandler) Update(c *gin.Context) {
 	err := scanUser(
 		h.DB.QueryRow(c.Request.Context(), `
 			UPDATE users SET
-				name         = COALESCE($3, name),
-				role         = COALESCE($4, role),
-				email        = COALESCE($5, email),
-				phone        = COALESCE($6, phone),
-				nis          = COALESCE($7, nis),
-				trn          = COALESCE($8, trn),
-				employed_on  = COALESCE(NULLIF($9,'')::date, employed_on),
+				name          = COALESCE($3, name),
+				role          = COALESCE($4, role),
+				email         = COALESCE($5, email),
+				phone         = COALESCE($6, phone),
+				nis           = COALESCE($7, nis),
+				trn           = COALESCE($8, trn),
+				employed_on   = COALESCE(NULLIF($9,'')::date, employed_on),
 				date_of_birth = COALESCE(NULLIF($10,'')::date, date_of_birth),
-				active       = COALESCE($11, active)
+				active        = COALESCE($11, active),
+				sick_days     = COALESCE($12, sick_days)
 			WHERE id = $1 AND business_id = $2
 			RETURNING `+userSelectCols,
 			c.Param("id"), businessID,
 			body.Name, body.Role, body.Email, body.Phone, body.NIS, body.TRN,
 			func() string { if body.EmployedOn != nil { return *body.EmployedOn }; return "" }(),
 			func() string { if body.DateOfBirth != nil { return *body.DateOfBirth }; return "" }(),
-			body.Active,
+			body.Active, body.SickDays,
 		),
 		&u,
 	)
