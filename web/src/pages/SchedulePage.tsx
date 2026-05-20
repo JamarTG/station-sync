@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { ChevronLeft, ChevronRight, Check, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, X, Sparkles } from 'lucide-react'
 import { useShiftsInRange, useShiftAttendance, useShiftDeposits, useShiftFuelPrices, useTimeOffRequests } from '../hooks/useApi'
 import { createTimeOffRequest, reviewTimeOffRequest, type Shift, type TimeOffRequest } from '../lib/api'
 import { useAuth } from '../lib/authContext'
@@ -669,7 +669,7 @@ export function SchedulePage({ storeLabel }: { storeLabel?: string } = {}) {
   const isApprover  = approverRoles.has(user?.role ?? '')
   const isRequester = requesterRoles.has(user?.role ?? '')
 
-  const [view, setView]         = useState<ViewMode>('month')
+  const [view, setView]         = useState<ViewMode>('week')
   const [year, setYear]         = useState(now.getFullYear())
   const [month, setMonth]       = useState(now.getMonth())
   const [weekAnchor, setWeekAnchor] = useState(now)
@@ -784,20 +784,6 @@ export function SchedulePage({ storeLabel }: { storeLabel?: string } = {}) {
             Today
           </button>
 
-          {/* Time-off buttons */}
-          {isApprover && (
-            <button
-              onClick={() => setShowApprovals(true)}
-              className="relative px-3 py-1.5 text-[12px] font-semibold text-[#555] border border-[#e0e0e0] rounded-lg hover:border-[#ccc] hover:text-[#111] transition-colors"
-            >
-              Requests
-              {pendingCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 flex items-center justify-center rounded-full bg-[#111] text-white text-[9px] font-bold">
-                  {pendingCount}
-                </span>
-              )}
-            </button>
-          )}
           {isRequester && (
             <button
               onClick={() => setShowTimeOff(true)}
