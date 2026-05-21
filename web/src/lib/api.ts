@@ -265,6 +265,67 @@ export function getInactiveProducts() {
   return api.get<Product[]>('/products?active=false').then((r) => r.data)
 }
 
+export interface OrderItem {
+  id: string
+  order_id: string
+  product_id: string | null
+  name: string
+  sku: string | null
+  quantity: number
+  unit_price: number
+  discount: number
+  total: number
+  created_at: string
+}
+
+export interface Order {
+  id: string
+  business_id: string
+  branch_id: string | null
+  shift_id: string | null
+  cashier_id: string | null
+  cashier_name: string
+  customer_name: string | null
+  order_no: number
+  status: string
+  payment_method: string | null
+  subtotal: number
+  discount: number
+  tax: number
+  total: number
+  change_given: number | null
+  note: string | null
+  created_at: string
+  items?: OrderItem[]
+}
+
+export function createOrder(
+  shiftId: string,
+  data: {
+    cashier_name: string
+    customer_name?: string | null
+    payment_method?: string | null
+    subtotal: number
+    discount: number
+    tax: number
+    total: number
+    change_given?: number | null
+    note?: string | null
+    status: string
+    items: {
+      product_id?: string | null
+      name: string
+      sku?: string | null
+      quantity: number
+      unit_price: number
+      discount: number
+      total: number
+    }[]
+  }
+) {
+  return api.post<Order>(`/shifts/${shiftId}/orders`, data).then((r) => r.data)
+}
+
 export function createProduct(data: {
   name: string; category: string | null; sku: string | null; upc: string | null
   price: number; cost: number | null; stock_qty: number; unit: string

@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
-import { MoreHorizontal, Search, GlassWater, Candy, Utensils, Sparkles, Home, Wrench, Snowflake, Flame, ChevronLeft, ChevronRight, Cigarette, Smartphone } from 'lucide-react'
+import { MoreHorizontal, Search, GlassWater, Candy, Utensils, Home, Wrench, Snowflake, Flame, ChevronLeft, ChevronRight, Cigarette, Smartphone, Plus, ShoppingBag } from 'lucide-react'
 import { useAuth } from '../../lib/authContext'
-import { useOpenShift, useShiftDeposits } from '../../hooks/useApi'
+import { useOpenShift, useShiftDeposits, useProducts } from '../../hooks/useApi'
+import type { Product } from '../../lib/api'
 import { CashDepositModal } from './CashDropModal'
-
 import { DepositModal } from './DepositModal'
 import { ReportIssueModal } from './ReportIssueModal'
+import { AddModal } from './AddModal'
+import { InvoiceView, type CartItem } from './InvoiceView'
 
-type View = 'cash-deposit' | 'deposit' | null
+type View = 'add' | 'cash-deposit' | 'deposit' | null
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -17,20 +19,20 @@ function getGreeting() {
 }
 
 const categories = [
-  { label: 'Liquors &\nBeverages', icon: GlassWater },
-  { label: 'Snacks &\nCandies', icon: Candy },
-  { label: 'Quick Meals', icon: Utensils },
-  { label: 'Smoking \nProducts', icon: Cigarette },
-  { label: 'Household Items', icon: Home },
-  { label: 'Lubes &\n Car Care', icon: Wrench },
-  { label: 'Frozen\nFoods', icon: Snowflake },
-  { label: 'LPG', icon: Flame },
-  { label: 'Credit &\nElectronics', icon: Smartphone },
+  { label: 'Liquors &\nBeverages', name: 'Beverages',   icon: GlassWater },
+  { label: 'Snacks &\nCandies',    name: 'Snacks',       icon: Candy      },
+  { label: 'Quick Meals',          name: 'Meals',        icon: Utensils   },
+  { label: 'Smoking\nProducts',    name: 'Tobacco',      icon: Cigarette  },
+  { label: 'Household\nItems',     name: 'Household',    icon: Home       },
+  { label: 'Lubes &\nCar Care',    name: 'Automotive',   icon: Wrench     },
+  { label: 'Frozen\nFoods',        name: 'Frozen',       icon: Snowflake  },
+  { label: 'LPG',                  name: 'LPG',          icon: Flame      },
+  { label: 'Credit &\nElectronics',name: 'Electronics',  icon: Smartphone },
 ]
 
 const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
-function CategoriesRow() {
+function CategoriesRow({ selected, onSelect }: { selected: string | null; onSelect: (name: string) => void }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -67,14 +69,21 @@ function CategoriesRow() {
         className="flex gap-4 overflow-x-auto scrollbar-hide w-full justify-center"
         style={{ scrollbarWidth: 'none' }}
       >
-        {categories.map(({ label, icon: Icon }) => (
-          <button key={label} className="flex flex-col items-center gap-2 hover:opacity-70 transition-opacity flex-shrink-0">
-            <div className="w-12 h-12 rounded-full bg-[#f4f4f4] flex items-center justify-center">
-              <Icon size={16} className="text-[#888]" />
-            </div>
-            <p className="text-[11px] font-medium text-[#888] text-center leading-tight whitespace-pre-line w-14">{label}</p>
-          </button>
-        ))}
+        {categories.map(({ label, name, icon: Icon }) => {
+          const active = selected === name
+          return (
+            <button
+              key={name}
+              onClick={() => onSelect(name)}
+              className="flex flex-col items-center gap-2 transition-opacity flex-shrink-0 hover:opacity-80"
+            >
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${active ? 'bg-[#111]' : 'bg-[#f4f4f4]'}`}>
+                <Icon size={16} className={active ? 'text-white' : 'text-[#888]'} />
+              </div>
+              <p className={`text-[11px] font-medium text-center leading-tight whitespace-pre-line w-14 transition-colors ${active ? 'text-[#111] font-bold' : 'text-[#888]'}`}>{label}</p>
+            </button>
+          )
+        })}
       </div>
       {canScrollRight && (
         <button
@@ -88,20 +97,103 @@ function CategoriesRow() {
   )
 }
 
+function ProductCard({ product, onAdd }: { product: Product; onAdd: (p: Product) => void }) {
+  const outOfStock = product.stock_qty === 0
+  return (
+    <button
+      onClick={() => !outOfStock && onAdd(product)}
+      disabled={outOfStock}
+      className={`text-left bg-white rounded-2xl border p-4 flex flex-col gap-2 transition-colors ${outOfStock ? 'border-[#ebebeb] opacity-50 cursor-not-allowed' : 'border-[#ebebeb] hover:border-[#ccc]'}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-[13px] font-bold text-[#111] leading-snug line-clamp-2">{product.name}</p>
+        <span className={`text-[10px] font-bold rounded-full px-2 py-0.5 flex-shrink-0 ${
+          outOfStock
+            ? 'text-red-500 bg-red-50'
+            : product.stock_qty < 10
+            ? 'text-[#856404] bg-[#fff3cd]'
+            : 'text-[#555] bg-[#f4f4f4]'
+        }`}>
+          {outOfStock ? 'Out' : `${product.stock_qty} ${product.unit}`}
+        </span>
+      </div>
+      {product.sku && <p className="text-[11px] text-[#bbb]">{product.sku}</p>}
+      <div className="flex items-center justify-between mt-auto pt-1">
+        <p className="text-[14px] font-bold text-[#111]">{fmt(product.price)}</p>
+        {!outOfStock && <Plus size={18} className="text-[#111]" />}
+      </div>
+    </button>
+  )
+}
+
 export function CashierDashboard() {
   const { user } = useAuth()
   const { data: shift } = useOpenShift()
   const { data: deposits = [] } = useShiftDeposits(shift?.id)
+  const { data: products = [] } = useProducts()
   const [view, setView] = useState<View>(null)
   const [moreOpen, setMoreOpen] = useState(false)
+  const [showInvoice, setShowInvoice] = useState(() => {
+    try { return localStorage.getItem('ss_show_invoice') === 'true' } catch { return false }
+  })
   const [showReportIssue, setShowReportIssue] = useState(false)
   const [searchActive, setSearchActive] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('ss_cart')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
   const moreRef = useRef<HTMLDivElement>(null)
   const searchRef = useRef<HTMLInputElement>(null)
 
   const firstName = user?.name?.trim().split(/\s+/)[0] ?? ''
   const greeting = getGreeting()
+
+  const showProducts = searchActive || selectedCategory !== null
+
+  const filteredProducts = products.filter((p) => {
+    const q = searchQuery.trim().toLowerCase()
+    const matchesSearch = !q || p.name.toLowerCase().includes(q) || (p.sku?.toLowerCase().includes(q) ?? false)
+    const matchesCategory = !selectedCategory || p.category === selectedCategory
+    return matchesSearch && matchesCategory
+  })
+
+  function handleCategorySelect(name: string) {
+    setSelectedCategory((prev) => prev === name ? null : name)
+    setSearchActive(false)
+    setSearchQuery('')
+  }
+
+  function handleSearchFocus() {
+    setSearchActive(true)
+    setSelectedCategory(null)
+  }
+
+  function handleCancel() {
+    setSearchActive(false)
+    setSearchQuery('')
+    setSelectedCategory(null)
+  }
+
+  function handleAddProduct(p: Product) {
+    setCart((prev) => {
+      const existing = prev.find((i) => i.product.id === p.id)
+      if (existing) return prev.map((i) => i.product.id === p.id ? { ...i, quantity: i.quantity + 1 } : i)
+      return [...prev, { product: p, quantity: 1, unitPrice: p.price }]
+    })
+    setShowInvoice(true)
+  }
+
+  useEffect(() => {
+    try { localStorage.setItem('ss_cart', JSON.stringify(cart)) } catch {}
+  }, [cart])
+
+  useEffect(() => {
+    try { localStorage.setItem('ss_show_invoice', String(showInvoice)) } catch {}
+  }, [showInvoice])
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -112,6 +204,19 @@ export function CashierDashboard() {
   }, [])
 
   const btnClass = 'px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'
+
+  if (showInvoice) {
+    return (
+      <div className="flex h-full overflow-hidden">
+        <InvoiceView
+          cart={cart}
+          onUpdateCart={setCart}
+          onReturn={() => setShowInvoice(false)}
+          onCancel={() => { setCart([]); setShowInvoice(false) }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -124,7 +229,14 @@ export function CashierDashboard() {
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <h1 className="text-[22px] font-bold text-[#111]">{greeting}{firstName ? `, ${firstName}` : ''}</h1>
             <div className="flex items-center gap-2">
-              <button onClick={() => setView('cash-deposit')} className={btnClass}>Add a ...</button>
+              <button
+                onClick={() => cart.length > 0 && setShowInvoice(true)}
+                className={`${btnClass} flex items-center gap-2 ${cart.length === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}
+              >
+                <ShoppingBag size={15} />
+                <span>{cart.reduce((s, i) => s + i.quantity, 0)}</span>
+              </button>
+              <button onClick={() => setView('add')} className={btnClass}>Add a ...</button>
               <button className={`${btnClass} hidden min-[416px]:block`}>End shift</button>
               <div ref={moreRef} className="relative">
                 <button onClick={() => setMoreOpen((o) => !o)} className={btnClass}>
@@ -158,45 +270,54 @@ export function CashierDashboard() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setSearchActive(true)}
+                onFocus={handleSearchFocus}
                 placeholder="Search products or scan an item"
                 className="flex-1 text-[13px] font-medium text-[#333] placeholder:text-[#bbb] placeholder:font-normal focus:outline-none bg-transparent"
               />
-              {searchActive && (
+              {showProducts && (
                 <button
-                  onMouseDown={(e) => { e.preventDefault(); setSearchActive(false); setSearchQuery('') }}
+                  onMouseDown={(e) => { e.preventDefault(); handleCancel() }}
                   className="text-[12px] font-semibold text-[#888] hover:text-[#111] transition-colors flex-shrink-0"
                 >
                   Cancel
                 </button>
               )}
             </div>
-            <CategoriesRow />
+            <CategoriesRow selected={selectedCategory} onSelect={handleCategorySelect} />
           </div>
         </div>
 
-        {/* Products card — shown when search is active */}
-        {searchActive && (
+        {/* Products panel — shown when search active or category selected */}
+        {showProducts && (
           <div className="flex-1 overflow-y-auto scrollbar-hide px-6 pb-6" style={{ scrollbarWidth: 'none' }}>
             <div className="bg-white rounded-2xl border border-[#ebebeb] h-full flex flex-col">
               <div className="px-5 py-4 border-b border-[#f0f0f0] flex items-center justify-between flex-shrink-0">
                 <div>
                   <span className="text-[13px] font-bold text-[#111]">Products</span>
+                  {selectedCategory && <span className="text-[13px] font-medium text-[#aaa]"> | {categories.find(c => c.name === selectedCategory)?.label.replace('\n', ' ')}</span>}
                   {searchQuery && <span className="text-[13px] font-medium text-[#aaa]"> | "{searchQuery}"</span>}
                 </div>
-                <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">0 results</p>
+                <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{filteredProducts.length} {filteredProducts.length === 1 ? 'result' : 'results'}</p>
               </div>
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-[13px] font-medium text-[#bbb]">
-                  {searchQuery ? `No products matching "${searchQuery}"` : 'Start typing to search products'}
-                </p>
-              </div>
+              {filteredProducts.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <p className="text-[13px] font-medium text-[#bbb]">
+                    {searchQuery ? `No products matching "${searchQuery}"` : 'No products in this category'}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 min-[500px]:grid-cols-3 gap-3 content-start" style={{ scrollbarWidth: 'none' }}>
+                  {filteredProducts.map((p) => (
+                    <ProductCard key={p.id} product={p} onAdd={handleAddProduct} />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Sales | Recent Activity — hidden when search is active */}
-        {!searchActive && (
+        {/* Sales | Recent Activity — hidden when products panel is shown */}
+        {!showProducts && (
           <div className="flex-1 overflow-y-auto scrollbar-hide px-6 pb-6" style={{ scrollbarWidth: 'none' }}>
             <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden h-full flex flex-col">
               <div className="px-5 py-4 border-b border-[#f0f0f0]">
@@ -320,6 +441,8 @@ export function CashierDashboard() {
       </div>
 
       {/* Modals */}
+      {view === 'add' && <AddModal onClose={() => setView(null)} />}
+
       {view === 'cash-deposit' && (
         <CashDepositModal
           initialAttendant=""
