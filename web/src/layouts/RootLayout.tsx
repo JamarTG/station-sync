@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Outlet, useNavigate } from '@tanstack/react-router'
+import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
 import { Sidebar } from '../components/Sidebar'
 import { TopBar } from '../components/TopBar'
 import { CashierDashboard } from '../components/dashboard/CashierDashboard'
@@ -8,13 +8,37 @@ import { ChangePasswordPage } from '../pages/ChangePasswordPage'
 import { useAuth } from '../lib/authContext'
 import { useDarkMode } from '../hooks/useDarkMode'
 
+const ROUTE_TITLES: Record<string, string> = {
+  '/':                      'Dashboard',
+  '/sales':                 'Sales',
+  '/accounts':              'Accounts',
+  '/reports':               'Reports',
+  '/staff':                 'Staff',
+  '/schedule':              'Schedule',
+  '/charges':               'Charges',
+  '/expenses':              'Expenses',
+  '/settings':              'Settings',
+  '/convenience/sales':     'Sales',
+  '/convenience/accounts':  'Accounts',
+  '/convenience/reports':   'Reports',
+  '/convenience/staff':     'Staff',
+  '/convenience/schedule':  'Schedule',
+  '/convenience/products':  'Products',
+}
+
 export function RootLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [shiftFlowDone, setShiftFlowDone] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [posMode, setPosMode] = useState(false)
   const { dark, toggle: toggleDark } = useDarkMode()
+
+  useEffect(() => {
+    const label = ROUTE_TITLES[pathname]
+    document.title = label ? `${label} — StationSync` : 'StationSync'
+  }, [pathname])
 
   useEffect(() => {
     if (!user) navigate({ to: '/login' })

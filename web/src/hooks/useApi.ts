@@ -4,6 +4,8 @@ import {
   getBranches,
   getOpenShift,
   getOpenCStoreShift,
+  getProducts,
+  getInactiveProducts,
   getShiftFuelPrices,
   getShiftAttendance,
   getShiftDeposits,
@@ -84,6 +86,14 @@ export function useOpenCStoreShift() {
     queryKey: ['shifts', 'open', 'convenience'],
     queryFn: getOpenCStoreShift,
   })
+}
+
+export function useProducts() {
+  return useQuery({ queryKey: ['products'], queryFn: getProducts })
+}
+
+export function useInactiveProducts() {
+  return useQuery({ queryKey: ['products', 'inactive'], queryFn: getInactiveProducts })
 }
 
 export function useShiftFuelPrices(shiftId: string | undefined) {

@@ -1,14 +1,14 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { LogoLoader } from '../components/StationSyncLogo'
 import {
   useUsers, useUserPayroll, usePayrollPeriods, usePayrollRecords,
-  useCreateUser, useUpdatePay, usePayrollWeeklySummary,
+  useCreateUser, useUpdatePay, usePayrollWeeklySummary, useUserAttendance,
 } from '../hooks/useApi'
-import { api } from '../lib/api'
+import { api, updateUser } from '../lib/api'
 import type { User, PayrollPeriod, PayrollRecord } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ChevronRight, Download, Pencil, Plus, Printer, X } from 'lucide-react'
-import { printPaySlip, printPayrollRegister, downloadS01CSV, downloadHeartCSV } from '../lib/payrollExport'
+import { ArrowLeft, ChevronRight, Download, MoreHorizontal, Pencil, Plus, Printer, Sparkles, X } from 'lucide-react'
+import { printPaySlip, printJobLetter, printPayrollRegister, downloadS01CSV, downloadHeartCSV } from '../lib/payrollExport'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -162,6 +162,96 @@ function EditPayModal({ user, onClose }: { user: User; onClose: () => void }) {
           <button type="submit" disabled={loading}
             className="w-full bg-white border border-[#ddd] text-[#333] rounded-xl py-2.5 text-[13px] font-semibold hover:bg-[#f9f9f9] transition-colors disabled:opacity-40">
             {loading ? 'Saving...' : 'Save'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Edit Employee Modal ───────────────────────────────────────────────────────
+
+function EditEmployeeModal({ user, onClose }: { user: User; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [form, setForm] = useState({
+    name:        user.name,
+    role:        user.role,
+    email:       user.email ?? '',
+    phone:       user.phone ?? '',
+    nis:         user.nis ?? '',
+    trn:         user.trn ?? '',
+    employed_on: user.employed_on ?? '',
+    sick_days:   user.sick_days?.toString() ?? '',
+  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError]     = useState('')
+
+  function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })) }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      const { updateUser } = await import('../lib/api')
+      await updateUser(user.id, {
+        name:        form.name.trim() || undefined,
+        role:        form.role || undefined,
+        email:       form.email.trim() || undefined,
+        phone:       form.phone.trim() || undefined,
+        nis:         form.nis.trim() || undefined,
+        trn:         form.trn.trim() || undefined,
+        employed_on: form.employed_on || undefined,
+        sick_days:   form.sick_days !== '' ? Number(form.sick_days) : null,
+      })
+      qc.invalidateQueries({ queryKey: ['users'] })
+      onClose()
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setError(msg ?? 'Something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const field = (label: string, key: string, type = 'text') => (
+    <div>
+      <label className="block text-[11px] font-semibold text-[#888] mb-1 uppercase tracking-widest">{label}</label>
+      <input type={type} value={form[key as keyof typeof form]} onChange={(e) => set(key, e.target.value)}
+        className="w-full border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111]" />
+    </div>
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-3xl w-full max-w-[500px] p-8 shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-[16px] font-bold text-[#111]">Edit Employee</h3>
+          <button onClick={onClose} className="text-[#bbb] hover:text-[#555] transition-colors"><X size={18} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            {field('Full Name', 'name')}
+            {field('Email', 'email', 'email')}
+            {field('Phone', 'phone')}
+            {field('NIS #', 'nis')}
+            {field('TRN #', 'trn')}
+            {field('Employed On', 'employed_on', 'date')}
+            {field('Sick Days', 'sick_days', 'number')}
+          </div>
+          <div>
+            <label className="block text-[11px] font-semibold text-[#888] mb-1 uppercase tracking-widest">Role</label>
+            <select value={form.role} onChange={(e) => set('role', e.target.value)}
+              className="w-full border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111]">
+              {['Cashier', 'Stock Clerk', 'Supervisor', 'Manager'].map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+          {error && <p className="text-[12px] text-red-500">{error}</p>}
+          <button type="submit" disabled={loading}
+            className="w-full bg-white border border-[#ddd] text-[#333] rounded-xl py-2.5 text-[13px] font-semibold hover:bg-[#f9f9f9] transition-colors disabled:opacity-40 mt-2">
+            {loading ? 'Saving...' : 'Save Changes'}
           </button>
         </form>
       </div>
@@ -373,17 +463,46 @@ function RecordCard({ record }: { record: PayrollRecord }) {
 // ── Employee View ─────────────────────────────────────────────────────────────
 
 function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
-  const { data: records = [], isLoading } = useUserPayroll(user.id)
-  const { data: periods = [] }            = usePayrollPeriods()
-  const qc                                = useQueryClient()
-  const [showPayModal, setShowPayModal]   = useState(false)
+  const { data: records = [], isLoading }                               = useUserPayroll(user.id)
+  const { data: periods = [] }                                          = usePayrollPeriods()
+  const { data: attendance = [], isLoading: isLoadingAttendance }       = useUserAttendance(user.id)
+  const { data: allUsers = [] }                                         = useUsers()
+  const qc                                                              = useQueryClient()
+  const [showPayModal, setShowPayModal]       = useState(false)
   const [showPeriodModal, setShowPeriodModal] = useState(false)
+  const [showEditModal, setShowEditModal]     = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [showGenerate, setShowGenerate]       = useState(false)
+  const [fromDate, setFromDate]               = useState('')
+  const [toDate, setToDate]                   = useState('')
+  const profileMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) setProfileMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   async function handlePublish(periodId: string) {
     await api.patch(`/payroll/periods/${periodId}/publish`)
     await qc.invalidateQueries({ queryKey: ['payroll-periods'] })
     await qc.invalidateQueries({ queryKey: ['user-payroll', user.id] })
   }
+
+  async function handleToggleActive() {
+    await updateUser(user.id, { active: !user.active })
+    await qc.invalidateQueries({ queryKey: ['users'] })
+    setProfileMenuOpen(false)
+    onBack()
+  }
+
+  const ranked = [...allUsers]
+    .filter(u => u.active && u.latest_net_pay != null)
+    .sort((a, b) => (b.latest_net_pay ?? 0) - (a.latest_net_pay ?? 0))
+  const rankIdx = ranked.findIndex(u => u.id === user.id)
+  const leaderboardValue = rankIdx >= 0 ? `#${rankIdx + 1} of ${ranked.length}` : '—'
 
   const profile = [
     { label: 'Email',       value: user.email || '—' },
@@ -392,31 +511,83 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
     { label: 'TRN #',       value: user.trn || '—' },
     { label: 'Employed On', value: fmtDate(user.employed_on) },
     { label: 'Sick Days',   value: user.sick_days != null ? `${user.sick_days} day${user.sick_days !== 1 ? 's' : ''}` : '—' },
+    { label: 'Leaderboard', value: leaderboardValue },
   ]
 
   return (
     <div className="flex h-full overflow-hidden">
-      <div className="w-[420px] shrink-0 border-r border-[#e8e8e8] overflow-y-auto p-6">
-        <button onClick={onBack} className="flex items-center gap-2 text-[13px] text-[#888] hover:text-[#111] transition-colors mb-6">
-          <ArrowLeft size={14} /> Back to Staff
-        </button>
-        <div className="flex items-start gap-4 mb-6">
-          <div className="w-14 h-14 rounded-full bg-[#111] text-white flex items-center justify-center text-[18px] font-bold shrink-0">
-            {user.name.charAt(0).toUpperCase()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-[20px] font-bold text-[#111]">{user.name}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className={`w-2 h-2 rounded-full ${user.active ? 'bg-green-400' : 'bg-[#ddd]'}`} />
-              <span className="text-[12px] text-[#999]">{user.active ? 'Active' : 'Inactive'}</span>
+      <div className="w-[520px] shrink-0 border-r border-[#e8e8e8] overflow-y-auto p-6">
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={onBack} className="flex items-center gap-2 text-[13px] text-[#888] hover:text-[#111] transition-colors">
+            <ArrowLeft size={14} /> Go back
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <button
+                onClick={() => setShowGenerate((v) => !v)}
+                className="flex items-center gap-1.5 px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors"
+              >
+                <Sparkles size={13} /> Generate
+              </button>
+              {showGenerate && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[140px] z-20">
+                  <button
+                    onClick={() => { records[0] && printPaySlip(records[0]); setShowGenerate(false) }}
+                    disabled={records.length === 0}
+                    className="w-full text-left px-4 py-2 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Payroll
+                  </button>
+                  <button
+                    onClick={() => { printJobLetter(user); setShowGenerate(false) }}
+                    className="w-full text-left px-4 py-2 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9]"
+                  >
+                    Job Letter
+                  </button>
+                </div>
+              )}
+            </div>
+            <div ref={profileMenuRef} className="relative">
+              <button
+                onClick={() => setProfileMenuOpen((o) => !o)}
+                className="w-8 h-8 flex items-center justify-center border border-[#ddd] rounded-xl text-[#555] hover:bg-[#f9f9f9] transition-colors"
+              >
+                <MoreHorizontal size={15} />
+              </button>
+              {profileMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[130px] z-20">
+                  <button
+                    onClick={() => { setShowEditModal(true); setProfileMenuOpen(false) }}
+                    className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={handleToggleActive}
+                    className={`w-full text-left px-4 py-2.5 text-[13px] font-semibold transition-colors ${user.active ? 'text-red-500 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
+                  >
+                    {user.active ? 'Deactivate' : 'Activate'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
-          <div className="flex items-center px-5 py-3 border-b border-[#f4f4f4]">
-            <span className="text-[12px] text-[#999] w-28 shrink-0">Role</span>
+
+        <div className="flex flex-col items-center mb-6">
+          <div className="w-16 h-16 rounded-full bg-[#111] text-white flex items-center justify-center text-[20px] font-bold shrink-0 mb-3">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+          <h2 className="text-[20px] font-bold text-[#111]">{user.name}</h2>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${user.active ? 'bg-green-100 text-green-700' : 'bg-[#f0f0f0] text-[#999]'}`}>
+              {user.active ? 'Active' : 'Inactive'}
+            </span>
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${roleBadgeColor(user.role)}`}>{user.role}</span>
           </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
           {profile.map(({ label, value }) => (
             <div key={label} className="flex items-center px-5 py-3 border-b border-[#f4f4f4]">
               <span className="text-[12px] text-[#999] w-28 shrink-0">{label}</span>
@@ -436,44 +607,123 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
           </div>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-xl">
+      <div className="flex-1 flex flex-col overflow-hidden">
+
+        {/* Payroll History */}
+        <div className="flex-1 overflow-y-auto p-5 border-b border-[#e8e8e8] flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-[16px] font-bold text-[#111]">Payroll History</p>
-            <button onClick={() => setShowPeriodModal(true)} className="flex items-center gap-1.5 text-[12px] font-semibold text-[#111] hover:text-[#555] transition-colors">
-              <Plus size={13} /> Run Payroll
-            </button>
+            <p>
+              <span className="text-[13px] font-bold text-[#111]">Payroll</span>
+              <span className="text-[13px] font-medium text-[#aaa]"> | History</span>
+            </p>
+            <div className="flex items-center gap-2">
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
+                className="text-[13px] text-[#666] border border-[#ebebeb] rounded-xl px-3 py-2 focus:outline-none focus:border-[#111]" />
+              <span className="text-[13px] text-[#ccc]">–</span>
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
+                className="text-[13px] text-[#666] border border-[#ebebeb] rounded-xl px-3 py-2 focus:outline-none focus:border-[#111]" />
+            </div>
           </div>
-          {isLoading ? (
-            <div className="h-32 flex items-center justify-center"><LogoLoader /></div>
-          ) : records.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-              <p className="text-[13px] text-[#bbb]">
-                {periods.length === 0
-                  ? 'No payroll periods yet. Run payroll to generate records.'
-                  : user.pay_rate == null
-                  ? 'No pay rate set. Edit pay rate in the profile, then run payroll.'
-                  : 'No records found for this employee.'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {records.map((r) => (
-                <div key={r.id}>
-                  <RecordCard record={r} />
-                  {r.period_status === 'Draft' && (
-                    <div className="flex justify-end mt-1 pr-1">
-                      <button onClick={() => handlePublish(r.period_id)} className="text-[12px] text-[#888] hover:text-[#111] transition-colors">
-                        Publish period
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="flex-1">
+            {isLoading ? (
+              <div className="py-6 flex items-center justify-center"><LogoLoader /></div>
+            ) : records.filter((r) =>
+                (!fromDate || r.period_start_date >= fromDate) &&
+                (!toDate   || r.period_end_date   <= toDate)
+              ).length === 0 ? (
+              <div className="py-4 flex items-center justify-center">
+                <p className="text-[13px] font-medium text-[#bbb]">
+                  {periods.length === 0
+                    ? 'No payroll periods yet'
+                    : user.pay_rate == null
+                    ? 'No pay rate set'
+                    : 'No records found'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2 mb-3">
+                {records.filter((r) =>
+                  (!fromDate || r.period_start_date >= fromDate) &&
+                  (!toDate   || r.period_end_date   <= toDate)
+                ).map((r) => (
+                  <div key={r.id}>
+                    <RecordCard record={r} />
+                    {r.period_status === 'Draft' && (
+                      <div className="flex justify-end mt-1 pr-1">
+                        <button onClick={() => handlePublish(r.period_id)}
+                          className="text-[12px] text-[#888] hover:text-[#111] transition-colors">
+                          Publish period
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex items-center justify-between border-t border-[#f0f0f0] pt-3">
+            <button onClick={() => setShowPeriodModal(true)}
+              className="flex items-center gap-1 text-[12px] font-semibold text-[#888] hover:text-[#111] transition-colors">
+              <Plus size={12} /> Run Payroll
+            </button>
+            {(() => { const n = records.filter((r) => (!fromDate || r.period_start_date >= fromDate) && (!toDate || r.period_end_date <= toDate)).length; return <p className="text-[13px] font-bold text-[#bbb]">{n} record{n !== 1 ? 's' : ''}</p> })()}
+          </div>
         </div>
+
+        {/* Attendance */}
+        <div className="flex-1 overflow-hidden p-5 flex flex-col">
+          <p className="mb-4">
+            <span className="text-[13px] font-bold text-[#111]">Attendance</span>
+            <span className="text-[13px] font-medium text-[#aaa]"> | History</span>
+          </p>
+          <div className="flex-1 overflow-y-auto">
+            {isLoadingAttendance ? (
+              <div className="py-6 flex items-center justify-center"><LogoLoader /></div>
+            ) : attendance.length === 0 ? (
+              <div className="py-4 flex items-center justify-center">
+                <p className="text-[13px] font-medium text-[#bbb]">No attendance records yet</p>
+              </div>
+            ) : (() => {
+              const fmt2 = (d: Date) => d.toLocaleTimeString('en-JM', { hour: '2-digit', minute: '2-digit' })
+              const fmtD = (s: string) => new Date(s).toLocaleDateString('en-JM', { month: 'short', day: 'numeric', year: 'numeric' })
+              const grouped = attendance.reduce<Record<string, typeof attendance>>((acc, a) => {
+                const key = a.shift_date ?? a.clock_in.slice(0, 10)
+                ;(acc[key] ??= []).push(a)
+                return acc
+              }, {})
+              return (
+                <div className="flex flex-col mb-3">
+                  {Object.entries(grouped).map(([date, entries]) => (
+                    <div key={date}>
+                      <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase py-2">{fmtD(date)}</p>
+                      {entries.map((a) => {
+                        const clockIn  = new Date(a.clock_in)
+                        const clockOut = a.clock_out ? new Date(a.clock_out) : null
+                        const mins     = clockOut ? Math.round((clockOut.getTime() - clockIn.getTime()) / 60000) : null
+                        const duration = mins != null ? `${Math.floor(mins / 60)}h ${mins % 60}m` : null
+                        return (
+                          <div key={a.id} className="flex items-center justify-between py-1.5 pl-2">
+                            <p className="text-[12px] text-[#666]">
+                              {fmt2(clockIn)} – {clockOut ? fmt2(clockOut) : 'ongoing'}
+                              {a.pump_name ? ` · ${a.pump_name}` : ''}
+                            </p>
+                            {duration && <p className="text-[13px] font-semibold text-[#333]">{duration}</p>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+          </div>
+          <div className="flex items-center justify-end border-t border-[#f0f0f0] pt-3">
+            <p className="text-[13px] font-bold text-[#bbb]">{attendance.length} shift{attendance.length !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+
       </div>
+      {showEditModal   && <EditEmployeeModal user={user} onClose={() => setShowEditModal(false)} />}
       {showPayModal    && <EditPayModal user={user} onClose={() => setShowPayModal(false)} />}
       {showPeriodModal && <NewPeriodModal onClose={() => setShowPeriodModal(false)} />}
     </div>
@@ -627,6 +877,7 @@ function PayrollPanel({ onSelectPeriod }: { onSelectPeriod: (p: PayrollPeriod) =
 function StaffTable({ onSelect }: { onSelect: (u: User) => void }) {
   const { data: users = [], isLoading } = useUsers()
   const { data: weekly }                = usePayrollWeeklySummary()
+  const [inactiveOpen, setInactiveOpen] = useState(false)
 
   const active   = users.filter((u) => u.active)
   const inactive = users.filter((u) => !u.active)
@@ -643,7 +894,7 @@ function StaffTable({ onSelect }: { onSelect: (u: User) => void }) {
           <p className={`text-[15px] font-bold ${(weekly?.total_shortage ?? 0) > 0 ? 'text-[#c0392b]' : 'text-[#bbb]'}`}>{fmt(weekly?.total_shortage ?? 0)}</p>
         </div>
       </div>
-      <div className="flex-1 bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
         <div className="grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 px-5 py-2.5 border-b border-[#f0f0f0] bg-[#fafafa] shrink-0">
           {['Name', 'Role', 'Email', 'Pay Rate', 'Sick Days', 'Last Paid', ''].map((h) => (
             <p key={h} className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
@@ -676,29 +927,44 @@ function StaffTable({ onSelect }: { onSelect: (u: User) => void }) {
                 <ChevronRight size={14} className="text-[#ccc]" />
               </button>
             ))}
-            {inactive.length > 0 && (
-              <>
-                <div className="px-5 py-2 bg-[#fafafa] border-t border-b border-[#f0f0f0]">
-                  <p className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">Inactive</p>
-                </div>
-                {inactive.map((u) => (
-                  <button key={u.id} onClick={() => onSelect(u)}
-                    className="w-full grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 items-center px-5 py-3.5 border-b border-[#f8f8f8] hover:bg-[#fafafa] transition-colors text-left opacity-50">
-                    <p className="text-[13px] text-[#111] truncate">{u.name}</p>
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${roleBadgeColor(u.role)}`}>{u.role}</span>
-                    <p className="text-[13px] text-[#666] truncate">{u.email || '—'}</p>
-                    <p className="text-[13px] text-[#666]">—</p>
-                    <p className="text-[13px] text-[#666]">{u.sick_days != null ? `${u.sick_days}d` : '—'}</p>
-                    <p className="text-[13px] text-[#666]">—</p>
-                    <ChevronRight size={14} className="text-[#ccc]" />
-                  </button>
-                ))}
-              </>
-            )}
             </>
           </div>
         )}
       </div>
+
+      {inactive.length > 0 && (
+        <div className="shrink-0 border border-[#ebebeb] rounded-2xl bg-white overflow-hidden">
+          <button
+            onClick={() => setInactiveOpen((o) => !o)}
+            className="w-full flex items-center gap-2 px-5 py-3.5 hover:bg-[#fafafa] transition-colors"
+          >
+            <ChevronRight size={14} className={`text-[#888] transition-transform ${inactiveOpen ? 'rotate-90' : ''}`} />
+            <span className="text-[13px] font-bold text-[#888]">Inactive</span>
+            <span className="text-[11px] font-bold text-[#bbb] bg-[#f4f4f4] px-2 py-0.5 rounded-full">{inactive.length}</span>
+          </button>
+          {inactiveOpen && (
+            <div className="border-t border-[#f0f0f0] max-h-[280px] overflow-y-auto">
+              <div className="grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 px-5 py-2.5 border-b border-[#f4f4f4] bg-[#fafafa]">
+                {['Name', 'Role', 'Email', 'Pay Rate', 'Sick Days', 'Last Paid', ''].map((h) => (
+                  <p key={h} className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
+                ))}
+              </div>
+              {inactive.map((u) => (
+                <button key={u.id} onClick={() => onSelect(u)}
+                  className="w-full grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 items-center px-5 py-3.5 border-b border-[#f8f8f8] last:border-0 hover:bg-[#fafafa] transition-colors text-left opacity-50">
+                  <p className="text-[13px] text-[#111] truncate">{u.name}</p>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${roleBadgeColor(u.role)}`}>{u.role}</span>
+                  <p className="text-[13px] text-[#666] truncate">{u.email || '—'}</p>
+                  <p className="text-[13px] text-[#666]">—</p>
+                  <p className="text-[13px] text-[#666]">{u.sick_days != null ? `${u.sick_days}d` : '—'}</p>
+                  <p className="text-[13px] text-[#666]">—</p>
+                  <ChevronRight size={14} className="text-[#ccc]" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

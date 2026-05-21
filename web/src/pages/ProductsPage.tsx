@@ -1,162 +1,45 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
-  Candy, Cigarette, ChevronRight, Flame, GlassWater, Home, Plus, Search, Smartphone, Snowflake, Utensils, Wrench, X,
+  Candy, ChevronRight, Cigarette, Flame, GlassWater, Home, MoreHorizontal, Plus, Search, Smartphone, Snowflake, Utensils, Wrench, X,
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
+import { useProducts, useInactiveProducts } from '../hooks/useApi'
+import { createProduct, type Product } from '../lib/api'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Category meta ─────────────────────────────────────────────────────────────
 
-type Category =
-  | 'Liquors & Beverages'
-  | 'Snacks & Candies'
-  | 'Quick Meals'
-  | 'Smoking Products'
-  | 'Household Items'
-  | 'Lubes & Car Care'
-  | 'Frozen Foods'
-  | 'LPG'
-  | 'Credit & Electronics'
-
-const CATEGORY_META: { name: Category; label: string; icon: React.ElementType }[] = [
-  { name: 'Liquors & Beverages', label: 'Liquors & Beverages',   icon: GlassWater },
-  { name: 'Snacks & Candies',    label: 'Snacks & Candies',      icon: Candy      },
-  { name: 'Quick Meals',         label: 'Quick Meals',           icon: Utensils   },
-  { name: 'Smoking Products',    label: 'Smoking Products',      icon: Cigarette  },
-  { name: 'Household Items',     label: 'Household Items',       icon: Home       },
-  { name: 'Lubes & Car Care',    label: 'Lubes & Car Care',      icon: Wrench     },
-  { name: 'Frozen Foods',        label: 'Frozen Foods',          icon: Snowflake  },
-  { name: 'LPG',                 label: 'Liquid Petroleum Gas',  icon: Flame      },
-  { name: 'Credit & Electronics',label: 'Credit & Electronics',  icon: Smartphone },
+const CATEGORY_META: { name: string; label: string; icon: React.ElementType }[] = [
+  { name: 'Beverages',  label: 'Liquors & Beverages',  icon: GlassWater },
+  { name: 'Snacks',     label: 'Snacks & Candies',     icon: Candy      },
+  { name: 'Meals',      label: 'Quick Meals',          icon: Utensils   },
+  { name: 'Tobacco',    label: 'Smoking Products',     icon: Cigarette  },
+  { name: 'Household',  label: 'Household Items',      icon: Home       },
+  { name: 'Automotive', label: 'Lubes & Car Care',     icon: Wrench     },
+  { name: 'Frozen',     label: 'Frozen Foods',         icon: Snowflake  },
+  { name: 'LPG',        label: 'Liquid Petroleum Gas', icon: Flame      },
+  { name: 'Electronics',label: 'Credit & Electronics', icon: Smartphone },
+  { name: 'Other',      label: 'Other',                icon: Home       },
 ]
 
-const ALL_CATEGORIES = CATEGORY_META.map((c) => c.name)
-
-function categoryLabel(name: Category) {
-  return CATEGORY_META.find((c) => c.name === name)?.label ?? name
-}
-
-interface Product {
-  id: string
-  name: string
-  category: Category
-  price: number
-  stock: number
+function categoryMeta(name: string | null) {
+  return CATEGORY_META.find((c) => c.name === name) ?? { label: name ?? 'Other', icon: Home }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmt(n: number) {
-  return '$' + n.toLocaleString('en-JM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return 'J$ ' + n.toLocaleString('en-JM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function stockBadge(stock: number) {
-  if (stock === 0) return 'bg-red-50 text-red-500'
-  if (stock < 10)  return 'bg-[#fff3cd] text-[#856404]'
+function stockBadge(qty: number) {
+  if (qty === 0) return 'bg-red-50 text-red-500'
+  if (qty < 10)  return 'bg-[#fff3cd] text-[#856404]'
   return 'bg-[#d1e7dd] text-[#0a5435]'
-}
-
-// ── Add Product Modal ─────────────────────────────────────────────────────────
-
-function AddProductModal({ onClose, onAdd }: { onClose: () => void; onAdd: (p: Omit<Product, 'id'>) => void }) {
-  const [form, setForm] = useState({
-    name: '', category: ALL_CATEGORIES[0] as Category, price: '', stock: '',
-  })
-
-  function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })) }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    onAdd({
-      name: form.name,
-      category: form.category,
-      price: parseFloat(form.price) || 0,
-      stock: parseInt(form.stock) || 0,
-    })
-    onClose()
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-3xl w-full max-w-[440px] p-8 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-[16px] font-bold text-[#111]">Add Product</h3>
-          <button onClick={onClose} className="text-[#bbb] hover:text-[#555] transition-colors"><X size={18} /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <div>
-            <label className="block text-[11px] font-semibold text-[#888] mb-1 uppercase tracking-widest">Product Name</label>
-            <input
-              type="text" required value={form.name} onChange={(e) => set('name', e.target.value)}
-              className="w-full border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111]"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] font-semibold text-[#888] mb-1 uppercase tracking-widest">Category</label>
-            <select value={form.category} onChange={(e) => set('category', e.target.value)}
-              className="w-full border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111]">
-              {CATEGORY_META.map((c) => <option key={c.name} value={c.name}>{c.label}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-semibold text-[#888] mb-1 uppercase tracking-widest">Price (JMD)</label>
-              <input
-                type="number" min="0" step="0.01" value={form.price} onChange={(e) => set('price', e.target.value)}
-                className="w-full border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111]"
-              />
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-[#888] mb-1 uppercase tracking-widest">Stock</label>
-              <input
-                type="number" min="0" value={form.stock} onChange={(e) => set('stock', e.target.value)}
-                className="w-full border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111]"
-              />
-            </div>
-          </div>
-          <button type="submit"
-            className="w-full bg-white border border-[#ddd] text-[#333] rounded-xl py-2.5 text-[13px] font-semibold hover:bg-[#f9f9f9] transition-colors mt-2">
-            Add Product
-          </button>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// ── Add Category Modal ────────────────────────────────────────────────────────
-
-function AddCategoryModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-3xl w-full max-w-[380px] p-8 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-[16px] font-bold text-[#111]">New Category</h3>
-          <button onClick={onClose} className="text-[#bbb] hover:text-[#555] transition-colors"><X size={18} /></button>
-        </div>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-[11px] font-semibold text-[#888] mb-1 uppercase tracking-widest">Category Name</label>
-            <input
-              type="text"
-              className="w-full border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111]"
-            />
-          </div>
-          <button
-            className="w-full bg-[#111] text-white rounded-xl py-3 text-[13px] font-semibold hover:bg-[#333] transition-colors mt-2"
-            onClick={onClose}
-          >
-            Add Category
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ── Categories Panel ──────────────────────────────────────────────────────────
 
 function CategoriesPanel({ products }: { products: Product[] }) {
-  const [showModal, setShowModal] = useState(false)
-
   const counts = CATEGORY_META.map((cat) => ({
     ...cat,
     count: products.filter((p) => p.category === cat.name).length,
@@ -190,13 +73,6 @@ function CategoriesPanel({ products }: { products: Product[] }) {
           ))}
         </div>
       </div>
-      <div className="flex items-center justify-between border-t border-[#f0f0f0] px-5 py-3">
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-1 text-[12px] font-semibold text-[#888] hover:text-[#111] transition-colors">
-          <Plus size={12} /> New
-        </button>
-        <p className="text-[13px] font-bold text-[#bbb]">{CATEGORY_META.length} categories</p>
-      </div>
-      {showModal && <AddCategoryModal onClose={() => setShowModal(false)} />}
     </div>
   )
 }
@@ -204,9 +80,7 @@ function CategoriesPanel({ products }: { products: Product[] }) {
 // ── Low Stock Panel ───────────────────────────────────────────────────────────
 
 function LowStockPanel({ products }: { products: Product[] }) {
-  const low = products
-    .filter((p) => p.stock < 10)
-    .sort((a, b) => a.stock - b.stock)
+  const low = products.filter((p) => p.stock_qty < 10).sort((a, b) => a.stock_qty - b.stock_qty)
 
   return (
     <div className="h-[300px] shrink-0 flex flex-col">
@@ -228,20 +102,18 @@ function LowStockPanel({ products }: { products: Product[] }) {
           </div>
           <div className="overflow-y-auto flex flex-col px-4 pb-3">
             {low.map((p) => {
-              const meta = CATEGORY_META.find((c) => c.name === p.category)
-              const Icon = meta?.icon
+              const meta = categoryMeta(p.category)
+              const Icon = meta.icon
               return (
                 <div key={p.id} className="grid grid-cols-[1fr_auto] gap-3 items-center py-2 border-b border-[#f8f8f8] last:border-0">
                   <div className="flex items-center gap-2 min-w-0">
-                    {Icon && (
-                      <div className="w-5 h-5 rounded-md bg-[#f4f4f4] flex items-center justify-center flex-shrink-0">
-                        <Icon size={11} className="text-[#555]" />
-                      </div>
-                    )}
+                    <div className="w-5 h-5 rounded-md bg-[#f4f4f4] flex items-center justify-center flex-shrink-0">
+                      <Icon size={11} className="text-[#555]" />
+                    </div>
                     <p className="text-[13px] font-semibold text-[#111] truncate">{p.name}</p>
                   </div>
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${stockBadge(p.stock)}`}>
-                    {p.stock === 0 ? 'Out' : p.stock}
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${stockBadge(p.stock_qty)}`}>
+                    {p.stock_qty === 0 ? 'Out' : p.stock_qty}
                   </span>
                 </div>
               )
@@ -253,21 +125,152 @@ function LowStockPanel({ products }: { products: Product[] }) {
   )
 }
 
+// ── Add Product Modal ─────────────────────────────────────────────────────────
+
+const UNITS = ['pcs', 'pack', 'box', 'bottle', 'can', 'bag', 'kg', 'g', 'L', 'mL']
+
+function AddProductModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient()
+  const [name, setName] = useState('')
+  const [category, setCategory] = useState<string>('')
+  const [sku, setSku] = useState('')
+  const [upc, setUpc] = useState('')
+  const [price, setPrice] = useState('')
+  const [cost, setCost] = useState('')
+  const [stock, setStock] = useState('')
+  const [unit, setUnit] = useState('pcs')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!name.trim() || !price || !stock) {
+      setError('Name, price, and stock are required')
+      return
+    }
+    setSaving(true)
+    setError('')
+    try {
+      await createProduct({
+        name: name.trim(),
+        category: category || null,
+        sku: sku.trim() || null,
+        upc: upc.trim() || null,
+        price: parseFloat(price),
+        cost: cost !== '' ? parseFloat(cost) : null,
+        stock_qty: parseInt(stock, 10),
+        unit,
+      })
+      await qc.invalidateQueries({ queryKey: ['products'] })
+      onClose()
+    } catch {
+      setError('Failed to add product')
+      setSaving(false)
+    }
+  }
+
+  const fieldClass = 'w-full px-3 py-2 text-[13px] font-medium text-[#111] bg-white border border-[#ddd] rounded-xl focus:outline-none focus:border-[#aaa] transition-colors'
+  const labelClass = 'text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl w-full max-w-[460px] shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#ebebeb]">
+          <p className="text-[14px] font-bold text-[#111]">Add Product</p>
+          <button onClick={onClose} className="text-[#bbb] hover:text-[#555] transition-colors">
+            <X size={16} />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
+          <div>
+            <p className={labelClass}>Name</p>
+            <input className={fieldClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sprite 500mL" autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className={labelClass}>Category</p>
+              <select className={fieldClass} value={category} onChange={(e) => setCategory(e.target.value)}>
+                <option value="">None</option>
+                {CATEGORY_META.map((c) => (
+                  <option key={c.name} value={c.name}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <p className={labelClass}>SKU</p>
+              <input className={fieldClass} value={sku} onChange={(e) => setSku(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className={labelClass}>UPC</p>
+              <input className={fieldClass} value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className={labelClass}>Price (J$)</p>
+              <input className={fieldClass} type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
+            </div>
+            <div>
+              <p className={labelClass}>Cost (J$)</p>
+              <input className={fieldClass} type="number" min="0" step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className={labelClass}>Stock Qty</p>
+              <input className={fieldClass} type="number" min="0" step="1" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="0" />
+            </div>
+            <div>
+              <p className={labelClass}>Unit</p>
+              <select className={fieldClass} value={unit} onChange={(e) => setUnit(e.target.value)}>
+                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+          {error && <p className="text-[12px] font-semibold text-red-500">{error}</p>}
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={saving} className="flex-1 px-4 py-2.5 bg-[#111] rounded-xl text-[13px] font-semibold text-white hover:bg-[#333] transition-colors disabled:opacity-50">
+              {saving ? 'Adding…' : 'Add Product'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 // ── Products Table ────────────────────────────────────────────────────────────
 
-function ProductsTable({ products, onAdd }: { products: Product[]; onAdd: () => void }) {
+function ProductsTable({ products, inactiveProducts, onAdd }: { products: Product[]; inactiveProducts: Product[]; onAdd: () => void }) {
   const [query, setQuery] = useState('')
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [inactiveOpen, setInactiveOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpenMenuId(null)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   const filtered = query.trim()
     ? products.filter(
         (p) =>
           p.name.toLowerCase().includes(query.toLowerCase()) ||
-          p.category.toLowerCase().includes(query.toLowerCase())
+          (p.category ?? '').toLowerCase().includes(query.toLowerCase()) ||
+          (p.sku ?? '').toLowerCase().includes(query.toLowerCase())
       )
     : products
 
   return (
-    <div className="flex-1 overflow-hidden flex flex-col p-6 gap-4 min-w-0">
+    <div className="flex-1 overflow-hidden flex flex-col p-6 gap-3 min-w-0">
       <div className="flex items-center gap-3 px-4 py-2.5 bg-white border border-[#ebebeb] rounded-xl shrink-0">
         <Search size={14} className="text-[#bbb] flex-shrink-0" />
         <input
@@ -283,18 +286,19 @@ function ProductsTable({ products, onAdd }: { products: Product[]; onAdd: () => 
           </button>
         )}
       </div>
-      <div className="flex-1 bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
-        <div className="grid grid-cols-[2fr_2fr_1fr_1fr_32px] gap-4 px-5 py-2.5 border-b border-[#f0f0f0] bg-[#fafafa] shrink-0">
-          {['Name', 'Category', 'Price', 'Stock', ''].map((h) => (
-            <p key={h} className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
+
+      <div className="flex-1 overflow-hidden bg-white border border-[#ebebeb] rounded-2xl flex flex-col">
+        <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_80px_36px] gap-4 px-5 py-3 border-b border-[#f0f0f0] shrink-0">
+          {['Name', 'Category', 'Price', 'Cost', 'Unit', 'Stock', ''].map((h) => (
+            <p key={h} className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
           ))}
         </div>
+
         {products.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2">
             <p className="text-[13px] font-semibold text-[#bbb]">No products yet</p>
             <p className="text-[12px] font-medium text-[#ccc]">Add your first product to get started</p>
-            <button onClick={onAdd}
-              className="mt-3 flex items-center gap-1.5 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[12px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors">
+            <button onClick={onAdd} className="mt-3 flex items-center gap-1.5 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[12px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors">
               <Plus size={13} /> Add Product
             </button>
           </div>
@@ -304,21 +308,101 @@ function ProductsTable({ products, onAdd }: { products: Product[]; onAdd: () => 
           </div>
         ) : (
           <div className="flex-1 overflow-y-auto">
-            {filtered.map((p) => (
-              <button key={p.id}
-                className="w-full grid grid-cols-[2fr_2fr_1fr_1fr_32px] gap-4 items-center px-5 py-3.5 border-b border-[#f8f8f8] last:border-0 hover:bg-[#fafafa] transition-colors text-left">
-                <p className="text-[13px] font-semibold text-[#111] truncate">{p.name}</p>
-                <p className="text-[13px] text-[#666] truncate">{categoryLabel(p.category)}</p>
-                <p className="text-[13px] text-[#666]">{fmt(p.price)}</p>
-                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${stockBadge(p.stock)}`}>
-                  {p.stock === 0 ? 'Out' : `${p.stock}`}
-                </span>
-                <ChevronRight size={14} className="text-[#ccc]" />
-              </button>
-            ))}
+            {filtered.map((p) => {
+              const meta = categoryMeta(p.category)
+              const Icon = meta.icon
+              return (
+                <div key={p.id} className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_80px_36px] gap-4 px-5 py-3 border-b border-[#f8f8f8] last:border-0 hover:bg-[#fafafa] transition-colors items-center">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-semibold text-[#111] truncate">{p.name}</p>
+                    {p.sku && <p className="text-[11px] font-medium text-[#bbb] mt-0.5">{p.sku}</p>}
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-5 h-5 rounded-md bg-[#f4f4f4] flex items-center justify-center flex-shrink-0">
+                      <Icon size={11} className="text-[#555]" />
+                    </div>
+                    <p className="text-[12px] font-medium text-[#555] truncate">{meta.label}</p>
+                  </div>
+                  <p className="text-[13px] font-semibold text-[#111]">{fmt(p.price)}</p>
+                  <p className="text-[13px] font-medium text-[#888]">{p.cost != null ? fmt(p.cost) : <span className="text-[#ddd]">—</span>}</p>
+                  <p className="text-[12px] font-medium text-[#888]">{p.unit}</p>
+                  <p className={`text-[13px] font-semibold ${p.stock_qty === 0 ? 'text-red-500' : p.stock_qty < 10 ? 'text-[#856404]' : 'text-[#111]'}`}>
+                    {p.stock_qty}
+                  </p>
+                  <div ref={openMenuId === p.id ? menuRef : null} className="relative flex items-center justify-center">
+                    <button
+                      onClick={() => setOpenMenuId(openMenuId === p.id ? null : p.id)}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg text-[#bbb] hover:text-[#555] hover:bg-[#f4f4f4] transition-colors"
+                    >
+                      <MoreHorizontal size={14} />
+                    </button>
+                    {openMenuId === p.id && (
+                      <div className="absolute right-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[130px] z-50">
+                        <button onClick={() => setOpenMenuId(null)} className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors">
+                          Edit
+                        </button>
+                        <button onClick={() => setOpenMenuId(null)} className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors">
+                          Deactivate
+                        </button>
+                        <button onClick={() => setOpenMenuId(null)} className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-red-500 hover:bg-red-50 transition-colors">
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
+
+      {/* Inactive products accordion */}
+      {inactiveProducts.length > 0 && (
+        <div className="shrink-0 border border-[#ebebeb] rounded-2xl bg-white overflow-hidden">
+          <button
+            onClick={() => setInactiveOpen((o) => !o)}
+            className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-[#fafafa] transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <ChevronRight size={14} className={`text-[#888] transition-transform ${inactiveOpen ? 'rotate-90' : ''}`} />
+              <span className="text-[13px] font-bold text-[#888]">Inactive</span>
+              <span className="text-[11px] font-bold text-[#bbb] bg-[#f4f4f4] px-2 py-0.5 rounded-full">{inactiveProducts.length}</span>
+            </div>
+          </button>
+          {inactiveOpen && (
+            <div className="border-t border-[#f0f0f0] max-h-[280px] overflow-y-auto">
+              <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_80px] gap-4 px-5 py-2.5 border-b border-[#f4f4f4] bg-[#fafafa]">
+                {['Name', 'Category', 'Price', 'Cost', 'Unit', 'Stock'].map((h) => (
+                  <p key={h} className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
+                ))}
+              </div>
+              {inactiveProducts.map((p) => {
+                const meta = categoryMeta(p.category)
+                const Icon = meta.icon
+                return (
+                  <div key={p.id} className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_80px] gap-4 px-5 py-3 border-b border-[#f8f8f8] last:border-0 items-center opacity-60 hover:opacity-80 transition-opacity">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-[#111] truncate">{p.name}</p>
+                      {p.sku && <p className="text-[11px] font-medium text-[#bbb] mt-0.5">{p.sku}</p>}
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-5 h-5 rounded-md bg-[#f4f4f4] flex items-center justify-center flex-shrink-0">
+                        <Icon size={11} className="text-[#555]" />
+                      </div>
+                      <p className="text-[12px] font-medium text-[#555] truncate">{meta.label}</p>
+                    </div>
+                    <p className="text-[13px] font-semibold text-[#111]">{fmt(p.price)}</p>
+                    <p className="text-[13px] font-medium text-[#888]">{p.cost != null ? fmt(p.cost) : <span className="text-[#ddd]">—</span>}</p>
+                    <p className="text-[12px] font-medium text-[#888]">{p.unit}</p>
+                    <p className="text-[13px] font-semibold text-[#aaa]">{p.stock_qty}</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -326,12 +410,9 @@ function ProductsTable({ products, onAdd }: { products: Product[]; onAdd: () => 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [showAdd, setShowAdd]   = useState(false)
-
-  function addProduct(p: Omit<Product, 'id'>) {
-    setProducts((prev) => [...prev, { ...p, id: crypto.randomUUID() }])
-  }
+  const { data: products = [] } = useProducts()
+  const { data: inactiveProducts = [] } = useInactiveProducts()
+  const [showAdd, setShowAdd] = useState(false)
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -340,21 +421,20 @@ export function ProductsPage() {
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-0.5">Convenience Store</p>
           <h1 className="text-[22px] font-bold text-[#111] leading-tight">Products</h1>
         </div>
-        <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors">
+        <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors">
           <Plus size={14} /> Add Product
         </button>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        <ProductsTable products={products} onAdd={() => setShowAdd(true)} />
-        <div className="w-[450px] shrink-0 border-l border-[#e8e8e8] h-full flex flex-col divide-y divide-[#e8e8e8]">
+        <ProductsTable products={products} inactiveProducts={inactiveProducts} onAdd={() => setShowAdd(true)} />
+        <div className="w-[300px] shrink-0 border-l border-[#e8e8e8] h-full flex flex-col divide-y divide-[#e8e8e8]">
           <CategoriesPanel products={products} />
           <LowStockPanel products={products} />
         </div>
       </div>
 
-      {showAdd && <AddProductModal onClose={() => setShowAdd(false)} onAdd={addProduct} />}
+      {showAdd && <AddProductModal onClose={() => setShowAdd(false)} />}
     </div>
   )
 }

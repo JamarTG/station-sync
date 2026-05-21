@@ -1,14 +1,14 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { LogoLoader } from '../components/StationSyncLogo'
 import {
   useUsers, useUserPayroll, usePayrollPeriods, usePayrollRecords,
   useCreateUser, useUpdatePay, usePayrollWeeklySummary, useUserAttendance,
 } from '../hooks/useApi'
 import { useAuth } from '../lib/authContext'
-import { api } from '../lib/api'
+import { api, updateUser } from '../lib/api'
 import type { User, PayrollPeriod, PayrollRecord } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, ChevronRight, Download, Pencil, Plus, Printer, Search, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Download, MoreHorizontal, Pencil, Plus, Printer, Search, Sparkles, X } from 'lucide-react'
 import { printPaySlip, printPayrollRegister, printJobLetter, downloadS01CSV, downloadHeartCSV } from '../lib/payrollExport'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -488,6 +488,16 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
   const [showPayModal, setShowPayModal]       = useState(false)
   const [showPeriodModal, setShowPeriodModal] = useState(false)
   const [showEditModal, setShowEditModal]     = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const profileMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) setProfileMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
   const [fromDate, setFromDate]       = useState('')
   const [toDate, setToDate]           = useState('')
   const [showGenerate, setShowGenerate] = useState(false)
@@ -496,6 +506,13 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
     await api.patch(`/payroll/periods/${periodId}/publish`)
     await qc.invalidateQueries({ queryKey: ['payroll-periods'] })
     await qc.invalidateQueries({ queryKey: ['user-payroll', user.id] })
+  }
+
+  async function handleToggleActive() {
+    await updateUser(user.id, { active: !user.active })
+    await qc.invalidateQueries({ queryKey: ['users'] })
+    setProfileMenuOpen(false)
+    onBack()
   }
 
   const ranked = [...allUsers]
@@ -549,9 +566,30 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
                 </div>
               )}
             </div>
-            <button onClick={() => setShowEditModal(true)} className="flex items-center gap-1 text-[12px] text-[#888] hover:text-[#111] transition-colors">
-              <Pencil size={12} /> Edit
-            </button>
+            <div ref={profileMenuRef} className="relative">
+              <button
+                onClick={() => setProfileMenuOpen((o) => !o)}
+                className="w-8 h-8 flex items-center justify-center border border-[#ddd] rounded-xl text-[#555] hover:bg-[#f9f9f9] transition-colors"
+              >
+                <MoreHorizontal size={15} />
+              </button>
+              {profileMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[130px] z-20">
+                  <button
+                    onClick={() => { setShowEditModal(true); setProfileMenuOpen(false) }}
+                    className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={handleToggleActive}
+                    className={`w-full text-left px-4 py-2.5 text-[13px] font-semibold transition-colors ${user.active ? 'text-red-500 hover:bg-red-50' : 'text-green-600 hover:bg-green-50'}`}
+                  >
+                    {user.active ? 'Deactivate' : 'Activate'}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -919,6 +957,7 @@ function StaffTable({ onSelect, isManagerOrAdmin }: { onSelect: (u: User) => voi
   const { data: users = [], isLoading } = useUsers()
   const { data: weekly }                = usePayrollWeeklySummary()
   const [query, setQuery]               = useState('')
+  const [inactiveOpen, setInactiveOpen] = useState(false)
 
   const q = query.trim().toLowerCase()
   const match = (u: User) =>
@@ -963,7 +1002,7 @@ function StaffTable({ onSelect, isManagerOrAdmin }: { onSelect: (u: User) => voi
         </div>
       </div>
 
-      <div className="flex-1 bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
+      <div className="flex-1 min-h-0 bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
         <div className="grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 px-5 py-2.5 border-b border-[#f0f0f0] bg-[#fafafa] shrink-0">
           {['Name', 'Role', 'Email', 'Pay Rate', 'Sick Days', 'Last Paid', ''].map((h) => (
             <p key={h} className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
@@ -998,15 +1037,32 @@ function StaffTable({ onSelect, isManagerOrAdmin }: { onSelect: (u: User) => voi
             ) : (
               active.map((u) => <StaffRow key={u.id} user={u} onSelect={onSelect} />)
             )}
-            {inactive.length > 0 && (
-              <>
-                <SectionDivider label="Inactive" />
-                {inactive.map((u) => <StaffRow key={u.id} user={u} onSelect={onSelect} dimmed />)}
-              </>
-            )}
           </div>
         )}
       </div>
+
+      {inactive.length > 0 && (
+        <div className="shrink-0 border border-[#ebebeb] rounded-2xl bg-white overflow-hidden">
+          <button
+            onClick={() => setInactiveOpen((o) => !o)}
+            className="w-full flex items-center gap-2 px-5 py-3.5 hover:bg-[#fafafa] transition-colors"
+          >
+            <ChevronRight size={14} className={`text-[#888] transition-transform ${inactiveOpen ? 'rotate-90' : ''}`} />
+            <span className="text-[13px] font-bold text-[#888]">Inactive</span>
+            <span className="text-[11px] font-bold text-[#bbb] bg-[#f4f4f4] px-2 py-0.5 rounded-full">{inactive.length}</span>
+          </button>
+          {inactiveOpen && (
+            <div className="border-t border-[#f0f0f0] max-h-[280px] overflow-y-auto">
+              <div className="grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 px-5 py-2.5 border-b border-[#f4f4f4] bg-[#fafafa]">
+                {['Name', 'Role', 'Email', 'Pay Rate', 'Sick Days', 'Last Paid', ''].map((h) => (
+                  <p key={h} className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
+                ))}
+              </div>
+              {inactive.map((u) => <StaffRow key={u.id} user={u} onSelect={onSelect} dimmed />)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

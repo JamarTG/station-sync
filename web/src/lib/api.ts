@@ -77,6 +77,7 @@ export interface Product {
   name: string
   category: string | null
   sku: string | null
+  upc: string | null
   price: number
   cost: number | null
   stock_qty: number
@@ -254,6 +255,21 @@ export function getOpenCStoreShift() {
       if (err.response?.status === 404) return null
       throw err
     })
+}
+
+export function getProducts() {
+  return api.get<Product[]>('/products').then((r) => r.data)
+}
+
+export function getInactiveProducts() {
+  return api.get<Product[]>('/products?active=false').then((r) => r.data)
+}
+
+export function createProduct(data: {
+  name: string; category: string | null; sku: string | null; upc: string | null
+  price: number; cost: number | null; stock_qty: number; unit: string
+}) {
+  return api.post<Product>('/products', data).then((r) => r.data)
 }
 
 export function createShift(data: { supervisor_id: string; date: string; start_time: string }) {
