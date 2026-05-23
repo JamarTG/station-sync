@@ -886,11 +886,11 @@ function StaffTable({ onSelect }: { onSelect: (u: User) => void }) {
     <div className="flex-1 overflow-hidden flex flex-col p-6 gap-5 min-w-0">
       <div className="grid grid-cols-2 gap-3 shrink-0">
         <div className={`rounded-2xl border p-4 ${(weekly?.total_overage ?? 0) > 0 ? 'bg-green-50 border-green-200' : 'bg-white border-[#ebebeb]'}`}>
-          <p className="text-[11px] text-[#999] mb-1">Overages This Week</p>
+          <p className="text-[11px] text-[#999] mb-1">Overages <span className="text-[#bbb]">| Week (current)</span></p>
           <p className={`text-[15px] font-bold ${(weekly?.total_overage ?? 0) > 0 ? 'text-green-700' : 'text-[#bbb]'}`}>{fmt(weekly?.total_overage ?? 0)}</p>
         </div>
         <div className={`rounded-2xl border p-4 ${(weekly?.total_shortage ?? 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-[#ebebeb]'}`}>
-          <p className="text-[11px] text-[#999] mb-1">Shortages This Week</p>
+          <p className="text-[11px] text-[#999] mb-1">Shortages <span className="text-[#bbb]">| Week (current)</span></p>
           <p className={`text-[15px] font-bold ${(weekly?.total_shortage ?? 0) > 0 ? 'text-[#c0392b]' : 'text-[#bbb]'}`}>{fmt(weekly?.total_shortage ?? 0)}</p>
         </div>
       </div>

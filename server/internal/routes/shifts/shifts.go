@@ -51,4 +51,6 @@ func RegisterRoute(g *gin.RouterGroup, db *pgxpool.Pool) {
 	shifts.GET("/:shiftId/orders", oh.ListByShift)
 	shifts.POST("/:shiftId/orders", oh.Create)
 	shifts.PATCH("/:shiftId/orders/:orderId", oh.UpdateStatus)
+	shifts.DELETE("/:shiftId/orders/:orderId", oh.Delete)
+	shifts.PATCH("/:shiftId/orders/:orderId/items/:itemId/refund", oh.RefundItem)
 }

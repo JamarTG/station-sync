@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
-import { AlertCircle, Tv2, ArrowLeft, User, Shield, Bell, Users, Banknote, Fuel, Building2, Search, ChevronRight, LayoutDashboard, TrendingUp, BarChart2, Receipt, Calendar, Zap, ShoppingCart } from 'lucide-react'
+import { AlertCircle, Tv2, ArrowLeft, User, Shield, Bell, Users, Banknote, Fuel, Building2, Search, ChevronRight, LayoutDashboard, TrendingUp, BarChart2, Receipt, Calendar, Zap, ShoppingCart, Droplets } from 'lucide-react'
 import clsx from 'clsx'
 import { StationSyncLogo } from './StationSyncLogo'
 import { useAuth } from '../lib/authContext'
@@ -15,6 +15,7 @@ const managerItems = [
   { label: 'Staff',     to: '/staff',    icon: Users },
   { label: 'Schedule',  to: '/schedule', icon: Calendar },
   { label: 'Charges',   to: '/charges',  icon: Zap },
+  { label: 'Tanks',     to: '/tanks',    icon: Droplets },
 ]
 
 const stationItems = [
@@ -222,11 +223,9 @@ function NavLink({ to, label, icon: Icon, onClick }: { to: string; label: string
 interface Props {
   isOpen: boolean
   onClose: () => void
-  posMode?: boolean
-  onTogglePosMode?: () => void
 }
 
-export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
+export function Sidebar({ isOpen, onClose }: Props) {
   const { user } = useAuth()
   const { location } = useRouterState()
   const isSettings = location.pathname === '/settings'
@@ -255,17 +254,6 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
               title="Search settings"
             >
               <Search size={15} />
-            </button>
-          ) : !isManager && !isCashier ? (
-            <button
-              title={posMode ? 'Exit POS Mode' : 'POS Mode'}
-              onClick={onTogglePosMode}
-              className={clsx(
-                'w-8 h-8 flex items-center justify-center rounded-lg transition-colors flex-shrink-0',
-                posMode ? 'text-[#111] bg-[#f0f0f0]' : 'text-[#aaa] hover:text-[#111] hover:bg-[#f4f4f4]'
-              )}
-            >
-              <Tv2 size={16} />
             </button>
           ) : null}
         </div>
@@ -313,7 +301,7 @@ export function Sidebar({ isOpen, onClose, posMode, onTogglePosMode }: Props) {
               <NavLink key={item.to} {...item} onClick={onClose} />
             ))}
           </nav>
-        ) : isCashier || posMode ? (
+        ) : isCashier ? (
           <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">
             <NavLink label="Dashboard" to="/" icon={LayoutDashboard} onClick={onClose} />
             <div className="pt-4 pb-1 px-4">

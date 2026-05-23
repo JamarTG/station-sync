@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
-import { Trash2, ArrowLeft, Search } from 'lucide-react'
+import { Trash2, ArrowLeft, Search, Printer, ChevronDown, X } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../lib/authContext'
-import { useOpenCStoreShift, useProducts } from '../../hooks/useApi'
+import { useOpenCStoreShift, useProducts, useCustomers } from '../../hooks/useApi'
 import { createOrder, type Order } from '../../lib/api'
 import type { Product } from '../../lib/api'
+import { fmtInput, parseInput } from '../../lib/fmt'
+import { printOrderReceipt } from '../../lib/printReceipt'
+
+const DENOMINATIONS = [5000, 2000, 1000, 500, 100, 50, 20, 10, 5, 1]
 
 export interface CartItem {
   product: Product
@@ -16,6 +21,7 @@ interface Props {
   onUpdateCart: (cart: CartItem[]) => void
   onReturn: () => void
   onCancel: () => void
+  initialInvoiceNo?: string
 }
 
 function fmt(n: number) {
@@ -48,23 +54,140 @@ const TAX_RATE = 0.15
 const MOCK_PROMO: Record<string, number> = { SAVE10: 0.10, DISC20: 0.20 }
 const POINTS_PER_DOLLAR = 1
 
-export function InvoiceView({ cart, onUpdateCart, onReturn, onCancel }: Props) {
-  const { user } = useAuth()
-  const { data: cstoreShift } = useOpenCStoreShift()
+// ── Customer Combobox ─────────────────────────────────────────────────────────
 
-  const [invoiceNo]           = useState(genInvoiceNo)
+function CustomerCombobox({ value, onChange, customers }: {
+  value: string
+  onChange: (v: string) => void
+  customers: string[]
+}) {
+  const [open, setOpen]   = useState(false)
+  const [query, setQuery] = useState('')
+  const ref               = useRef<HTMLDivElement>(null)
+  const inputRef          = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    inputRef.current?.focus()
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false)
+        setQuery('')
+      }
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  const filtered = customers.filter((c) =>
+    !query || c.toLowerCase().includes(query.toLowerCase())
+  )
+
+  function select(name: string) {
+    onChange(name)
+    setOpen(false)
+    setQuery('')
+  }
+
+  return (
+    <div className="relative w-44" ref={ref}>
+      {/* Trigger */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-1.5 bg-[#f4f4f4] rounded-lg px-3 py-1.5 focus:outline-none hover:bg-[#ebebeb] transition-colors"
+      >
+        <span className={`text-[12px] font-semibold truncate ${value ? 'text-[#333]' : 'text-[#bbb] font-normal'}`}>
+          {value || 'Optional'}
+        </span>
+        {value ? (
+          <span
+            role="button"
+            onClick={(e) => { e.stopPropagation(); onChange('') }}
+            className="text-[#bbb] hover:text-[#555] transition-colors flex-shrink-0"
+          >
+            <X size={12} />
+          </span>
+        ) : (
+          <ChevronDown size={12} className="text-[#bbb] flex-shrink-0" />
+        )}
+      </button>
+
+      {/* Dropdown */}
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-[#e8e8e8] rounded-2xl shadow-lg z-30 overflow-hidden">
+          {/* Search */}
+          <div className="flex items-center gap-2 px-3 py-2.5 border-b border-[#f0f0f0]">
+            <Search size={12} className="text-[#ccc] shrink-0" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && query.trim()) select(query.trim())
+                if (e.key === 'Escape') { setOpen(false); setQuery('') }
+              }}
+              placeholder="Search or type name…"
+              className="flex-1 text-[12px] font-medium text-[#333] placeholder-[#ccc] outline-none bg-transparent"
+            />
+          </div>
+
+          <div className="max-h-52 overflow-y-auto">
+            {/* "Use typed name" row when query doesn't match any existing */}
+            {query.trim() && !filtered.some((c) => c.toLowerCase() === query.trim().toLowerCase()) && (
+              <button
+                onClick={() => select(query.trim())}
+                className="w-full px-4 py-2.5 text-left flex items-center gap-2 hover:bg-[#f9f9f9] transition-colors border-b border-[#f8f8f8]"
+              >
+                <span className="text-[11px] font-bold text-[#bbb] uppercase tracking-wide shrink-0">New</span>
+                <span className="text-[12px] font-semibold text-[#111] truncate">"{query.trim()}"</span>
+              </button>
+            )}
+
+            {filtered.length === 0 && !query.trim() && (
+              <p className="px-4 py-3 text-[12px] text-[#bbb]">No customers yet</p>
+            )}
+
+            {filtered.map((c) => (
+              <button
+                key={c}
+                onClick={() => select(c)}
+                className={`w-full px-4 py-2.5 text-left text-[12px] font-semibold hover:bg-[#f9f9f9] transition-colors ${
+                  value === c ? 'text-[#111] bg-[#f4f4f4]' : 'text-[#333]'
+                }`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function InvoiceView({ cart, onUpdateCart, onReturn, onCancel, initialInvoiceNo }: Props) {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  const { data: cstoreShift }   = useOpenCStoreShift()
+  const { data: customers = [] } = useCustomers()
+
+  const [invoiceNo]           = useState(() => initialInvoiceNo ?? genInvoiceNo())
   const [date]                = useState(todayISO)
   const [customerName, setCustomerName] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null)
 
-  const [promoCode, setPromoCode]       = useState('')
-  const [promoApplied, setPromoApplied] = useState(false)
-  const [promoError, setPromoError]     = useState('')
-  const [currencyCode, setCurrencyCode] = useState('JMD')
-  const [menuOpen, setMenuOpen]         = useState(false)
-  const [addingItem, setAddingItem]     = useState(false)
+  const [promoCode, setPromoCode]           = useState('')
+  const [promoApplied, setPromoApplied]     = useState(false)
+  const [promoError, setPromoError]         = useState('')
+  const [currencyCode, setCurrencyCode]     = useState('JMD')
+  const [menuOpen, setMenuOpen]             = useState(false)
+  const [addingItem, setAddingItem]         = useState(false)
+  const [checkoutStep, setCheckoutStep] = useState<null | 'method' | 'cash'>(null)
+  const [cashCounts, setCashCounts]     = useState<Record<number, string>>({})
   const [itemSearch, setItemSearch]     = useState('')
   const menuRef                         = useRef<HTMLDivElement>(null)
   const addItemRef                      = useRef<HTMLDivElement>(null)
@@ -178,21 +301,24 @@ export function InvoiceView({ cart, onUpdateCart, onReturn, onCancel }: Props) {
   const grandTotal    = subtotal + tax - promoDiscount
   const pointsEarned  = Math.floor(grandTotal * POINTS_PER_DOLLAR)
 
-  async function handleCheckout() {
+  async function handleCheckout(paymentMethod: string, changeGiven?: number | null) {
     if (!cstoreShift?.id) { setError('No open convenience store shift.'); return }
     if (cart.length === 0) return
     setLoading(true)
     setError('')
+    setCheckoutStep(null)
     try {
       const order = await createOrder(cstoreShift.id, {
         cashier_name:   user?.name ?? '',
         customer_name:  customerName.trim() || null,
-        payment_method: null,
+        payment_method: paymentMethod,
         subtotal,
         discount:       promoDiscount,
         tax,
         total:          grandTotal,
-        status:         'open',
+        change_given:   changeGiven ?? null,
+        invoice_no:     invoiceNo,
+        status:         paymentMethod === 'Credit' ? 'credit' : 'paid',
         items: cart.map((item) => ({
           product_id: item.product.id,
           name:       item.product.name,
@@ -203,6 +329,9 @@ export function InvoiceView({ cart, onUpdateCart, onReturn, onCancel }: Props) {
           total:      lineTotal(item.product.id),
         })),
       })
+      qc.invalidateQueries({ queryKey: ['shifts', cstoreShift.id, 'orders'] })
+      qc.invalidateQueries({ queryKey: ['products'] })
+      qc.invalidateQueries({ queryKey: ['customers'] })
       setCompletedOrder(order)
       onUpdateCart([])
     } catch {
@@ -212,17 +341,69 @@ export function InvoiceView({ cart, onUpdateCart, onReturn, onCancel }: Props) {
     }
   }
 
+  async function handleHold() {
+    setMenuOpen(false)
+    if (!cstoreShift?.id) { setError('No open convenience store shift.'); return }
+    if (cart.length === 0) return
+    setLoading(true)
+    setError('')
+    try {
+      await createOrder(cstoreShift.id, {
+        cashier_name:   user?.name ?? '',
+        customer_name:  customerName.trim() || null,
+        payment_method: null,
+        subtotal,
+        discount:       promoDiscount,
+        tax,
+        total:          grandTotal,
+        change_given:   null,
+        invoice_no:     invoiceNo,
+        status:         'held',
+        items: cart.map((item) => ({
+          product_id: item.product.id,
+          name:       item.product.name,
+          sku:        item.product.sku,
+          quantity:   quantities[item.product.id] ?? item.quantity,
+          unit_price: prices[item.product.id] ?? item.unitPrice,
+          discount:   0,
+          total:      lineTotal(item.product.id),
+        })),
+      })
+      qc.invalidateQueries({ queryKey: ['shifts', cstoreShift.id, 'orders'] })
+      onUpdateCart([])
+      onReturn()
+    } catch {
+      setError('Failed to hold sale. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handlePrintReceipt() {
+    if (!completedOrder) return
+    printOrderReceipt(completedOrder, user?.business_name)
+  }
+
   if (completedOrder) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8">
         <div className="text-center">
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Order #{completedOrder.order_no}</p>
+          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">{completedOrder.invoice_no ?? `Order #${completedOrder.order_no}`}</p>
           <p className="text-[28px] font-bold text-[#111] mb-1">Order placed</p>
-          <p className="text-[14px] text-[#888]">{fmtC(completedOrder.total)} · pending payment</p>
+          <p className="text-[14px] text-[#888]">{fmtC(completedOrder.total)} · {completedOrder.payment_method ?? 'unpaid'}</p>
         </div>
-        <button onClick={onReturn} className="px-6 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors">
-          Return to dashboard
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handlePrintReceipt}
+            className="flex items-center gap-2 px-6 py-2.5 bg-[#111] text-white rounded-xl text-[13px] font-semibold hover:bg-[#333] transition-colors"
+          >
+            <Printer size={14} />
+            Print receipt
+          </button>
+          <button onClick={onReturn} className="px-6 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors">
+            Return to dashboard
+          </button>
+        </div>
       </div>
     )
   }
@@ -241,7 +422,7 @@ export function InvoiceView({ cart, onUpdateCart, onReturn, onCancel }: Props) {
         </button>
         <div className="flex items-center gap-2">
           <button
-            onClick={handleCheckout}
+            onClick={() => setCheckoutStep('method')}
             disabled={loading || cart.length === 0 || !cstoreShift}
             className="px-5 py-2 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
@@ -267,16 +448,17 @@ export function InvoiceView({ cart, onUpdateCart, onReturn, onCancel }: Props) {
                   ···
                 </button>
                 {menuOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-36 bg-white dark:bg-[#1c1c1c] border border-[#e8e8e8] dark:border-[#2a2a2a] rounded-xl shadow-lg dark:shadow-black/40 overflow-hidden z-10">
+                  <div className="absolute right-0 top-full mt-1.5 w-40 bg-white dark:bg-[#1c1c1c] border border-[#e8e8e8] dark:border-[#2a2a2a] rounded-2xl shadow-lg dark:shadow-black/40 overflow-hidden z-10">
                     <button
-                      onClick={() => setMenuOpen(false)}
-                      className="w-full px-4 py-2.5 text-left text-[13px] font-semibold text-[#333] dark:text-[#e0e0e0] hover:bg-[#f4f4f4] dark:hover:bg-[#272727] transition-colors"
+                      onClick={handleHold}
+                      disabled={cart.length === 0 || loading}
+                      className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-[#333] dark:text-[#e0e0e0] hover:bg-[#f9f9f9] dark:hover:bg-[#272727] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
                       Hold
                     </button>
                     <button
                       onClick={() => { setMenuOpen(false); onCancel() }}
-                      className="w-full px-4 py-2.5 text-left text-[13px] font-semibold text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                      className="w-full px-4 py-2.5 text-left text-[12px] font-semibold text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
                     >
                       Cancel
                     </button>
@@ -288,13 +470,11 @@ export function InvoiceView({ cart, onUpdateCart, onReturn, onCancel }: Props) {
             <div className="flex flex-col gap-3">
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[13px] font-semibold text-[#888]">Customer</p>
-                <select
+                <CustomerCombobox
                   value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="text-[12px] font-semibold text-[#333] bg-[#f4f4f4] rounded-lg px-3 py-1.5 focus:outline-none focus:bg-[#ebebeb] transition-colors w-40"
-                >
-                  <option value="">Select...</option>
-                </select>
+                  onChange={setCustomerName}
+                  customers={customers.map((cu) => cu.name)}
+                />
               </div>
               <div className="flex items-center justify-between gap-4">
                 <p className="text-[13px] font-semibold text-[#888]">Date</p>
@@ -473,6 +653,138 @@ export function InvoiceView({ cart, onUpdateCart, onReturn, onCancel }: Props) {
           </div>
         </div>
       </div>
+
+      {/* ── Payment Method Modal ── */}
+      {checkoutStep === 'method' && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/30 backdrop-blur-sm"
+          onClick={() => setCheckoutStep(null)}
+        >
+          <div
+            className="bg-white rounded-3xl w-full max-w-[340px] p-8 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Checkout</p>
+            <h2 className="text-[24px] font-bold text-[#111] mb-1">Payment Method</h2>
+            <p className="text-[13px] text-[#888] mb-6">{fmtC(grandTotal)}</p>
+
+            <div className="flex flex-col gap-3">
+              {[
+                { key: 'Cash',   label: 'Cash',   desc: 'Pay with physical cash' },
+                { key: 'Card',   label: 'Card',   desc: 'Debit or credit card' },
+                ...(customerName.trim()
+                  ? [{ key: 'Credit', label: 'Credit', desc: 'Charge to customer account' }]
+                  : []),
+              ].map(({ key, label, desc }) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    if (key === 'Cash') { setCheckoutStep('cash') }
+                    else handleCheckout(key)
+                  }}
+                  className="w-full flex items-center justify-between px-5 py-4 border border-[#e0e0e0] rounded-2xl hover:bg-[#f9f9f9] hover:border-[#ccc] transition-colors text-left"
+                >
+                  <div>
+                    <p className="text-[14px] font-semibold text-[#111]">{label}</p>
+                    <p className="text-[12px] text-[#888]">{desc}</p>
+                  </div>
+                  <span className="text-[#bbb] text-[18px]">›</span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setCheckoutStep(null)}
+              className="w-full mt-4 py-3 text-[13px] font-semibold text-[#888] hover:text-[#333] transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cash Denomination Modal ── */}
+      {checkoutStep === 'cash' && (() => {
+        const cashTotal = DENOMINATIONS.reduce((sum, d) => {
+          const n = parseInt(cashCounts[d] ?? '', 10)
+          return sum + (isNaN(n) ? 0 : n * d)
+        }, 0)
+        const change = cashTotal - grandTotal
+        const canSubmit = cashTotal >= grandTotal
+
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/30 backdrop-blur-sm"
+            onClick={() => setCheckoutStep(null)}
+          >
+            <div
+              className="bg-white rounded-3xl w-full max-w-[480px] p-8 shadow-xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-8">
+                <button
+                  onClick={() => setCheckoutStep('method')}
+                  className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+                >
+                  <ArrowLeft size={13} />
+                  Go back
+                </button>
+              </div>
+
+              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-2">Cash Payment</p>
+              <h2 className="text-[32px] font-bold text-[#111] leading-none mb-1">{invoiceNo}</h2>
+              <p className="text-[14px] text-[#888] font-medium mb-6">Total due: {fmt(grandTotal)}</p>
+
+              <p className="text-[13px] font-semibold text-[#888] mb-2">amount tendered</p>
+              <table className="w-full border border-[#e0e0e0] rounded-xl overflow-hidden mb-6">
+                <tbody>
+                  {DENOMINATIONS.map((d) => (
+                    <tr key={d} className="border-b border-[#e0e0e0] last:border-b-0">
+                      <td className="border-r border-[#e0e0e0] px-3 py-2 w-1/2">
+                        <input
+                          type="text"
+                          value={fmtInput(cashCounts[d] ?? '')}
+                          onChange={(e) =>
+                            setCashCounts((prev) => ({ ...prev, [d]: parseInput(e.target.value) }))
+                          }
+                          placeholder="0"
+                          className="w-full text-[13px] font-medium text-[#333] focus:outline-none bg-transparent"
+                        />
+                      </td>
+                      <td className="px-3 py-2 text-center text-[13px] font-medium text-[#333]">
+                        {d.toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div className="flex flex-col gap-3 mb-6">
+                <div className="flex items-center justify-between">
+                  <p className="text-[13px] font-semibold text-[#888]">Tendered</p>
+                  <p className="text-[13px] font-bold text-[#111]">{fmt(cashTotal)}</p>
+                </div>
+                <div className="text-left">
+                  <p className={`text-[32px] font-bold leading-none tracking-tight ${change < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                    {change >= 0 ? fmt(change) : `-${fmt(Math.abs(change))}`}
+                  </p>
+                  <p className="text-[12px] font-semibold text-[#888] mt-1.5">Change</p>
+                </div>
+              </div>
+
+              {error && <p className="text-[11px] font-semibold text-red-500 mb-3">{error}</p>}
+
+              <button
+                onClick={() => handleCheckout('Cash', change > 0 ? change : 0)}
+                disabled={!canSubmit || loading}
+                className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Processing...' : 'Confirm Payment'}
+              </button>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

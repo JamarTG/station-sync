@@ -128,6 +128,35 @@ func EnsureSchema(ctx context.Context, pool *pgxpool.Pool) error {
 		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS change_given  NUMERIC(10,2)`,
 		`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS discount  NUMERIC(10,2) NOT NULL DEFAULT 0`,
 
+		// 015_order_invoice_no
+		`ALTER TABLE orders ADD COLUMN IF NOT EXISTS invoice_no TEXT`,
+
+		// 016_order_item_refund
+		`ALTER TABLE order_items ADD COLUMN IF NOT EXISTS refunded BOOLEAN NOT NULL DEFAULT false`,
+
+		// 017_order_held_status + 019_order_credit_status
+		`ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check`,
+		`ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK (status IN ('open', 'paid', 'voided', 'held', 'credit'))`,
+
+		// 018_customers
+		`CREATE TABLE IF NOT EXISTS customers (
+			id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			business_id    UUID NOT NULL REFERENCES businesses(id) ON DELETE CASCADE,
+			user_id        UUID UNIQUE REFERENCES users(id) ON DELETE SET NULL,
+			name           TEXT NOT NULL,
+			phone          TEXT,
+			email          TEXT,
+			credit_balance NUMERIC(10,2) NOT NULL DEFAULT 0,
+			status         TEXT NOT NULL DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
+			created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		// backfill a customer account for every existing staff member
+		`INSERT INTO customers (business_id, user_id, name, phone, email)
+		 SELECT u.business_id, u.id, u.name, u.phone, u.email
+		 FROM users u
+		 WHERE u.business_id IS NOT NULL
+		   AND NOT EXISTS (SELECT 1 FROM customers c WHERE c.user_id = u.id)`,
+
 		// time_off_requests table
 		`CREATE TABLE IF NOT EXISTS time_off_requests (
 			id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -9,17 +9,22 @@ import {
   getShiftFuelPrices,
   getShiftAttendance,
   getShiftDeposits,
+  getShiftOrders,
+  getCustomers,
+  getCustomerOrders,
   getUsers,
   getUserAttendance,
   getNozzles,
   getTanks,
   getShiftTankLogs,
   getShiftFuelReceivals,
+  getShiftNozzleLogs,
   getTimeOffRequests,
   type Branch,
   type Fuel,
   type FuelReceival,
   type Nozzle,
+  type NozzleLog,
   type Pump,
   type Shift,
   type FuelSummary,
@@ -30,6 +35,8 @@ import {
   type PayrollPeriod,
   type PayrollRecord,
   type ShiftAttendance,
+  type Order,
+  type Customer,
 } from '../lib/api'
 
 export function useBranches() {
@@ -85,6 +92,7 @@ export function useOpenCStoreShift() {
   return useQuery({
     queryKey: ['shifts', 'open', 'convenience'],
     queryFn: getOpenCStoreShift,
+    refetchInterval: 10_000, // poll every 10 s so the idle view picks up supervisor-created shifts
   })
 }
 
@@ -117,6 +125,29 @@ export function useShiftDeposits(shiftId: string | undefined) {
     queryKey: ['shifts', shiftId, 'deposits'],
     queryFn: () => getShiftDeposits(shiftId!),
     enabled: !!shiftId,
+  })
+}
+
+export function useShiftOrders(shiftId: string | undefined) {
+  return useQuery<Order[]>({
+    queryKey: ['shifts', shiftId, 'orders'],
+    queryFn: () => getShiftOrders(shiftId!),
+    enabled: !!shiftId,
+  })
+}
+
+export function useCustomers() {
+  return useQuery<Customer[]>({
+    queryKey: ['customers'],
+    queryFn: getCustomers,
+  })
+}
+
+export function useCustomerOrders(customerId: string | undefined) {
+  return useQuery<Order[]>({
+    queryKey: ['customers', customerId, 'orders'],
+    queryFn: () => getCustomerOrders(customerId!),
+    enabled: !!customerId,
   })
 }
 
@@ -226,5 +257,13 @@ export function useUserPayroll(userId: string | null) {
     queryKey: ['user-payroll', userId],
     queryFn: () => api.get<PayrollRecord[]>(`/users/${userId}/payroll`).then((r) => r.data),
     enabled: !!userId,
+  })
+}
+
+export function useShiftNozzleLogs(shiftId: string | undefined) {
+  return useQuery<NozzleLog[]>({
+    queryKey: ['shifts', shiftId, 'nozzle-logs'],
+    queryFn: () => getShiftNozzleLogs(shiftId!),
+    enabled: !!shiftId,
   })
 }

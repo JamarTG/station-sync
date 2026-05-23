@@ -12,12 +12,13 @@ interface Props {
   onBack: () => void
   onClose: () => void
   isEditing?: boolean
+  hideBack?: boolean
   depositId?: string
   initialData?: { requestedBy: string; description: string; denominations?: Record<number, number> }
   shiftId?: string
 }
 
-export function ExpenditureModal({ onBack, onClose, isEditing, depositId, initialData, shiftId }: Props) {
+export function ExpenditureModal({ onBack, onClose, isEditing, hideBack, depositId, initialData, shiftId }: Props) {
   useEscapeKey(onClose)
   const queryClient = useQueryClient()
   const { data: users = [] } = useUsers()
@@ -84,7 +85,7 @@ export function ExpenditureModal({ onBack, onClose, isEditing, depositId, initia
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-8">
-          {!isEditing ? (
+          {!isEditing && !hideBack ? (
             <button onClick={onBack} className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors">
               <ArrowLeft size={13} />
               Go back

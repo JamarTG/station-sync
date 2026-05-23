@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { LogoLoader } from '../components/StationSyncLogo'
 import { ChevronLeft, ChevronRight, Check, X, Sparkles } from 'lucide-react'
-import { useShiftsInRange, useShiftAttendance, useShiftDeposits, useShiftFuelPrices, useTimeOffRequests } from '../hooks/useApi'
+import { useShiftsInRange, useShiftAttendance, useShiftDeposits, useShiftFuelPrices, useTimeOffRequests, useUsers } from '../hooks/useApi'
 import { createTimeOffRequest, reviewTimeOffRequest, type Shift, type TimeOffRequest } from '../lib/api'
 import { useAuth } from '../lib/authContext'
 import { useQueryClient } from '@tanstack/react-query'
@@ -496,165 +496,168 @@ function WeekView({
   )
 }
 
-// ── Generate modal ────────────────────────────────────────────────────────────
+// ── Create Schedule modal (2-step) ────────────────────────────────────────────
 
-type GeneratePeriod = 'this-week' | 'next-week' | 'this-month' | 'next-month'
+function CreateScheduleModal({ onClose }: { onClose: () => void }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const { data: users = [] } = useUsers()
 
-const periodLabels: Record<GeneratePeriod, string> = {
-  'this-week':   'This week',
-  'next-week':   'Next week',
-  'this-month':  'This month',
-  'next-month':  'Next month',
-}
+  const [step, setStep]           = useState<1 | 2>(1)
+  const [startDate, setStartDate] = useState(today)
+  const [endDate, setEndDate]     = useState(today)
+  const [selected, setSelected]   = useState<Set<string>>(new Set())
+  const [dateError, setDateError] = useState<string | null>(null)
 
-function loadShiftConfigs(key: string): { id: string; name: string; start: string; end: string }[] {
-  try { return JSON.parse(localStorage.getItem(key) ?? 'null') ?? [] } catch { return [] }
-}
+  const staffList = users.filter((u) => u.active !== false)
 
-function GenerateModal({ onClose, onManual }: { onClose: () => void; onManual: () => void }) {
-  const stationShifts = loadShiftConfigs('ss_station_shifts')
-  const convShifts    = loadShiftConfigs('ss_conv_shifts')
-
-  const [period, setPeriod]           = useState<GeneratePeriod>('next-week')
-  const [stationEnabled, setStation]  = useState<Record<string, boolean>>(
-    Object.fromEntries(stationShifts.map((s) => [s.id, true]))
-  )
-  const [convEnabled, setConv]        = useState<Record<string, boolean>>(
-    Object.fromEntries(convShifts.map((s) => [s.id, true]))
-  )
-  const [generating, setGenerating]   = useState(false)
-  const [done, setDone]               = useState(false)
-
-  function fmt12(t: string) {
-    if (!t) return ''
-    const [h, m] = t.split(':').map(Number)
-    return `${h % 12 || 12}:${String(m).padStart(2, '0')}${h >= 12 ? 'pm' : 'am'}`
+  function toggleUser(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
-  function handleGenerate() {
-    setGenerating(true)
-    setTimeout(() => { setGenerating(false); setDone(true) }, 1200)
+  function handleContinue() {
+    if (!startDate || !endDate) { setDateError('Please select both dates.'); return }
+    if (endDate < startDate)    { setDateError('End date must be on or after start date.'); return }
+    setDateError(null)
+    setStep(2)
   }
 
-  const inputCls = 'bg-[#f9f9f9] border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] font-medium text-[#111] outline-none focus:border-[#ccc] transition-colors'
+  function handleCreate() {
+    // TODO: wire up to API
+    onClose()
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-white rounded-3xl shadow-xl border border-[#ebebeb] w-full max-w-[480px]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-[420px] flex flex-col overflow-hidden">
+
         {/* Header */}
-        <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-[#f4f4f4]">
-          <div className="flex items-center gap-2.5">
-            <Sparkles size={16} className="text-[#555]" />
-            <h2 className="text-[16px] font-bold text-[#111]">Create Schedule</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#ebebeb]">
+          <div className="flex items-center gap-2">
+            {step === 2 && (
+              <button
+                onClick={() => setStep(1)}
+                className="text-[#888] hover:text-[#111] transition-colors mr-1"
+              >
+                <ChevronLeft size={16} />
+              </button>
+            )}
+            <h2 className="text-[14px] font-bold text-[#111]">Create Schedule</h2>
+            <span className="text-[11px] font-semibold text-[#bbb] ml-1">Step {step} of 2</span>
           </div>
           <button onClick={onClose} className="text-[#bbb] hover:text-[#555] transition-colors">
             <X size={17} />
           </button>
         </div>
 
-        <div className="px-7 py-5 space-y-5">
-          {/* Period */}
-          <div>
-            <label className="block text-[11px] font-semibold tracking-widest text-[#aaa] uppercase mb-2">Period</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(Object.keys(periodLabels) as GeneratePeriod[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`py-2.5 rounded-xl text-[13px] font-semibold border transition-colors ${
-                    period === p
-                      ? 'bg-[#111] text-white border-[#111]'
-                      : 'bg-white text-[#555] border-[#e8e8e8] hover:border-[#ccc]'
-                  }`}
-                >
-                  {periodLabels[p]}
-                </button>
-              ))}
+        {/* Step 1 — date range */}
+        {step === 1 && (
+          <div className="px-6 py-5 flex flex-col gap-4">
+            <p className="text-[12px] text-[#aaa]">Select the period for this schedule.</p>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold text-[#aaa] uppercase tracking-widest">Start Date</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => { setStartDate(e.target.value); setDateError(null) }}
+                className="border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
+              />
             </div>
-          </div>
 
-          {/* Service station shifts */}
-          {stationShifts.length > 0 && (
-            <div>
-              <label className="block text-[11px] font-semibold tracking-widest text-[#aaa] uppercase mb-2">Service Station Shifts</label>
-              <div className="space-y-2">
-                {stationShifts.map((s) => (
-                  <label key={s.id} className="flex items-center gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={!!stationEnabled[s.id]}
-                      onChange={(e) => setStation((prev) => ({ ...prev, [s.id]: e.target.checked }))}
-                      className="w-4 h-4 rounded accent-[#111] cursor-pointer"
-                    />
-                    <span className="text-[13px] font-semibold text-[#111] flex-1">{s.name || 'Unnamed'}</span>
-                    {s.start && s.end && (
-                      <span className="text-[12px] font-medium text-[#aaa]">{fmt12(s.start)} – {fmt12(s.end)}</span>
-                    )}
-                  </label>
-                ))}
-              </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold text-[#aaa] uppercase tracking-widest">End Date</label>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate}
+                onChange={(e) => { setEndDate(e.target.value); setDateError(null) }}
+                className="border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] text-[#111] focus:outline-none focus:border-[#111] transition-colors"
+              />
             </div>
-          )}
 
-          {/* Convenience store shifts */}
-          {convShifts.length > 0 && (
-            <div>
-              <label className="block text-[11px] font-semibold tracking-widest text-[#aaa] uppercase mb-2">Convenience Store Shifts</label>
-              <div className="space-y-2">
-                {convShifts.map((s) => (
-                  <label key={s.id} className="flex items-center gap-3 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={!!convEnabled[s.id]}
-                      onChange={(e) => setConv((prev) => ({ ...prev, [s.id]: e.target.checked }))}
-                      className="w-4 h-4 rounded accent-[#111] cursor-pointer"
-                    />
-                    <span className="text-[13px] font-semibold text-[#111] flex-1">{s.name || 'Unnamed'}</span>
-                    {s.start && s.end && (
-                      <span className="text-[12px] font-medium text-[#aaa]">{fmt12(s.start)} – {fmt12(s.end)}</span>
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
+            {dateError && <p className="text-[12px] text-[#c62828]">{dateError}</p>}
 
-          {stationShifts.length === 0 && convShifts.length === 0 && (
-            <p className="text-[13px] font-medium text-[#bbb] py-2">
-              No shifts configured. Add shifts in <span className="font-semibold text-[#888]">Settings → Profile</span> first.
-            </p>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="px-7 pb-6 pt-2 space-y-3">
-          <div className="flex items-center justify-between gap-3">
             <button
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-[13px] font-semibold text-[#555] border border-[#e8e8e8] hover:border-[#ccc] transition-colors"
+              onClick={handleContinue}
+              disabled={!startDate || !endDate}
+              className="w-full py-2.5 rounded-xl bg-[#111] text-white text-[13px] font-semibold disabled:opacity-40 transition-opacity mt-1"
             >
-              Cancel
+              Continue
             </button>
-            {done ? (
-              <span className="text-[13px] font-semibold text-green-600">Schedule generated</span>
-            ) : (
-              <button
-                onClick={handleGenerate}
-                disabled={generating}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors disabled:opacity-50"
-              >
-                <Sparkles size={13} />
-                {generating ? 'Creating…' : 'Create'}
-              </button>
-            )}
           </div>
-          <button
-            onClick={onManual}
-            className="w-full text-center text-[12px] font-medium text-[#bbb] hover:text-[#555] transition-colors"
-          >
-            Do manually instead
-          </button>
-        </div>
+        )}
+
+        {/* Step 2 — select staff */}
+        {step === 2 && (
+          <>
+            <div className="px-6 py-4 border-b border-[#f4f4f4]">
+              <p className="text-[12px] text-[#aaa]">
+                Select the staff for{' '}
+                <span className="font-semibold text-[#555]">
+                  {new Date(startDate + 'T00:00:00').toLocaleDateString('en-JM', { month: 'short', day: 'numeric' })}
+                  {startDate !== endDate && (
+                    <> – {new Date(endDate + 'T00:00:00').toLocaleDateString('en-JM', { month: 'short', day: 'numeric', year: 'numeric' })}</>
+                  )}
+                  {startDate === endDate && (
+                    <>, {new Date(startDate + 'T00:00:00').toLocaleDateString('en-JM', { year: 'numeric' })}</>
+                  )}
+                </span>
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto max-h-[340px]">
+              {staffList.length === 0 ? (
+                <div className="flex items-center justify-center py-12">
+                  <p className="text-[13px] font-medium text-[#bbb]">No staff found</p>
+                </div>
+              ) : (
+                staffList.map((u) => {
+                  const isSelected = selected.has(u.id)
+                  return (
+                    <button
+                      key={u.id}
+                      onClick={() => toggleUser(u.id)}
+                      className={`w-full flex items-center gap-3 px-6 py-3.5 border-b border-[#f4f4f4] last:border-0 text-left transition-colors hover:bg-[#f9f9f9] ${
+                        isSelected ? 'bg-[#f9f9f9]' : ''
+                      }`}
+                    >
+                      {/* Avatar */}
+                      <div className="w-8 h-8 rounded-full bg-[#111] text-white flex items-center justify-center text-[11px] font-bold shrink-0">
+                        {u.name.charAt(0).toUpperCase()}
+                      </div>
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-semibold text-[#111] truncate">{u.name}</p>
+                        <p className="text-[11px] text-[#aaa] truncate">{u.role}</p>
+                      </div>
+                      {/* Checkbox indicator */}
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        isSelected ? 'bg-[#111] border-[#111]' : 'border-[#ddd]'
+                      }`}>
+                        {isSelected && <Check size={11} className="text-white" strokeWidth={3} />}
+                      </div>
+                    </button>
+                  )
+                })
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-[#ebebeb]">
+              <button
+                onClick={handleCreate}
+                disabled={selected.size === 0}
+                className="w-full py-2.5 rounded-xl bg-[#111] text-white text-[13px] font-semibold disabled:opacity-40 transition-opacity"
+              >
+                {selected.size === 0 ? 'Select staff to continue' : `Create Schedule · ${selected.size} staff`}
+              </button>
+            </div>
+          </>
+        )}
+
       </div>
     </div>
   )
@@ -675,6 +678,7 @@ export function SchedulePage({ storeLabel }: { storeLabel?: string } = {}) {
   const [month, setMonth]       = useState(now.getMonth())
   const [weekAnchor, setWeekAnchor] = useState(now)
   const [selected, setSelected] = useState<string | null>(null)
+  const [showGenerate, setShowGenerate]     = useState(false)
   const [showTimeOff, setShowTimeOff]       = useState(false)
   const [showApprovals, setShowApprovals]   = useState(false)
 
@@ -865,6 +869,9 @@ export function SchedulePage({ storeLabel }: { storeLabel?: string } = {}) {
         )}
       </div>
 
+      {showGenerate && (
+        <CreateScheduleModal onClose={() => setShowGenerate(false)} />
+      )}
       {showTimeOff && (
         <TimeOffModal
           defaultDate={selected ?? today}

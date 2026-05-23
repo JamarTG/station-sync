@@ -8,7 +8,6 @@ import {
   usePumps,
   useShiftDeposits,
   useFuelSummary,
-  useTanks,
 } from '../../hooks/useApi'
 import type { Deposit, Pump } from '../../lib/api'
 import { CashDepositModal } from './CashDropModal'
@@ -23,92 +22,47 @@ type RecordType = 'cash' | 'card' | 'charge' | 'fx' | 'advance' | null
 
 const btnClass = 'px-4 py-2 border border-[#ddd] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'
 
-function CardLabel({ title, sub }: { title: string; sub: string }) {
-  return (
-    <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
-      {title} <span className="font-medium text-[#ccc] normal-case tracking-normal">| {sub}</span>
-    </p>
-  )
-}
 
-function EmptyDonut() {
-  return (
-    <div className="flex-1 flex items-center justify-center py-4">
-      <svg width="80" height="80" viewBox="0 0 80 80">
-        <circle cx="40" cy="40" r="34" fill="none" stroke="#e8e8e8" strokeWidth="8" />
-      </svg>
-    </div>
-  )
-}
-
-function AttendantIdleView({ onReportIssue, onNewShift, cstoreShiftOpen }: { onReportIssue: () => void; onNewShift: () => void; cstoreShiftOpen: boolean }) {
+function AttendantIdleView({ onReportIssue }: { onReportIssue: () => void; onNewShift: () => void; cstoreShiftOpen: boolean }) {
+  const { user } = useAuth()
   const navigate = useNavigate()
-  const { data: tanks = [] } = useTanks()
+
+  const firstName = user?.name?.trim().split(/\s+/)[0] ?? ''
+  const h = new Date().getHours()
+  const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
+  const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long' })
 
   return (
-    <div className="flex-1 overflow-y-auto p-5">
-      <div className="space-y-8">
+    <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col" style={{ scrollbarWidth: 'none' }}>
 
-        <section>
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Service Station</p>
-          <div className="flex gap-2 flex-wrap mb-4">
-            <button onClick={onReportIssue} className={btnClass}>Report an issue</button>
-            <button onClick={() => navigate({ to: '/schedule' })} className={btnClass}>Request day off</button>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-              <CardLabel title="Sales" sub="Previous shift" />
-              <p className="text-[28px] font-bold text-[#111] leading-none mb-5">J$0.00</p>
-              <div className="space-y-2 text-[12px] font-medium text-[#bbb]">
-                <p>Shortages</p>
-                <p>Overages</p>
-                <p>Balance</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-              <CardLabel title="Tanks" sub="Previous shift" />
-              <div className="space-y-2">
-                {tanks.map((t) => (
-                  <p key={t.id} className="text-[13px] font-medium text-[#555]">{t.fuel_name}</p>
-                ))}
-                {tanks.length === 0 && <p className="text-[13px] text-[#ccc]">No tanks configured</p>}
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5 flex flex-col">
-              <CardLabel title="Sales Breakdown" sub="Previous shift" />
-              <EmptyDonut />
-            </div>
-          </div>
-        </section>
+      <div className="px-6 pt-8 pb-6 border-b border-[#f0f0f0] flex-shrink-0 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase mb-1">{dateStr}</p>
+          <h1 className="text-[28px] font-bold text-[#111] tracking-tight leading-none">
+            {greeting}{firstName ? `, ${firstName}` : ''}
+          </h1>
+          <p className="text-[13px] font-medium text-[#aaa] mt-1.5">No active shift</p>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <button onClick={onReportIssue} className={btnClass}>Report an issue</button>
+          <button onClick={() => navigate({ to: '/schedule' })} className={btnClass}>Request day off</button>
+        </div>
+      </div>
 
-        <section>
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Convenience Store</p>
-          <div className="flex gap-2 flex-wrap mb-4">
-            <button onClick={onReportIssue} className={btnClass}>Report an issue</button>
-            <button onClick={onNewShift} className={btnClass}>{cstoreShiftOpen ? 'Takeover shift' : 'Start a new shift'}</button>
+      <div className="flex-1 p-6 space-y-4">
+
+        <div className="bg-white border border-[#ebebeb] rounded-2xl px-5 py-8 flex flex-col items-center text-center">
+          <div className="w-10 h-10 rounded-full bg-[#f4f4f4] flex items-center justify-center mb-4">
+            <div className="w-3 h-3 rounded-full bg-[#ddd]" />
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-              <CardLabel title="Sales" sub="Previous shift" />
-              <p className="text-[28px] font-bold text-[#111] leading-none mb-5">J$0.00</p>
-              <div className="space-y-2 text-[12px] font-medium text-[#bbb]">
-                <p>Balance</p>
-                <p>Top Product</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-              <CardLabel title="Customer" sub="Outstanding Balances" />
-            </div>
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5 flex flex-col">
-              <CardLabel title="Sales Breakdown" sub="Previous shift" />
-              <EmptyDonut />
-            </div>
-          </div>
-        </section>
+          <p className="text-[13px] font-semibold text-[#888]">Waiting for shift to begin</p>
+          <p className="text-[12px] text-[#bbb] mt-1">Your supervisor will clock you in once the shift starts.</p>
+        </div>
+
 
       </div>
 
-      <div className="mt-8 py-3 text-center border-t border-[#f4f4f4]">
+      <div className="py-3 text-center border-t border-[#f4f4f4] flex-shrink-0">
         <span className="text-[10px] font-medium text-[#ccc] tracking-widest">&copy; 2025 STATIONSYNC</span>
       </div>
     </div>

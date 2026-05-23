@@ -17,6 +17,7 @@ import { SchedulePage } from './pages/SchedulePage'
 import { ChargesPage } from './pages/ChargesPage'
 import { AccountSettingsPage } from './pages/AccountSettingsPage'
 import { ExpensesPage } from './pages/ExpensesPage'
+import { TanksPage } from './pages/TanksPage'
 import { ConvenienceStaffPage } from './pages/ConvenienceStaffPage'
 import { ConvenienceSchedulePage } from './pages/ConvenienceSchedulePage'
 import { ProductsPage } from './pages/ProductsPage'
@@ -137,6 +138,12 @@ const expensesRoute = createRoute({
   component: ExpensesPage,
 })
 
+const tanksRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/tanks',
+  component: TanksPage,
+})
+
 export const routeTree = rootRoute.addChildren([
   loginRoute,
   signupRoute,
@@ -155,6 +162,7 @@ export const routeTree = rootRoute.addChildren([
     convScheduleRoute,
     convProductsRoute,
     expensesRoute,
+    tanksRoute,
     settingsRoute,
   ]),
 ])

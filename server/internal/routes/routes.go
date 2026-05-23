@@ -43,10 +43,17 @@ func Register(r *gin.Engine, db *pgxpool.Pool) {
 	protected.GET("/branches", bh.List)
 	protected.POST("/branches", bh.Create)
 
+	ch := &handlers.CustomerHandler{DB: db}
+	protected.GET("/customers", ch.List)
+	protected.POST("/customers", ch.Create)
+	protected.PATCH("/customers/:id", ch.Update)
+	protected.GET("/customers/:id/orders", ch.ListOrders)
+
 	ph := &handlers.ProductHandler{DB: db}
 	protected.GET("/products", ph.List)
 	protected.POST("/products", ph.Create)
 	protected.PATCH("/products/:id", ph.Update)
+	protected.DELETE("/products/:id", ph.Delete)
 
 	nh := &handlers.NozzleHandler{DB: db}
 	protected.GET("/nozzles", nh.List)

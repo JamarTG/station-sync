@@ -156,6 +156,14 @@ export interface FuelSummary {
   totalSales: number
 }
 
+export interface NozzleLog {
+  id: string
+  nozzle_id: string
+  shift_id: string
+  starting_reading: number
+  ending_reading: number
+}
+
 export interface PayrollPeriod {
   id: string
   start_date: string
@@ -275,6 +283,7 @@ export interface OrderItem {
   unit_price: number
   discount: number
   total: number
+  refunded: boolean
   created_at: string
 }
 
@@ -295,8 +304,70 @@ export interface Order {
   total: number
   change_given: number | null
   note: string | null
+  invoice_no: string | null
   created_at: string
   items?: OrderItem[]
+}
+
+export function getShiftOrders(shiftId: string) {
+  return api.get<Order[]>(`/shifts/${shiftId}/orders`).then((r) => r.data)
+}
+
+export function updateOrderStatus(
+  shiftId: string,
+  orderId: string,
+  status: string,
+  paymentMethod?: string,
+  changeGiven?: number
+) {
+  return api
+    .patch<Order>(`/shifts/${shiftId}/orders/${orderId}`, {
+      status,
+      payment_method: paymentMethod,
+      change_given: changeGiven,
+    })
+    .then((r) => r.data)
+}
+
+export function refundOrderItem(shiftId: string, orderId: string, itemId: string, refunded = true) {
+  return api
+    .patch<OrderItem>(`/shifts/${shiftId}/orders/${orderId}/items/${itemId}/refund`, { refunded })
+    .then((r) => r.data)
+}
+
+export function deleteOrder(shiftId: string, orderId: string) {
+  return api.delete(`/shifts/${shiftId}/orders/${orderId}`).then((r) => r.data)
+}
+
+export interface Customer {
+  id: string
+  business_id: string
+  user_id: string | null
+  name: string
+  phone: string
+  email: string
+  credit_balance: number
+  status: 'Active' | 'Inactive'
+  created_at: string
+}
+
+export function getCustomers() {
+  return api.get<Customer[]>('/customers').then((r) => r.data)
+}
+
+export function createCustomer(data: { name: string; phone?: string; email?: string }) {
+  return api.post<Customer>('/customers', data).then((r) => r.data)
+}
+
+export function updateCustomer(
+  id: string,
+  data: { name?: string; phone?: string; email?: string; status?: string }
+) {
+  return api.patch<Customer>(`/customers/${id}`, data).then((r) => r.data)
+}
+
+export function getCustomerOrders(id: string) {
+  return api.get<Order[]>(`/customers/${id}/orders`).then((r) => r.data)
 }
 
 export function createOrder(
@@ -311,6 +382,7 @@ export function createOrder(
     total: number
     change_given?: number | null
     note?: string | null
+    invoice_no?: string | null
     status: string
     items: {
       product_id?: string | null
@@ -333,8 +405,27 @@ export function createProduct(data: {
   return api.post<Product>('/products', data).then((r) => r.data)
 }
 
+export function updateProduct(id: string, data: {
+  name: string; category: string | null; sku: string | null; upc: string | null
+  price: number; cost: number | null; stock_qty: number; unit: string
+}) {
+  return api.patch<Product>(`/products/${id}`, data).then((r) => r.data)
+}
+
+export function setProductActive(id: string, active: boolean) {
+  return api.patch<Product>(`/products/${id}`, { active }).then((r) => r.data)
+}
+
+export function deleteProduct(id: string) {
+  return api.delete(`/products/${id}`).then((r) => r.data)
+}
+
 export function createShift(data: { supervisor_id: string; date: string; start_time: string }) {
   return api.post<Shift>('/shifts', data).then((r) => r.data)
+}
+
+export function createCStoreShift(data: { supervisor_id: string; date: string; start_time: string }) {
+  return api.post<Shift>('/shifts', { ...data, shift_type: 'convenience_store' }).then((r) => r.data)
 }
 
 export function closeShift(shiftId: string) {
@@ -480,6 +571,10 @@ export function upsertNozzleLog(
   data: { nozzle_id: string; starting_reading: number; ending_reading: number }
 ) {
   return api.post(`/shifts/${shiftId}/nozzle-logs`, { ...data, shift_id: shiftId }).then((r) => r.data)
+}
+
+export function getShiftNozzleLogs(shiftId: string) {
+  return api.get<NozzleLog[]>(`/shifts/${shiftId}/nozzle-logs`).then((r) => r.data)
 }
 
 export function upsertTankLog(

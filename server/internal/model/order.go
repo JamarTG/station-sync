@@ -17,6 +17,7 @@ type Order struct {
 	Total         float64     `db:"total"          json:"total"`
 	ChangeGiven   *float64    `db:"change_given"   json:"change_given"`
 	Note          *string     `db:"note"           json:"note"`
+	InvoiceNo     *string     `db:"invoice_no"     json:"invoice_no"`
 	CreatedAt     string      `db:"created_at"     json:"created_at"`
 	Items         []OrderItem `db:"-"              json:"items,omitempty"`
 }
@@ -31,5 +32,6 @@ type OrderItem struct {
 	UnitPrice float64 `db:"unit_price" json:"unit_price"`
 	Discount  float64 `db:"discount"   json:"discount"`
 	Total     float64 `db:"total"      json:"total"`
+	Refunded  bool    `db:"refunded"   json:"refunded"`
 	CreatedAt string  `db:"created_at" json:"created_at"`
 }

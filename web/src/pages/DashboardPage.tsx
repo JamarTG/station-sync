@@ -11,7 +11,7 @@ import { AccountsPanel, type AccountType } from '../components/dashboard/Account
 import { TotalSalesCard } from '../components/dashboard/TotalSalesCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
-import { usePumps, useFuels, useNozzles, useOpenShift, useOpenCStoreShift, useShiftFuelPrices, useShiftAttendance, useTanks, useShiftTankLogs, useShiftFuelReceivals } from '../hooks/useApi'
+import { usePumps, useFuels, useNozzles, useOpenShift, useOpenCStoreShift, useShiftFuelPrices, useShiftAttendance, useTanks, useShiftTankLogs, useShiftFuelReceivals, useShiftOrders, useShiftDeposits } from '../hooks/useApi'
 import { closeShift, upsertTankLog, upsertNozzleLog, type Tank } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -24,94 +24,76 @@ import { NewShiftLoginModal } from '../components/dashboard/NewShiftLoginModal'
 
 const idleBtnClass = 'px-4 py-2 border border-[#ddd] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'
 
-function SupervisorIdleView({ tanks, stationShiftOpen, cstoreShiftOpen }: { tanks: Tank[]; stationShiftOpen: boolean; cstoreShiftOpen: boolean }) {
+function SupervisorIdleView({ stationShiftOpen, cstoreShiftOpen }: { tanks: Tank[]; stationShiftOpen: boolean; cstoreShiftOpen: boolean }) {
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [showReportIssue, setShowReportIssue] = useState(false)
   const [showNewShiftLogin, setShowNewShiftLogin] = useState(false)
 
+  const firstName = user?.name?.trim().split(/\s+/)[0] ?? ''
+  const h = new Date().getHours()
+  const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
+  const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+
+  const statusPill = (active: boolean) => (
+    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase flex-shrink-0 ${
+      active ? 'bg-amber-50 text-amber-600' : 'bg-[#f4f4f4] text-[#bbb]'
+    }`}>
+      {active ? 'In progress' : 'Inactive'}
+    </span>
+  )
+
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col" style={{ scrollbarWidth: 'none' }}>
-      <div className="p-5 space-y-8 flex-1">
 
-        <section>
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Service Station</p>
-          <div className="flex gap-2 flex-wrap mb-4">
-            <button onClick={() => setShowReportIssue(true)} className={idleBtnClass}>Report an issue</button>
-            <button onClick={() => navigate({ to: '/schedule' })} className={idleBtnClass}>Request day off</button>
-            <button onClick={() => setShowNewShiftLogin(true)} className={idleBtnClass}>{stationShiftOpen ? 'Takeover shift' : 'Start a new shift'}</button>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
-                Sales <span className="font-medium text-[#ccc] normal-case tracking-normal">| Previous shift</span>
-              </p>
-              <p className="text-[28px] font-bold text-[#111] leading-none mb-5">J$0.00</p>
-              <div className="space-y-2 text-[12px] font-medium text-[#bbb]">
-                <p>Shortages</p>
-                <p>Overages</p>
-                <p>Balance</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
-                Tanks <span className="font-medium text-[#ccc] normal-case tracking-normal">| Previous shift</span>
-              </p>
-              <div className="space-y-2">
-                {tanks.map((t) => (
-                  <p key={t.id} className="text-[13px] font-medium text-[#555]">{t.fuel_name}</p>
-                ))}
-                {tanks.length === 0 && <p className="text-[13px] text-[#ccc]">No tanks configured</p>}
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5 flex flex-col">
-              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
-                Sales Breakdown <span className="font-medium text-[#ccc] normal-case tracking-normal">| Previous shift</span>
-              </p>
-              <div className="flex-1 flex items-center justify-center py-4">
-                <svg width="80" height="80" viewBox="0 0 80 80">
-                  <circle cx="40" cy="40" r="34" fill="none" stroke="#e8e8e8" strokeWidth="8" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </section>
+      <div className="px-6 pt-8 pb-6 border-b border-[#f0f0f0] flex-shrink-0 flex items-center justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase mb-1">{dateStr}</p>
+          <h1 className="text-[28px] font-bold text-[#111] tracking-tight leading-none">
+            {greeting}{firstName ? `, ${firstName}` : ''}
+          </h1>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <button onClick={() => setShowReportIssue(true)} className={idleBtnClass}>Report an issue</button>
+          <button onClick={() => navigate({ to: '/schedule' })} className={idleBtnClass}>Request day off</button>
+        </div>
+      </div>
 
-        <section>
-          <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Convenience Store</p>
-          <div className="flex gap-2 flex-wrap mb-4">
-            <button onClick={() => setShowReportIssue(true)} className={idleBtnClass}>Report an issue</button>
+      <div className="flex-1 p-6 space-y-4">
+
+        <div className="bg-white border border-[#ebebeb] rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#f0f0f0] flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-bold text-[#111] uppercase tracking-wide">Service Station</p>
+              <p className="text-[11px] font-medium text-[#bbb] mt-0.5">
+                {stationShiftOpen ? 'A shift is currently running' : 'No shift in progress'}
+              </p>
+            </div>
+            {statusPill(stationShiftOpen)}
+          </div>
+          <div className="px-5 py-4 flex gap-2 flex-wrap">
             <button onClick={() => setShowNewShiftLogin(true)} className={idleBtnClass}>
-              {cstoreShiftOpen ? 'Takeover shift' : 'Start a new shift'}
+              {stationShiftOpen ? 'Takeover shift' : 'Start a shift'}
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
-                Sales <span className="font-medium text-[#ccc] normal-case tracking-normal">| Previous shift</span>
-              </p>
-              <p className="text-[28px] font-bold text-[#111] leading-none mb-5">J$0.00</p>
-              <div className="space-y-2 text-[12px] font-medium text-[#bbb]">
-                <p>Balance</p>
-                <p>Top Product</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
-                Customer <span className="font-medium text-[#ccc] normal-case tracking-normal">| Outstanding Balances</span>
+        </div>
+
+        <div className="bg-white border border-[#ebebeb] rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#f0f0f0] flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-bold text-[#111] uppercase tracking-wide">Convenience Store</p>
+              <p className="text-[11px] font-medium text-[#bbb] mt-0.5">
+                {cstoreShiftOpen ? 'A shift is currently running' : 'No shift in progress'}
               </p>
             </div>
-            <div className="bg-white rounded-2xl border border-[#ebebeb] p-5 flex flex-col">
-              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">
-                Sales Breakdown <span className="font-medium text-[#ccc] normal-case tracking-normal">| Previous shift</span>
-              </p>
-              <div className="flex-1 flex items-center justify-center py-4">
-                <svg width="80" height="80" viewBox="0 0 80 80">
-                  <circle cx="40" cy="40" r="34" fill="none" stroke="#e8e8e8" strokeWidth="8" />
-                </svg>
-              </div>
-            </div>
+            {statusPill(cstoreShiftOpen)}
           </div>
-        </section>
+          <div className="px-5 py-4 flex gap-2 flex-wrap">
+            <button onClick={() => setShowNewShiftLogin(true)} className={idleBtnClass}>
+              {cstoreShiftOpen ? 'Takeover shift' : 'Start a shift'}
+            </button>
+          </div>
+        </div>
 
       </div>
 
@@ -162,6 +144,8 @@ export function DashboardPage() {
 
   const { data: shift, refetch: refetchShift } = useOpenShift()
   const { data: cstoreShift } = useOpenCStoreShift()
+  const { data: cstoreOrders = [] } = useShiftOrders(cstoreShift?.id)
+  const { data: cstoreDeposits = [] } = useShiftDeposits(cstoreShift?.id)
   const { data: pumps = [] } = usePumps()
   const { data: fuels = [] } = useFuels()
   const { data: tanks = [] } = useTanks()
@@ -428,19 +412,29 @@ export function DashboardPage() {
             <RecentActivityCard account={selectedAccount} readOnly={shiftEnded} attendantSales={attendantSales} attendantGradeSales={attendantGradeSalesMap} shiftId={shift?.id} />
           </div>
 
-          <div>
-            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Convenience Store</p>
-            <button onClick={() => setShowConvenienceBreakdown(true)} className="bg-white rounded-2xl border border-[#ebebeb] p-6 text-left w-full hover:border-[#ccc] transition-colors">
-              <p className="text-[13px] font-semibold text-[#888] mb-3">Total Sales</p>
-              <p className="text-[42px] font-bold text-[#111] leading-none tracking-tight mb-5">
-                J$ 0.00
-              </p>
-              <div className="flex items-center justify-between pt-4 border-t border-[#f0f0f0]">
-                <span className="text-[13px] font-medium text-[#888]">Balance</span>
-                <span className="text-[13px] font-semibold text-[#333]">J$ 0.00</span>
+          {(() => {
+            const cstoreTotalSales = cstoreOrders.reduce((s, o) => s + o.total, 0)
+            const cstoreExpenditures = cstoreDeposits.filter((d) => d.type === 'Expenditure').reduce((s, d) => s + d.amount, 0)
+            const cstoreBalance = cstoreTotalSales - cstoreExpenditures
+            const fmtC = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+            return (
+              <div>
+                <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Convenience Store</p>
+                <button onClick={() => setShowConvenienceBreakdown(true)} className="bg-white rounded-2xl border border-[#ebebeb] p-6 text-left w-full hover:border-[#ccc] transition-colors">
+                  <p className="text-[13px] font-semibold text-[#888] mb-3">Total Sales</p>
+                  <p className="text-[42px] font-bold text-[#111] leading-none tracking-tight mb-5">
+                    {cstoreTotalSales > 0 ? `J$ ${cstoreTotalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : 'J$ 0.00'}
+                  </p>
+                  <div className="flex items-center justify-between pt-4 border-t border-[#f0f0f0]">
+                    <span className="text-[13px] font-medium text-[#888]">Balance</span>
+                    <span className={`text-[13px] font-semibold ${cstoreBalance < 0 ? 'text-red-500' : cstoreBalance > 0 ? 'text-green-600' : 'text-[#bbb]'}`}>
+                      {cstoreBalance < 0 ? `-${fmtC(Math.abs(cstoreBalance))}` : cstoreBalance > 0 ? `+${fmtC(cstoreBalance)}` : 'J$0.00'}
+                    </span>
+                  </div>
+                </button>
               </div>
-            </button>
-          </div>
+            )
+          })()}
         </div>
       </div>
 
@@ -595,6 +589,7 @@ export function DashboardPage() {
       {showConvenienceBreakdown && (
         <ConvenienceStoreBreakdownModal
           onClose={() => setShowConvenienceBreakdown(false)}
+          shiftId={cstoreShift?.id}
         />
       )}
     </div>

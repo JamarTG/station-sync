@@ -135,9 +135,17 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 
+	ctx := c.Request.Context()
+	tx, err := h.DB.Begin(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer tx.Rollback(ctx)
+
 	var u model.User
 	err = scanUser(
-		h.DB.QueryRow(c.Request.Context(), `
+		tx.QueryRow(ctx, `
 			INSERT INTO users (business_id, branch_id, name, role, password_hash, phone, nis, trn, email,
 			                   employed_on, date_of_birth, must_change_password, sick_days)
 			VALUES ($1, NULLIF($2,'')::uuid, $3, $4, $5, $6, $7, $8, $9,
@@ -150,6 +158,21 @@ func (h *UserHandler) Create(c *gin.Context) {
 		&u,
 	)
 	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Every staff member automatically gets a customer account.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO customers (business_id, user_id, name, phone, email)
+		VALUES ($1, $2, $3, NULLIF($4,''), NULLIF($5,''))`,
+		businessID, u.ID, u.Name, body.Phone, body.Email,
+	); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

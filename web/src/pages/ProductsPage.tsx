@@ -1,10 +1,11 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Candy, ChevronRight, Cigarette, Flame, GlassWater, Home, MoreHorizontal, Plus, Search, Smartphone, Snowflake, Utensils, Wrench, X,
 } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useProducts, useInactiveProducts } from '../hooks/useApi'
-import { createProduct, type Product } from '../lib/api'
+import { createProduct, updateProduct, setProductActive, deleteProduct, type Product } from '../lib/api'
 
 // ── Category meta ─────────────────────────────────────────────────────────────
 
@@ -161,7 +162,10 @@ function AddProductModal({ onClose }: { onClose: () => void }) {
         stock_qty: parseInt(stock, 10),
         unit,
       })
-      await qc.invalidateQueries({ queryKey: ['products'] })
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['products'] }),
+        qc.invalidateQueries({ queryKey: ['products', 'inactive'] }),
+      ])
       onClose()
     } catch {
       setError('Failed to add product')
@@ -244,21 +248,193 @@ function AddProductModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ── Edit Product Modal ────────────────────────────────────────────────────────
+
+function EditProductModal({ product, onClose }: { product: Product; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [name, setName] = useState(product.name)
+  const [category, setCategory] = useState(product.category ?? '')
+  const [sku, setSku] = useState(product.sku ?? '')
+  const [upc, setUpc] = useState(product.upc ?? '')
+  const [price, setPrice] = useState(String(product.price))
+  const [cost, setCost] = useState(product.cost != null ? String(product.cost) : '')
+  const [stock, setStock] = useState(String(product.stock_qty))
+  const [unit, setUnit] = useState(product.unit)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!name.trim() || !price || !stock) { setError('Name, price, and stock are required'); return }
+    setSaving(true); setError('')
+    try {
+      await updateProduct(product.id, {
+        name: name.trim(),
+        category: category || null,
+        sku: sku.trim() || null,
+        upc: upc.trim() || null,
+        price: parseFloat(price),
+        cost: cost !== '' ? parseFloat(cost) : null,
+        stock_qty: parseInt(stock, 10),
+        unit,
+      })
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['products'] }),
+        qc.invalidateQueries({ queryKey: ['products', 'inactive'] }),
+      ])
+      onClose()
+    } catch {
+      setError('Failed to save changes')
+      setSaving(false)
+    }
+  }
+
+  const fieldClass = 'w-full px-3 py-2 text-[13px] font-medium text-[#111] bg-white border border-[#ddd] rounded-xl focus:outline-none focus:border-[#aaa] transition-colors'
+  const labelClass = 'text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl w-full max-w-[460px] shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#ebebeb]">
+          <p className="text-[14px] font-bold text-[#111]">Edit Product</p>
+          <button onClick={onClose} className="text-[#bbb] hover:text-[#555] transition-colors"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 flex flex-col gap-4">
+          <div>
+            <p className={labelClass}>Name</p>
+            <input className={fieldClass} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className={labelClass}>Category</p>
+              <select className={fieldClass} value={category} onChange={(e) => setCategory(e.target.value)}>
+                <option value="">None</option>
+                {CATEGORY_META.map((c) => <option key={c.name} value={c.name}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <p className={labelClass}>SKU</p>
+              <input className={fieldClass} value={sku} onChange={(e) => setSku(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className={labelClass}>UPC</p>
+              <input className={fieldClass} value={upc} onChange={(e) => setUpc(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className={labelClass}>Price (J$)</p>
+              <input className={fieldClass} type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
+            </div>
+            <div>
+              <p className={labelClass}>Cost (J$)</p>
+              <input className={fieldClass} type="number" min="0" step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="Optional" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className={labelClass}>Stock Qty</p>
+              <input className={fieldClass} type="number" min="0" step="1" value={stock} onChange={(e) => setStock(e.target.value)} />
+            </div>
+            <div>
+              <p className={labelClass}>Unit</p>
+              <select className={fieldClass} value={unit} onChange={(e) => setUnit(e.target.value)}>
+                {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+          {error && <p className="text-[12px] font-semibold text-red-500">{error}</p>}
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors">Cancel</button>
+            <button type="submit" disabled={saving} className="flex-1 px-4 py-2.5 bg-[#111] rounded-xl text-[13px] font-semibold text-white hover:bg-[#333] transition-colors disabled:opacity-50">
+              {saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Delete Confirm Modal ──────────────────────────────────────────────────────
+
+function DeleteConfirmModal({ product, onClose }: { product: Product; onClose: () => void }) {
+  const qc = useQueryClient()
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleDelete() {
+    setDeleting(true); setError('')
+    try {
+      await deleteProduct(product.id)
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['products'] }),
+        qc.invalidateQueries({ queryKey: ['products', 'inactive'] }),
+      ])
+      onClose()
+    } catch {
+      setError('Failed to delete product')
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl w-full max-w-[360px] shadow-2xl p-6">
+        <p className="text-[15px] font-bold text-[#111] mb-1">Delete "{product.name}"?</p>
+        <p className="text-[13px] font-medium text-[#888] mb-5">This action cannot be undone.</p>
+        {error && <p className="text-[12px] font-semibold text-red-500 mb-3">{error}</p>}
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors">Cancel</button>
+          <button onClick={handleDelete} disabled={deleting} className="flex-1 px-4 py-2.5 bg-red-500 rounded-xl text-[13px] font-semibold text-white hover:bg-red-600 transition-colors disabled:opacity-50">
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Products Table ────────────────────────────────────────────────────────────
 
-function ProductsTable({ products, inactiveProducts, onAdd }: { products: Product[]; inactiveProducts: Product[]; onAdd: () => void }) {
-  const [query, setQuery] = useState('')
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const [inactiveOpen, setInactiveOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
+type MenuPos = { id: string; right: number; y: number; up: boolean }
 
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpenMenuId(null)
+function ProductsTable({ products, inactiveProducts, onAdd }: { products: Product[]; inactiveProducts: Product[]; onAdd: () => void }) {
+  const qc = useQueryClient()
+  const [query, setQuery] = useState('')
+  const [menuPos, setMenuPos] = useState<MenuPos | null>(null)
+  const [inactiveOpen, setInactiveOpen] = useState(false)
+  const [editProduct, setEditProduct] = useState<Product | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  function openMenu(e: React.MouseEvent<HTMLButtonElement>, id: string) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const menuHeight = 116 // ~3 items × ~37px + 2px padding
+    const up = window.innerHeight - rect.bottom < menuHeight
+    setMenuPos({
+      id,
+      right: window.innerWidth - rect.right,
+      y: up ? window.innerHeight - rect.top + 4 : rect.bottom + 4,
+      up,
+    })
+  }
+
+  async function handleToggleActive(p: Product) {
+    setMenuPos(null)
+    setTogglingId(p.id)
+    try {
+      await setProductActive(p.id, !p.active)
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['products'] }),
+        qc.invalidateQueries({ queryKey: ['products', 'inactive'] }),
+      ])
+    } finally {
+      setTogglingId(null)
     }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
+  }
 
   const filtered = query.trim()
     ? products.filter(
@@ -329,26 +505,13 @@ function ProductsTable({ products, inactiveProducts, onAdd }: { products: Produc
                   <p className={`text-[13px] font-semibold ${p.stock_qty === 0 ? 'text-red-500' : p.stock_qty < 10 ? 'text-[#856404]' : 'text-[#111]'}`}>
                     {p.stock_qty}
                   </p>
-                  <div ref={openMenuId === p.id ? menuRef : null} className="relative flex items-center justify-center">
+                  <div className="flex items-center justify-center">
                     <button
-                      onClick={() => setOpenMenuId(openMenuId === p.id ? null : p.id)}
+                      onClick={(e) => openMenu(e, p.id)}
                       className="w-7 h-7 flex items-center justify-center rounded-lg text-[#bbb] hover:text-[#555] hover:bg-[#f4f4f4] transition-colors"
                     >
                       <MoreHorizontal size={14} />
                     </button>
-                    {openMenuId === p.id && (
-                      <div className="absolute right-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[130px] z-50">
-                        <button onClick={() => setOpenMenuId(null)} className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors">
-                          Edit
-                        </button>
-                        <button onClick={() => setOpenMenuId(null)} className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors">
-                          Deactivate
-                        </button>
-                        <button onClick={() => setOpenMenuId(null)} className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-red-500 hover:bg-red-50 transition-colors">
-                          Delete
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
               )
@@ -372,8 +535,8 @@ function ProductsTable({ products, inactiveProducts, onAdd }: { products: Produc
           </button>
           {inactiveOpen && (
             <div className="border-t border-[#f0f0f0] max-h-[280px] overflow-y-auto">
-              <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_80px] gap-4 px-5 py-2.5 border-b border-[#f4f4f4] bg-[#fafafa]">
-                {['Name', 'Category', 'Price', 'Cost', 'Unit', 'Stock'].map((h) => (
+              <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_80px_36px] gap-4 px-5 py-2.5 border-b border-[#f4f4f4] bg-[#fafafa]">
+                {['Name', 'Category', 'Price', 'Cost', 'Unit', 'Stock', ''].map((h) => (
                   <p key={h} className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
                 ))}
               </div>
@@ -381,7 +544,7 @@ function ProductsTable({ products, inactiveProducts, onAdd }: { products: Produc
                 const meta = categoryMeta(p.category)
                 const Icon = meta.icon
                 return (
-                  <div key={p.id} className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_80px] gap-4 px-5 py-3 border-b border-[#f8f8f8] last:border-0 items-center opacity-60 hover:opacity-80 transition-opacity">
+                  <div key={p.id} className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1fr_80px_36px] gap-4 px-5 py-3 border-b border-[#f8f8f8] last:border-0 items-center opacity-60 hover:opacity-80 transition-opacity">
                     <div className="min-w-0">
                       <p className="text-[13px] font-semibold text-[#111] truncate">{p.name}</p>
                       {p.sku && <p className="text-[11px] font-medium text-[#bbb] mt-0.5">{p.sku}</p>}
@@ -396,6 +559,14 @@ function ProductsTable({ products, inactiveProducts, onAdd }: { products: Produc
                     <p className="text-[13px] font-medium text-[#888]">{p.cost != null ? fmt(p.cost) : <span className="text-[#ddd]">—</span>}</p>
                     <p className="text-[12px] font-medium text-[#888]">{p.unit}</p>
                     <p className="text-[13px] font-semibold text-[#aaa]">{p.stock_qty}</p>
+                    <div className="flex items-center justify-center">
+                      <button
+                        onClick={(e) => openMenu(e, p.id)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-[#bbb] hover:text-[#555] hover:bg-[#f4f4f4] transition-colors"
+                      >
+                        <MoreHorizontal size={14} />
+                      </button>
+                    </div>
                   </div>
                 )
               })}
@@ -403,6 +574,50 @@ function ProductsTable({ products, inactiveProducts, onAdd }: { products: Produc
           )}
         </div>
       )}
+
+      {editProduct && <EditProductModal product={editProduct} onClose={() => setEditProduct(null)} />}
+      {deleteTarget && <DeleteConfirmModal product={deleteTarget} onClose={() => setDeleteTarget(null)} />}
+
+      {menuPos && (() => {
+        const allProducts = [...products, ...inactiveProducts]
+        const menuProduct = allProducts.find((p) => p.id === menuPos.id)
+        if (!menuProduct) return null
+        return createPortal(
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setMenuPos(null)} />
+            <div
+              className="fixed z-50 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[130px]"
+              style={{
+                right: menuPos.right,
+                ...(menuPos.up
+                  ? { bottom: menuPos.y }
+                  : { top: menuPos.y }),
+              }}
+            >
+              <button
+                onClick={() => { setMenuPos(null); setEditProduct(menuProduct) }}
+                className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => handleToggleActive(menuProduct)}
+                disabled={togglingId === menuProduct.id}
+                className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors disabled:opacity-40"
+              >
+                {togglingId === menuProduct.id ? 'Updating…' : menuProduct.active ? 'Deactivate' : 'Reactivate'}
+              </button>
+              <button
+                onClick={() => { setMenuPos(null); setDeleteTarget(menuProduct) }}
+                className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-red-500 hover:bg-red-50 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </>,
+          document.body
+        )
+      })()}
     </div>
   )
 }

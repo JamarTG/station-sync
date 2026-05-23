@@ -150,6 +150,25 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		body.ShiftType = "service_station"
 	}
 
+	// Guard: if an open shift of this type already exists, return it instead of creating a duplicate.
+	existRows, err := h.DB.Query(c.Request.Context(),
+		`SELECT `+shiftSelectCols+` FROM `+shiftFrom+`
+		 WHERE s.business_id = $1 AND ($2 = '' OR s.branch_id::text = $2)
+		   AND s.end_time IS NULL AND COALESCE(s.shift_type,'service_station') = $3
+		 ORDER BY s.created_at DESC LIMIT 1`,
+		businessID, branchID, body.ShiftType)
+	if err == nil {
+		defer existRows.Close()
+		if existRows.Next() {
+			var existing model.Shift
+			if err := scanShift(existRows, &existing); err == nil {
+				c.JSON(http.StatusOK, existing)
+				return
+			}
+		}
+		existRows.Close()
+	}
+
 	rows, err := h.DB.Query(c.Request.Context(), `
 		WITH ins AS (
 			INSERT INTO shifts (business_id, branch_id, supervisor_id, date, start_time, end_time, shift_type)

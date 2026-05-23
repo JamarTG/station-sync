@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Outlet, useNavigate, useRouterState } from '@tanstack/react-router'
 import { Sidebar } from '../components/Sidebar'
 import { TopBar } from '../components/TopBar'
-import { CashierDashboard } from '../components/dashboard/CashierDashboard'
 import { ShiftLoginFlow } from '../pages/ShiftLoginFlow'
 import { ChangePasswordPage } from '../pages/ChangePasswordPage'
 import { useAuth } from '../lib/authContext'
@@ -32,7 +31,6 @@ export function RootLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const [shiftFlowDone, setShiftFlowDone] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [posMode, setPosMode] = useState(false)
   const { dark, toggle: toggleDark } = useDarkMode()
 
   useEffect(() => {
@@ -65,12 +63,12 @@ export function RootLayout() {
         />
       )}
 
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} posMode={posMode} onTogglePosMode={() => setPosMode((p) => !p)} />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
         <TopBar onMenuClick={() => setSidebarOpen(true)} onLogout={logout} dark={dark} onToggleDark={toggleDark} />
         <main className="flex-1 overflow-y-scroll">
-          {posMode ? <CashierDashboard /> : <Outlet />}
+          <Outlet />
         </main>
       </div>
     </div>

@@ -10,7 +10,7 @@ interface Props {
   onComplete: () => void
 }
 
-type Step = 'loading' | 'takeover' | 'attendants' | 'prices' | 'invite'
+type Step = 'loading' | 'attendants' | 'prices' | 'invite'
 
 const gradeLabels: Record<string, string> = {
   '87': 'Unleaded 87',
@@ -97,11 +97,7 @@ export function ShiftLoginFlow({ user, onComplete }: Props) {
   useEffect(() => {
     if (!loadingShift && !loadingUsers && step === 'loading') {
       if (openShift) {
-        if (openShift.supervisor_id === user.id) {
-          onComplete()
-        } else {
-          setStep('takeover')
-        }
+        onComplete()
       } else if (!isSupervisor) {
         setStep('invite')
       } else if (attendants.length === 0) {
@@ -180,40 +176,6 @@ export function ShiftLoginFlow({ user, onComplete }: Props) {
         <FlowTopBar />
         <div className="flex-1 flex items-center justify-center">
           <LogoLoader size={56} />
-        </div>
-      </div>
-    )
-  }
-
-  // ─── Takeover panel ────────────────────────────────────────────────────────
-  if (step === 'takeover') {
-    return (
-      <div className="min-h-screen bg-[#f4f4f4] font-[Manrope] flex flex-col">
-        <FlowTopBar />
-        <div className="flex-1 flex flex-col items-center justify-center p-6">
-          <div className="w-full max-w-[600px] flex flex-col items-center">
-            <div className="mb-8 text-center">
-              <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Notice</p>
-              <h1 className="text-[32px] font-bold text-[#111] leading-none mb-1.5">Shift in progress</h1>
-              <p className="text-[14px] text-[#888] font-medium">How would you like to proceed?</p>
-            </div>
-            <div className="flex gap-3 w-full justify-center">
-              <button
-                onClick={onComplete}
-                className="w-[260px] flex flex-col items-center justify-center rounded-2xl bg-white border border-[#ebebeb] text-[#111] hover:border-[#ccc] hover:bg-[#fafafa] transition-colors text-center px-6 py-10"
-              >
-                <span className="text-[14px] font-bold mb-2 leading-snug">Continue to current shift</span>
-                <span className="text-[11px] font-medium text-[#aaa] leading-snug">Assume responsibility and continue where the previous operator left off.</span>
-              </button>
-              <button
-                onClick={onComplete}
-                className="w-[260px] flex flex-col items-center justify-center rounded-2xl bg-white border border-[#ebebeb] text-[#111] hover:border-[#ccc] hover:bg-[#fafafa] transition-colors text-center px-6 py-10"
-              >
-                <span className="text-[14px] font-bold mb-2 leading-snug">Continue to schedule</span>
-                <span className="text-[11px] font-medium text-[#aaa] leading-snug">View the weekly schedule without taking over the active shift.</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     )
