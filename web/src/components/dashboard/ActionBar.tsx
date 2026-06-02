@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { MoreHorizontal } from 'lucide-react'
-import { NewShiftLoginModal } from './NewShiftLoginModal'
-import { useAuth } from '../../lib/authContext'
 import { useOpenShift } from '../../hooks/useApi'
 import { ReportIssueModal } from './ReportIssueModal'
 import { RecordModal } from './RecordModal'
@@ -18,19 +16,15 @@ import { DepositModal } from './DepositModal'
 type RecordView = 'select' | 'drop' | 'cash-deposit' | 'expenditure' | 'charge' | 'card' | 'advance' | 'fuel-receival' | 'fx' | 'deposit' | null
 
 interface Props {
-  shiftEnded?: boolean
   canEndShift?: boolean
-  onShiftEnd?: () => void
-  onNewShift?: () => void
+  onEndShiftClick?: () => void
 }
 
-export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewShift }: Props) {
-  const { logout } = useAuth()
+export function ActionBar({ canEndShift = false, onEndShiftClick }: Props) {
   const { data: shift } = useOpenShift()
   const shiftId = shift?.id
   const [recordView, setRecordView] = useState<RecordView>(null)
   const [dropAttendant, setDropAttendant] = useState('')
-  const [showNewShiftLogin, setShowNewShiftLogin] = useState(false)
   const [showReportIssue, setShowReportIssue] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const moreRef = useRef<HTMLDivElement>(null)
@@ -45,30 +39,23 @@ export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewSh
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  function handleEndShift() {
-    onShiftEnd?.()
-    logout()
-  }
-
   const btnClass = 'px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'
 
   return (
     <>
       <div className="flex items-center gap-2 flex-wrap">
-        {!shiftEnded && (
-          <button onClick={() => setRecordView('select')} className={btnClass}>
-            Record a ...
-          </button>
-        )}
+        <button onClick={() => setRecordView('select')} className={btnClass}>
+          Record a ...
+        </button>
 
         {/* Visible at ≥416px */}
         <button
-          onClick={() => shiftEnded ? setShowNewShiftLogin(true) : canEndShift ? handleEndShift() : undefined}
-          disabled={!shiftEnded && !canEndShift}
-          title={!shiftEnded && !canEndShift ? 'Enter all pump nozzle readings before ending the shift' : undefined}
+          onClick={canEndShift ? onEndShiftClick : undefined}
+          disabled={!canEndShift}
+          title={!canEndShift ? 'Enter all pump nozzle readings before ending the shift' : undefined}
           className={`hidden min-[416px]:block ${btnClass} disabled:opacity-40 disabled:cursor-not-allowed`}
         >
-          {shiftEnded ? 'Start a new shift' : 'End shift'}
+          End shift
         </button>
         <button onClick={() => setShowReportIssue(true)} className={`hidden min-[416px]:block ${btnClass}`}>
           Report an issue
@@ -76,20 +63,17 @@ export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewSh
 
         {/* Collapsed ... menu at <416px */}
         <div ref={moreRef} className="relative min-[416px]:hidden">
-          <button
-            onClick={() => setMoreOpen((o) => !o)}
-            className={btnClass}
-          >
+          <button onClick={() => setMoreOpen((o) => !o)} className={btnClass}>
             <MoreHorizontal size={15} />
           </button>
           {moreOpen && (
             <div className="absolute left-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[160px] z-50">
               <button
-                onClick={() => { setMoreOpen(false); shiftEnded ? setShowNewShiftLogin(true) : canEndShift ? handleEndShift() : undefined }}
-                disabled={!shiftEnded && !canEndShift}
+                onClick={() => { setMoreOpen(false); if (canEndShift) onEndShiftClick?.() }}
+                disabled={!canEndShift}
                 className="w-full text-left px-4 py-2.5 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {shiftEnded ? 'Start a new shift' : 'End shift'}
+                End shift
               </button>
               <button
                 onClick={() => { setMoreOpen(false); setShowReportIssue(true) }}
@@ -180,9 +164,6 @@ export function ActionBar({ shiftEnded, canEndShift = false, onShiftEnd, onNewSh
       )}
       {showReportIssue && (
         <ReportIssueModal onClose={() => setShowReportIssue(false)} />
-      )}
-      {showNewShiftLogin && (
-        <NewShiftLoginModal onClose={() => setShowNewShiftLogin(false)} onConfirm={() => { onNewShift?.(); setShowNewShiftLogin(false) }} />
       )}
     </>
   )

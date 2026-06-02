@@ -23,6 +23,11 @@ const ROUTE_TITLES: Record<string, string> = {
   '/convenience/staff':     'Staff',
   '/convenience/schedule':  'Schedule',
   '/convenience/products':  'Products',
+  '/rankings':              'Rankings',
+  '/employee-rankings':     'Rankings',
+  '/fuel-intelligence':     'Fuel Intelligence',
+  '/payroll':               'Payroll',
+  '/holidays':              'Holidays & Premium Pay',
 }
 
 export function RootLayout() {

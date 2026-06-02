@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
+import { createIssue } from '../../lib/api'
 
 const categories = ['Equipment', 'Safety', 'Fuel', 'Staff', 'Customer', 'Other']
 
@@ -10,13 +12,24 @@ interface Props {
 
 export function ReportIssueModal({ onClose }: Props) {
   useEscapeKey(onClose)
+  const qc = useQueryClient()
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!category || !description.trim()) return
-    setSubmitted(true)
+    setLoading(true)
+    try {
+      await createIssue({ category, description })
+      await qc.invalidateQueries({ queryKey: ['issues'] })
+      setSubmitted(true)
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -90,10 +103,10 @@ export function ReportIssueModal({ onClose }: Props) {
 
             <button
               onClick={handleSubmit}
-              disabled={!category || !description.trim()}
+              disabled={!category || !description.trim() || loading}
               className="w-full py-4 rounded-2xl bg-[#111] text-[15px] font-semibold text-white hover:bg-[#222] transition-colors disabled:opacity-30 disabled:pointer-events-none"
             >
-              Submit
+              {loading ? 'Submitting…' : 'Submit'}
             </button>
           </>
         )}

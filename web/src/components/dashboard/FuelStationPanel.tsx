@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import clsx from 'clsx'
 import { ChevronDown } from 'lucide-react'
-import { useFuels, useFuelSummary, useNozzles, useShiftFuelReceivals, useTanks } from '../../hooks/useApi'
+import { useQueryClient } from '@tanstack/react-query'
+import { useFuels, useFuelSummary, useNozzles, useShiftFuelReceivals, useShiftNozzleLogs, useTanks } from '../../hooks/useApi'
 import type { Pump, FuelSummary } from '../../lib/api'
+import { upsertNozzleLog } from '../../lib/api'
 import { PumpDetailPanel, type NozzleRow } from './PumpDetailPanel'
 import { FuelReceivalModal } from './FuelReceivalModal'
 import { EditFuelReceivalModal } from './EditFuelReceivalModal'
@@ -81,9 +83,11 @@ interface Props {
 export function FuelStationPanel({ pump, shiftId }: Props) {
   const [view, setView] = useState<View>('pumps')
 
+  const qc = useQueryClient()
   const { data: fuels = [] } = useFuels()
   const { data: summaries = [] } = useFuelSummary(pump?.id, shiftId)
   const { data: pumpNozzles = [] } = useNozzles()
+  const { data: nozzleLogs = [] } = useShiftNozzleLogs(shiftId)
   const { data: receivals = [] } = useShiftFuelReceivals(shiftId)
   const { data: tanks = [] } = useTanks()
   const [selectedFuelName, setSelectedFuelName] = useState<string | null>(null)
@@ -100,12 +104,9 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
 
   useEffect(() => {
     if (!shiftId) return
+    // Clear local edits when shift changes; getNozzles will repopulate from server nozzle logs
     setNozzleReadings({})
     setTankReadings({})
-    try {
-      const raw = localStorage.getItem(`pump_readings_${shiftId}`)
-      if (raw) setNozzleReadings(JSON.parse(raw))
-    } catch {}
     try {
       const raw = localStorage.getItem(`tank_readings_${shiftId}`)
       if (raw) setTankReadings(JSON.parse(raw))
@@ -117,13 +118,45 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
   }
 
   function getNozzles(fuelType: string): NozzleRow[] {
-    return nozzleReadings[fuelType] ?? emptyNozzles(nozzleCountForFuel(fuelType))
+    if (nozzleReadings[fuelType]) return nozzleReadings[fuelType]
+    // Build from server nozzle logs so the supervisor sees current readings
+    const matching = pumpNozzles.filter((n) => n.fuel_name === fuelType)
+    if (matching.length === 0) return emptyNozzles(0)
+    return matching.map((n, i) => {
+      const log = nozzleLogs.find((l) => l.nozzle_id === n.id)
+      return {
+        nozzleId: n.id,
+        pumpNumber: i + 1,
+        opening: log != null ? String(log.starting_reading) : '',
+        closing: log != null && log.ending_reading != null ? String(log.ending_reading) : '',
+      }
+    })
   }
 
   function setNozzles(fuelType: string, rows: NozzleRow[]) {
     const next = { ...nozzleReadings, [fuelType]: rows }
     setNozzleReadings(next)
-    if (shiftId) localStorage.setItem(`pump_readings_${shiftId}`, JSON.stringify(next))
+  }
+
+  async function saveNozzleRows(rows: NozzleRow[]) {
+    if (!shiftId) return
+    for (const row of rows) {
+      if (row.nozzleId && row.opening !== '' && row.closing !== '') {
+        const start = parseFloat(row.opening)
+        const end   = parseFloat(row.closing)
+        if (!isNaN(start) && !isNaN(end)) {
+          try {
+            await upsertNozzleLog(shiftId, {
+              nozzle_id: row.nozzleId,
+              starting_reading: start,
+              ending_reading: end,
+            })
+          } catch {}
+        }
+      }
+    }
+    qc.invalidateQueries({ queryKey: ['shifts', shiftId, 'nozzle-logs'] })
+    qc.invalidateQueries({ queryKey: ['fuel-summary'] })
   }
 
   function pumpTotalForGrade(fuelType: string): number {
@@ -242,6 +275,7 @@ export function FuelStationPanel({ pump, shiftId }: Props) {
               pricePerLitre={summaries.find((s) => s.fuelType === activeFuelName)?.pricePerLitre}
               nozzles={getNozzles(activeFuelName ?? '')}
               onChange={(rows) => setNozzles(activeFuelName ?? '', rows)}
+              onSave={saveNozzleRows}
             />
           )}
 

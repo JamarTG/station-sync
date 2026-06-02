@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useRouterState, useNavigate } from '@tanstack/react-router'
-import { AlertCircle, Tv2, ArrowLeft, User, Shield, Bell, Users, Banknote, Fuel, Building2, Search, ChevronRight, LayoutDashboard, TrendingUp, BarChart2, Receipt, Calendar, Zap, ShoppingCart, Droplets } from 'lucide-react'
+import { AlertCircle, Tv2, ArrowLeft, User, Shield, Bell, Users, Banknote, Fuel, Building2, Search, ChevronRight, LayoutDashboard, TrendingUp, BarChart2, Receipt, Calendar, Zap, ShoppingCart, Droplets, Landmark, Gift, CalendarDays } from 'lucide-react'
 import clsx from 'clsx'
 import { StationSyncLogo } from './StationSyncLogo'
 import { useAuth } from '../lib/authContext'
@@ -8,29 +8,30 @@ import { useAuth } from '../lib/authContext'
 const managerRoles = new Set(['Super Admin', 'Admin', 'Manager'])
 
 const managerItems = [
-  { label: 'Dashboard', to: '/',         icon: LayoutDashboard },
-  { label: 'Sales',     to: '/sales',    icon: TrendingUp },
-  { label: 'Reports',   to: '/reports',  icon: BarChart2 },
-  { label: 'Expenses',  to: '/expenses', icon: Receipt },
-  { label: 'Staff',     to: '/staff',    icon: Users },
-  { label: 'Schedule',  to: '/schedule', icon: Calendar },
-  { label: 'Charges',   to: '/charges',  icon: Zap },
-  { label: 'Tanks',     to: '/tanks',    icon: Droplets },
+  { label: 'Dashboard', to: '/',           icon: LayoutDashboard },
+  { label: 'Sales',     to: '/sales',      icon: TrendingUp },
+  { label: 'Deposits',  to: '/deposits',   icon: Landmark },
+  { label: 'Reports',   to: '/reports',    icon: BarChart2 },
+  { label: 'Expenses',  to: '/expenses',   icon: Receipt },
+  { label: 'Staff',     to: '/staff',      icon: Users },
+  { label: 'Schedule',  to: '/schedule',   icon: Calendar },
+  { label: 'Charges',   to: '/charges',    icon: Zap },
+  { label: 'Tanks',           to: '/tanks',              icon: Droplets },
 ]
 
 const stationItems = [
-  { label: 'Sales',     to: '/sales',    icon: TrendingUp },
-  { label: 'Reports',   to: '/reports',  icon: BarChart2 },
-  { label: 'Staff',     to: '/staff',    icon: Users },
-  { label: 'Schedule',  to: '/schedule', icon: Calendar },
-  { label: 'Charges',   to: '/charges',  icon: Zap },
+  { label: 'Sales',     to: '/sales',     icon: TrendingUp },
+  { label: 'Reports',   to: '/reports',   icon: BarChart2 },
+  { label: 'Staff',     to: '/staff',     icon: Users },
+  { label: 'Schedule',  to: '/schedule',  icon: Calendar },
+  { label: 'Charges',   to: '/charges',   icon: Zap },
 ]
 
 const convenienceItems = [
   { label: 'Sales',      to: '/convenience/sales',     icon: ShoppingCart },
   { label: 'Products',   to: '/convenience/products',  icon: ShoppingCart },
   { label: 'Customers',  to: '/convenience/accounts',  icon: Banknote },
-  { label: 'Schedule',   to: '/convenience/schedule',  icon: Calendar },
+  { label: 'Rewards',    to: '/convenience/rewards',   icon: Gift },
 ]
 
 const attendantItems = [
@@ -44,6 +45,7 @@ const cashierItems = [
   { label: 'Products',  to: '/convenience/products',  icon: ShoppingCart },
   { label: 'Sales',     to: '/convenience/sales',     icon: TrendingUp },
   { label: 'Customers', to: '/convenience/accounts',  icon: Banknote },
+  { label: 'Rewards',   to: '/convenience/rewards',   icon: Gift },
   { label: 'Reports',   to: '/convenience/reports',   icon: BarChart2 },
   { label: 'Staff',     to: '/convenience/staff',     icon: Users },
   { label: 'Schedule',  to: '/convenience/schedule',  icon: Calendar },
@@ -51,10 +53,12 @@ const cashierItems = [
 
 const settingsCategories = [
   { id: 'profile',       label: 'Profile',        icon: User },
+  { id: 'rewards',       label: 'Rewards',         icon: Gift },
   { id: 'security',      label: 'Security',        icon: Shield },
   { id: 'notifications', label: 'Notifications',   icon: Bell },
   { id: 'team',          label: 'Team',            icon: Users },
   { id: 'payroll',       label: 'Payroll',         icon: Banknote },
+  { id: 'holidays',      label: 'Holidays',        icon: CalendarDays },
   { id: 'forecourt',     label: 'Forecourt',       icon: Fuel },
   { id: 'business',      label: 'Business',        icon: Building2 },
 ]
@@ -319,9 +323,10 @@ export function Sidebar({ isOpen, onClose }: Props) {
             <div className="pt-4 pb-1 px-4">
               <p className="text-[10px] font-semibold tracking-widest text-[#aaa] dark:text-[#555] uppercase">Convenience Store</p>
             </div>
-            <NavLink label="Sales"     to="/convenience/sales"    icon={TrendingUp}  onClick={onClose} />
+            <NavLink label="Sales"     to="/convenience/sales"    icon={TrendingUp}   onClick={onClose} />
             <NavLink label="Products"  to="/convenience/products" icon={ShoppingCart} onClick={onClose} />
             <NavLink label="Customers" to="/convenience/accounts" icon={User}         onClick={onClose} />
+            <NavLink label="Rewards"   to="/convenience/rewards"  icon={Gift}         onClick={onClose} />
           </nav>
         ) : (
           <nav className="flex-1 px-2 py-2 space-y-0.5 overflow-y-auto">

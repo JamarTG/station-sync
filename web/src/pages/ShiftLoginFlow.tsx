@@ -78,11 +78,51 @@ function groupRows(rows: AttendantEntry[]): RowGroup[] {
   }, [])
 }
 
+function readScheduledAttendants(allPumps: { id: string; name: string }[]): AttendantEntry[] {
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    // Try new multi-schedule key first, fall back to old single key
+    const newRaw = localStorage.getItem('ss_published_schedules')
+    const schedules: Array<{ startISO: string; endISO: string; days: Record<string, unknown> }> = newRaw
+      ? JSON.parse(newRaw)
+      : (() => {
+          const oldRaw = localStorage.getItem('ss_published_schedule')
+          return oldRaw ? [JSON.parse(oldRaw)] : []
+        })()
+    const schedule = schedules.find((s) => today >= s.startISO && today <= s.endISO)
+    if (!schedule) return []
+    const dayPlan = schedule.days?.[today]
+    if (!dayPlan) return []
+    const slot = new Date().getHours() < 14 ? 'morning' : 'evening'
+    const assignments: Array<{ userId: string; userName: string; pumpIds: string[] }> =
+      slot === 'morning' ? (dayPlan.staffMorning ?? []) : (dayPlan.staffEvening ?? [])
+    if (assignments.length === 0) return []
+    const clockInTime = currentTime()
+    const rows: AttendantEntry[] = []
+    let fallbackIdx = 0
+    for (const a of assignments) {
+      if (a.pumpIds && a.pumpIds.length > 0) {
+        for (const pid of a.pumpIds) {
+          const pump = allPumps.find((p) => p.id === pid)
+          rows.push({ name: a.userName, pumpName: pump?.name ?? allPumps[fallbackIdx % Math.max(allPumps.length, 1)]?.name ?? '', clockIn: clockInTime })
+          fallbackIdx++
+        }
+      } else {
+        rows.push({ name: a.userName, pumpName: allPumps[fallbackIdx % Math.max(allPumps.length, 1)]?.name ?? '', clockIn: clockInTime })
+        fallbackIdx++
+      }
+    }
+    return rows
+  } catch {
+    return []
+  }
+}
+
 export function ShiftLoginFlow({ user, onComplete }: Props) {
   const queryClient = useQueryClient()
   const { data: openShift, isLoading: loadingShift } = useOpenShift()
   const { data: allUsers = [], isLoading: loadingUsers } = useUsers()
-  const { data: allPumps = [] } = usePumps()
+  const { data: allPumps = [], isLoading: loadingPumps } = usePumps()
   const { data: allFuels = [] } = useFuels()
 
   const attendants = allUsers.filter((u) => u.role === 'Attendant')
@@ -95,7 +135,7 @@ export function ShiftLoginFlow({ user, onComplete }: Props) {
   const isSupervisor = ['Super Admin', 'Branch Admin', 'Supervisor'].includes(user.role)
 
   useEffect(() => {
-    if (!loadingShift && !loadingUsers && step === 'loading') {
+    if (!loadingShift && !loadingUsers && !loadingPumps && step === 'loading') {
       if (openShift) {
         onComplete()
       } else if (!isSupervisor) {
@@ -103,10 +143,12 @@ export function ShiftLoginFlow({ user, onComplete }: Props) {
       } else if (attendants.length === 0) {
         onComplete()
       } else {
+        const prePopulated = readScheduledAttendants(allPumps)
+        if (prePopulated.length > 0) setRows(prePopulated)
         setStep('attendants')
       }
     }
-  }, [loadingShift, loadingUsers, openShift, step, isSupervisor, attendants.length, onComplete])
+  }, [loadingShift, loadingUsers, loadingPumps, openShift, step, isSupervisor, attendants.length, allPumps, onComplete])
 
   useEffect(() => {
     if (allFuels.length > 0 && Object.keys(prices).length === 0) {

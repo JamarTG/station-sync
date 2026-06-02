@@ -216,6 +216,15 @@ export function CashierDashboard() {
   const { data: products = [] } = useProducts()
   const { data: customers = [] } = useCustomers()
   const [shiftStarted, setShiftStarted] = useState(false)
+
+  // Persist shift-entry across refreshes — keyed by shift ID + user ID so it
+  // auto-invalidates when the shift rolls over or a different user logs in.
+  const cashierEnteredThisShift = !!cstoreShift?.id && !!user?.id && (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('ss_cashier_entered') ?? 'null') as { shiftId: string; userId: string } | null
+      return saved?.shiftId === cstoreShift.id && saved?.userId === user.id
+    } catch { return false }
+  })()
   const [expMenuPos, setExpMenuPos] = useState<{ depositId: string; anchor: DOMRect } | null>(null)
   const [orderMenuPos, setOrderMenuPos] = useState<{ orderId: string; anchor: DOMRect } | null>(null)
   const [settleOrder, setSettleOrder] = useState<Order | null>(null)
@@ -317,15 +326,18 @@ export function CashierDashboard() {
 
   const handleStartShift = useCallback(async () => {
     if (!user?.id) return
-    // If a shift already exists, just enter it — never create a duplicate
     if (cstoreShift) {
+      // Entering an existing shift — record it so the dashboard survives a refresh
+      localStorage.setItem('ss_cashier_entered', JSON.stringify({ shiftId: cstoreShift.id, userId: user.id }))
       setShiftStarted(true)
       return
     }
     const now = new Date()
     const date = now.toISOString().slice(0, 10)
     const startTime = now.toTimeString().slice(0, 5)
-    await createCStoreShift({ supervisor_id: user.id, date, start_time: startTime })
+    const newShift = await createCStoreShift({ supervisor_id: user.id, date, start_time: startTime })
+    // Persist the entry before the query resolves so refresh is safe immediately
+    localStorage.setItem('ss_cashier_entered', JSON.stringify({ shiftId: newShift.id, userId: user.id }))
     await qc.invalidateQueries({ queryKey: ['shifts', 'open', 'convenience'] })
     setShiftStarted(true)
   }, [user?.id, qc, cstoreShift])
@@ -333,9 +345,10 @@ export function CashierDashboard() {
   // While we're still checking for an open shift, show nothing (avoids "Inactive" flash)
   if (cstoreLoading) return null
 
-  // If an open shift exists, go straight to the dashboard — no idle screen needed
-  if (!cstoreShift && !shiftStarted) {
-    return <CashierIdleView cstoreShiftOpen={false} onStart={handleStartShift} />
+  // Show idle until the cashier explicitly enters (either a new or existing shift).
+  // cashierEnteredThisShift persists across refreshes via localStorage.
+  if (!cashierEnteredThisShift && !shiftStarted) {
+    return <CashierIdleView cstoreShiftOpen={!!cstoreShift} onStart={handleStartShift} />
   }
 
   const btnClass = 'px-5 py-2.5 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'

@@ -7,15 +7,20 @@ import { useAuth } from '../lib/authContext'
 import { usePumps, useNozzles, useFuels, useUsers, useTanks } from '../hooks/useApi'
 import { createUser, updateUser } from '../lib/api'
 import type { AuthUser } from '../lib/api'
+import { PayrollPage } from './PayrollPage'
+import { HolidaysPage } from './HolidaysPage'
+import { RewardsSettingsPanel } from './RewardsPage'
 
-type Category = 'profile' | 'security' | 'notifications' | 'team' | 'payroll' | 'forecourt' | 'business'
+type Category = 'profile' | 'rewards' | 'security' | 'notifications' | 'team' | 'payroll' | 'holidays' | 'forecourt' | 'business'
 
 const categoryLabels: Record<Category, string> = {
   profile:       'Profile',
+  rewards:       'Rewards',
   security:      'Security',
   notifications: 'Notifications',
   team:          'Team',
   payroll:       'Payroll',
+  holidays:      'Holidays',
   forecourt:     'Forecourt',
   business:      'Business',
 }
@@ -28,9 +33,9 @@ function initials(name: string) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
-      <div className="px-6 py-4 border-b border-[#f0f0f0]">
-        <p className="text-[13px] font-bold tracking-widest text-[#111] uppercase">{title}</p>
+    <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl border border-[#ebebeb] dark:border-[#222] overflow-hidden">
+      <div className="px-6 py-4 border-b border-[#f0f0f0] dark:border-[#1e1e1e]">
+        <p className="text-[13px] font-bold tracking-widest text-[#111] dark:text-[#e0e0e0] uppercase">{title}</p>
       </div>
       <div className="px-6 py-5 space-y-5">{children}</div>
     </div>
@@ -41,12 +46,12 @@ function Field({ label, value, type = 'text' }: { label: string; value: string; 
   const [val, setVal] = useState(value)
   return (
     <div>
-      <label className="block text-[11px] font-semibold tracking-widest text-[#aaa] uppercase mb-1.5">{label}</label>
+      <label className="block text-[11px] font-semibold tracking-widest text-[#aaa] dark:text-[#555] uppercase mb-1.5">{label}</label>
       <input
         type={type}
         value={val}
         onChange={(e) => setVal(e.target.value)}
-        className="w-full bg-[#f9f9f9] border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] font-medium text-[#111] outline-none focus:border-[#ccc] transition-colors"
+        className="w-full bg-[#f9f9f9] dark:bg-[#1a1a1a] border border-[#ebebeb] dark:border-[#222] rounded-xl px-4 py-2.5 text-[13px] font-medium text-[#111] dark:text-[#e0e0e0] outline-none focus:border-[#ccc] dark:focus:border-[#444] transition-colors"
       />
     </div>
   )
@@ -57,12 +62,12 @@ function ToggleRow({ label, description, defaultOn = false }: { label: string; d
   return (
     <div className="flex items-center justify-between gap-4">
       <div>
-        <p className="text-[13px] font-semibold text-[#111]">{label}</p>
-        <p className="text-[12px] text-[#aaa] mt-0.5">{description}</p>
+        <p className="text-[13px] font-semibold text-[#111] dark:text-[#e0e0e0]">{label}</p>
+        <p className="text-[12px] text-[#aaa] dark:text-[#555] mt-0.5">{description}</p>
       </div>
       <button
         onClick={() => setOn((v) => !v)}
-        className={`w-10 h-6 rounded-full transition-colors flex-shrink-0 relative ${on ? 'bg-[#111]' : 'bg-[#ddd]'}`}
+        className={`w-10 h-6 rounded-full transition-colors flex-shrink-0 relative ${on ? 'bg-[#111] dark:bg-[#e0e0e0]' : 'bg-[#ddd] dark:bg-[#444]'}`}
       >
         <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${on ? 'left-5' : 'left-1'}`} />
       </button>
@@ -73,7 +78,7 @@ function ToggleRow({ label, description, defaultOn = false }: { label: string; d
 function SaveButton({ label = 'Save changes' }: { label?: string }) {
   return (
     <div className="pt-1">
-      <button className="px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors">
+      <button className="px-5 py-2.5 bg-white dark:bg-[#1a1a1a] border border-[#ddd] dark:border-[#333] text-[#333] dark:text-[#ccc] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] dark:hover:bg-[#1a1a1a] transition-colors">
         {label}
       </button>
     </div>
@@ -85,12 +90,12 @@ function PlanSection() {
     <Section title="Plan">
       <div className="flex items-center justify-between py-1">
         <div>
-          <p className="text-[14px] font-bold text-[#111]">Starter</p>
-          <p className="text-[12px] text-[#aaa] mt-0.5">Your current plan</p>
+          <p className="text-[14px] font-bold text-[#111] dark:text-[#e0e0e0]">Starter</p>
+          <p className="text-[12px] text-[#aaa] dark:text-[#555] mt-0.5">Your current plan</p>
         </div>
-        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#f0f0f0] text-[#555] tracking-widest uppercase">Active</span>
+        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-[#f0f0f0] dark:bg-[#222] text-[#555] dark:text-[#999] tracking-widest uppercase">Active</span>
       </div>
-      <div className="border-t border-[#f4f4f4] pt-4 space-y-2">
+      <div className="border-t border-[#f4f4f4] dark:border-[#1e1e1e] pt-4 space-y-2">
         {[
           '1 branch',
           'Up to 10 staff members',
@@ -98,13 +103,13 @@ function PlanSection() {
           'Reports & analytics',
         ].map((feature) => (
           <div key={feature} className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#bbb] shrink-0" />
-            <p className="text-[13px] text-[#666]">{feature}</p>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#bbb] dark:bg-[#444] shrink-0" />
+            <p className="text-[13px] text-[#666] dark:text-[#888]">{feature}</p>
           </div>
         ))}
       </div>
       <div className="pt-1">
-        <button className="px-5 py-2 border border-[#e0e0e0] text-[13px] font-semibold text-[#555] rounded-xl hover:bg-[#f9f9f9] transition-colors">
+        <button className="px-5 py-2 border border-[#e0e0e0] dark:border-[#2a2a2a] text-[13px] font-semibold text-[#555] dark:text-[#999] rounded-xl hover:bg-[#f9f9f9] dark:hover:bg-[#1a1a1a] transition-colors">
           Manage plan
         </button>
       </div>
@@ -121,12 +126,12 @@ function ProfilePanel() {
     <div className="space-y-4">
       <Section title="Profile">
         <div className="flex items-center gap-4 pb-2">
-          <div className="w-14 h-14 rounded-full bg-[#111] flex items-center justify-center text-white text-[16px] font-bold flex-shrink-0">
+          <div className="w-14 h-14 rounded-full bg-[#111] dark:bg-[#e0e0e0] flex items-center justify-center text-white dark:text-[#111] text-[16px] font-bold flex-shrink-0">
             {user ? initials(user.name) : '?'}
           </div>
           <div>
-            <p className="text-[14px] font-bold text-[#111]">{user?.name ?? '—'}</p>
-            <p className="text-[12px] text-[#aaa] font-medium">{user?.role ?? '—'}</p>
+            <p className="text-[14px] font-bold text-[#111] dark:text-[#e0e0e0]">{user?.name ?? '—'}</p>
+            <p className="text-[12px] text-[#aaa] dark:text-[#555] font-medium">{user?.role ?? '—'}</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -156,13 +161,13 @@ function SecurityPanel() {
       <Section title="Sessions">
         <div className="flex items-center justify-between py-1">
           <div>
-            <p className="text-[13px] font-semibold text-[#111]">Current session</p>
-            <p className="text-[12px] text-[#aaa] mt-0.5">Active now</p>
+            <p className="text-[13px] font-semibold text-[#111] dark:text-[#e0e0e0]">Current session</p>
+            <p className="text-[12px] text-[#aaa] dark:text-[#555] mt-0.5">Active now</p>
           </div>
           <span className="text-[11px] font-bold tracking-widest text-green-500 uppercase">Active</span>
         </div>
         <div className="pt-1">
-          <button className="px-5 py-2 border border-[#e0e0e0] text-[13px] font-semibold text-[#555] rounded-xl hover:bg-[#f9f9f9] transition-colors">
+          <button className="px-5 py-2 border border-[#e0e0e0] dark:border-[#2a2a2a] text-[13px] font-semibold text-[#555] dark:text-[#999] rounded-xl hover:bg-[#f9f9f9] dark:hover:bg-[#1a1a1a] transition-colors">
             Sign out all other sessions
           </button>
         </div>
@@ -239,15 +244,15 @@ function MemberModal({
     }
   }
 
-  const inputCls = 'w-full bg-white border border-[#e0e0e0] rounded-xl px-4 py-2.5 text-[13px] font-medium text-[#111] placeholder:text-[#ccc] placeholder:font-normal focus:outline-none focus:border-[#aaa] transition-colors'
+  const inputCls = 'w-full bg-white dark:bg-[#1a1a1a] border border-[#e0e0e0] dark:border-[#2a2a2a] rounded-xl px-4 py-2.5 text-[13px] font-medium text-[#111] dark:text-[#e0e0e0] placeholder:text-[#ccc] dark:placeholder:text-[#444] placeholder:font-normal focus:outline-none focus:border-[#aaa] dark:focus:border-[#555] transition-colors'
   const labelCls = 'block text-[11px] font-semibold tracking-widest text-[#aaa] uppercase mb-1.5'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="bg-white rounded-3xl shadow-xl border border-[#ebebeb] w-full max-w-[460px] p-8">
+      <div className="bg-white dark:bg-[#1a1a1a] rounded-3xl shadow-xl border border-[#ebebeb] dark:border-[#222] w-full max-w-[460px] p-8">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[18px] font-bold text-[#111]">{isEdit ? 'Edit member' : 'Add member'}</h2>
-          <button onClick={onClose} className="text-[#bbb] hover:text-[#111] transition-colors"><X size={18} /></button>
+          <h2 className="text-[18px] font-bold text-[#111] dark:text-[#e0e0e0]">{isEdit ? 'Edit member' : 'Add member'}</h2>
+          <button onClick={onClose} className="text-[#bbb] dark:text-[#444] hover:text-[#111] dark:hover:text-[#e0e0e0] transition-colors"><X size={18} /></button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
@@ -284,7 +289,7 @@ function MemberModal({
           <button
             type="submit"
             disabled={saving}
-            className="w-full mt-1 py-2.5 rounded-xl bg-white border border-[#ddd] text-[#333] text-[13px] font-bold uppercase tracking-widest hover:bg-[#f9f9f9] transition-colors disabled:opacity-40"
+            className="w-full mt-1 py-2.5 rounded-xl bg-white dark:bg-[#1a1a1a] border border-[#ddd] dark:border-[#333] text-[#333] dark:text-[#ccc] text-[13px] font-bold uppercase tracking-widest hover:bg-[#f9f9f9] dark:hover:bg-[#1a1a1a] transition-colors disabled:opacity-40"
           >
             {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add member'}
           </button>
@@ -331,33 +336,33 @@ function TeamPanel() {
         ) : (
           <div className="flex flex-col gap-1 -mx-1">
             {members.map((u) => (
-              <div key={u.id} className="flex items-center gap-3 px-1 py-2 rounded-xl hover:bg-[#fafafa] transition-colors group">
-                <div className="w-8 h-8 rounded-full bg-[#111] flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0">
+              <div key={u.id} className="flex items-center gap-3 px-1 py-2 rounded-xl hover:bg-[#fafafa] dark:hover:bg-[#161616] transition-colors group">
+                <div className="w-8 h-8 rounded-full bg-[#111] dark:bg-[#e0e0e0] flex items-center justify-center text-white dark:text-[#111] text-[11px] font-bold flex-shrink-0">
                   {memberInitials(u.name)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-[13px] font-semibold ${u.active ? 'text-[#111]' : 'text-[#aaa]'}`}>{u.name}</p>
-                  <p className="text-[11px] font-medium text-[#aaa]">
+                  <p className={`text-[13px] font-semibold ${u.active ? 'text-[#111] dark:text-[#e0e0e0]' : 'text-[#aaa] dark:text-[#555]'}`}>{u.name}</p>
+                  <p className="text-[11px] font-medium text-[#aaa] dark:text-[#555]">
                     {u.role} · {u.email}
                     {u.sick_days != null && ` · ${u.sick_days}d sick`}
                   </p>
                 </div>
                 {u.id === me?.id
-                  ? <span className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">You</span>
-                  : !u.active && <span className="text-[10px] font-bold tracking-widest text-[#ccc] uppercase">Inactive</span>
+                  ? <span className="text-[10px] font-bold tracking-widest text-[#bbb] dark:text-[#444] uppercase">You</span>
+                  : !u.active && <span className="text-[10px] font-bold tracking-widest text-[#ccc] dark:text-[#444] uppercase">Inactive</span>
                 }
                 <div className="relative flex-shrink-0">
                   <button
                     onClick={() => setMenuOpen(menuOpen === u.id ? null : u.id)}
-                    className="w-7 h-7 flex items-center justify-center rounded-lg text-[#ccc] hover:text-[#555] hover:bg-[#f0f0f0] transition-colors opacity-0 group-hover:opacity-100"
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-[#ccc] dark:text-[#444] hover:text-[#555] dark:hover:text-[#999] hover:bg-[#f0f0f0] dark:hover:bg-[#222] transition-colors opacity-0 group-hover:opacity-100"
                   >
                     <MoreHorizontal size={14} />
                   </button>
                   {menuOpen === u.id && (
-                    <div className="absolute right-0 top-full mt-1 bg-white border border-[#e0e0e0] rounded-xl shadow-lg py-1 min-w-[140px] z-20">
+                    <div className="absolute right-0 top-full mt-1 bg-white dark:bg-[#1a1a1a] border border-[#e0e0e0] dark:border-[#2a2a2a] rounded-xl shadow-lg py-1 min-w-[140px] z-20">
                       <button
                         onClick={() => { setModalMember(u); setMenuOpen(null) }}
-                        className="w-full text-left px-4 py-2 text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9]"
+                        className="w-full text-left px-4 py-2 text-[13px] font-semibold text-[#333] dark:text-[#ccc] hover:bg-[#f9f9f9] dark:hover:bg-[#1a1a1a]"
                       >
                         Edit
                       </button>
@@ -365,7 +370,7 @@ function TeamPanel() {
                         <button
                           disabled={togglingId === u.id}
                           onClick={() => { toggleActive(u); setMenuOpen(null) }}
-                          className="w-full text-left px-4 py-2 text-[13px] font-semibold hover:bg-[#f9f9f9] disabled:opacity-40 transition-colors text-red-500"
+                          className="w-full text-left px-4 py-2 text-[13px] font-semibold hover:bg-[#f9f9f9] dark:hover:bg-[#1a1a1a] disabled:opacity-40 transition-colors text-red-500"
                         >
                           {u.active ? 'Deactivate' : 'Reactivate'}
                         </button>
@@ -380,7 +385,7 @@ function TeamPanel() {
         <div className="pt-2">
           <button
             onClick={() => setModalMember('new')}
-            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors"
+            className="flex items-center gap-2 px-5 py-2.5 bg-white dark:bg-[#1a1a1a] border border-[#ddd] dark:border-[#333] text-[#333] dark:text-[#ccc] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] dark:hover:bg-[#1a1a1a] transition-colors"
           >
             <Plus size={13} />
             Add member
@@ -395,37 +400,6 @@ function TeamPanel() {
           onSave={refresh}
         />
       )}
-    </div>
-  )
-}
-
-function PayrollPanel() {
-  return (
-    <div className="space-y-4">
-      <Section title="Pay Period">
-        <div>
-          <label className="block text-[11px] font-semibold tracking-widest text-[#aaa] uppercase mb-1.5">Frequency</label>
-          <select className="w-full bg-[#f9f9f9] border border-[#ebebeb] rounded-xl px-4 py-2.5 text-[13px] font-medium text-[#111] outline-none focus:border-[#ccc] transition-colors appearance-none">
-            <option>Weekly</option>
-            <option>Bi-weekly</option>
-            <option>Monthly</option>
-          </select>
-        </div>
-        <Field label="Pay Day" value="Friday" />
-        <SaveButton />
-      </Section>
-      <Section title="Pay Rates">
-        <div className="py-4 flex flex-col items-center justify-center gap-2">
-          <p className="text-[13px] font-semibold text-[#bbb]">No pay rates configured</p>
-          <p className="text-[12px] text-[#ccc] font-medium">Set default rates per role to calculate payroll automatically</p>
-        </div>
-        <SaveButton label="Add pay rate" />
-      </Section>
-      <Section title="Deductions">
-        <ToggleRow label="NIS deductions" description="Automatically calculate NIS contributions" defaultOn />
-        <ToggleRow label="Income tax" description="Apply statutory income tax deductions" defaultOn />
-        <ToggleRow label="NHT contributions" description="Include NHT in payroll calculations" defaultOn />
-      </Section>
     </div>
   )
 }
@@ -458,18 +432,18 @@ function ForecourtPanel() {
             return (
               <div key={pump.id} className="flex items-center justify-between gap-4 py-1">
                 <div>
-                  <p className="text-[13px] font-semibold text-[#111]">{pump.name}</p>
+                  <p className="text-[13px] font-semibold text-[#111] dark:text-[#e0e0e0]">{pump.name}</p>
                   {grades.length > 0 ? (
-                    <p className="text-[12px] font-medium text-[#aaa] mt-0.5">
+                    <p className="text-[12px] font-medium text-[#aaa] dark:text-[#555] mt-0.5">
                       {grades.map((n) => fuelName(n.fuel_id)).join(' · ')}
                     </p>
                   ) : (
-                    <p className="text-[12px] font-medium text-[#ccc] mt-0.5">No nozzles</p>
+                    <p className="text-[12px] font-medium text-[#ccc] dark:text-[#444] mt-0.5">No nozzles</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
                   {grades.map((n) => (
-                    <span key={n.id} className="px-2.5 py-1 bg-[#f4f4f4] rounded-lg text-[11px] font-bold text-[#555]">
+                    <span key={n.id} className="px-2.5 py-1 bg-[#f4f4f4] dark:bg-[#222] rounded-lg text-[11px] font-bold text-[#555] dark:text-[#999]">
                       {fuelName(n.fuel_id)}
                     </span>
                   ))}
@@ -488,8 +462,8 @@ function ForecourtPanel() {
         ) : (
           fuels.map((f) => (
             <div key={f.id} className="flex items-center justify-between py-0.5">
-              <p className="text-[13px] font-semibold text-[#111]">{f.name}</p>
-              <span className="px-2.5 py-1 bg-[#f4f4f4] rounded-lg text-[11px] font-bold text-[#555]">{f.name}</span>
+              <p className="text-[13px] font-semibold text-[#111] dark:text-[#e0e0e0]">{f.name}</p>
+              <span className="px-2.5 py-1 bg-[#f4f4f4] dark:bg-[#222] rounded-lg text-[11px] font-bold text-[#555] dark:text-[#999]">{f.name}</span>
             </div>
           ))
         )}
@@ -508,12 +482,12 @@ function ForecourtPanel() {
           tanks.map((tank) => (
             <div key={tank.id} className="flex items-center justify-between gap-4 py-1">
               <div>
-                <p className="text-[13px] font-semibold text-[#111]">{tank.name}</p>
-                <p className="text-[12px] font-medium text-[#aaa] mt-0.5">
+                <p className="text-[13px] font-semibold text-[#111] dark:text-[#e0e0e0]">{tank.name}</p>
+                <p className="text-[12px] font-medium text-[#aaa] dark:text-[#555] mt-0.5">
                   {tank.fuel_name} · {tank.capacity_litres.toLocaleString()} L capacity
                 </p>
               </div>
-              <span className="px-2.5 py-1 bg-[#f4f4f4] rounded-lg text-[11px] font-bold text-[#555]">
+              <span className="px-2.5 py-1 bg-[#f4f4f4] dark:bg-[#222] rounded-lg text-[11px] font-bold text-[#555] dark:text-[#999]">
                 {tank.fuel_name}
               </span>
             </div>
@@ -547,7 +521,7 @@ function FXRatesPanel() {
   return (
     <div className="space-y-4">
       <Section title="Exchange Rates">
-        <p className="text-[12px] font-medium text-[#aaa] -mt-2">
+        <p className="text-[12px] font-medium text-[#aaa] dark:text-[#555] -mt-2">
           Set the exchange rate to Jamaican dollars (J$) for each currency you accept.
         </p>
         {commonCurrencies.map(({ code, name }) => (
@@ -556,9 +530,9 @@ function FXRatesPanel() {
               {name} ({code})
             </label>
             <div className="flex items-center gap-2">
-              <span className="text-[13px] font-semibold text-[#aaa] flex-shrink-0">1 {code} =</span>
-              <div className="flex items-center flex-1 bg-[#f9f9f9] border border-[#ebebeb] rounded-xl px-4 py-2.5 gap-1.5 focus-within:border-[#ccc] transition-colors">
-                <span className="text-[13px] font-semibold text-[#aaa]">J$</span>
+              <span className="text-[13px] font-semibold text-[#aaa] dark:text-[#555] flex-shrink-0">1 {code} =</span>
+              <div className="flex items-center flex-1 bg-[#f9f9f9] dark:bg-[#1a1a1a] border border-[#ebebeb] dark:border-[#222] rounded-xl px-4 py-2.5 gap-1.5 focus-within:border-[#ccc] dark:focus-within:border-[#444] transition-colors">
+                <span className="text-[13px] font-semibold text-[#aaa] dark:text-[#555]">J$</span>
                 <input
                   type="number"
                   min="0"
@@ -613,7 +587,7 @@ function ShiftRows({
   onAdd: () => void
   onRemove: (id: string) => void
 }) {
-  const inputCls = 'bg-[#f9f9f9] border border-[#ebebeb] rounded-xl px-3 py-2 text-[13px] font-medium text-[#111] outline-none focus:border-[#ccc] transition-colors w-full'
+  const inputCls = 'bg-[#f9f9f9] dark:bg-[#1a1a1a] border border-[#ebebeb] dark:border-[#222] rounded-xl px-3 py-2 text-[13px] font-medium text-[#111] dark:text-[#e0e0e0] outline-none focus:border-[#ccc] dark:focus:border-[#444] transition-colors w-full'
   return (
     <div className="space-y-3">
       {shifts.length === 0 && (
@@ -639,7 +613,7 @@ function ShiftRows({
                 onChange={(e) => onChange(s.id, 'start', e.target.value)}
                 className="bg-[#f9f9f9] border border-[#ebebeb] rounded-xl px-3 py-2 text-[13px] font-medium text-[#111] outline-none focus:border-[#ccc] transition-colors"
               />
-              <span className="text-[12px] font-medium text-[#bbb]">to</span>
+              <span className="text-[12px] font-medium text-[#bbb] dark:text-[#444]">to</span>
               <input
                 type="time"
                 value={s.end}
@@ -648,7 +622,7 @@ function ShiftRows({
               />
             </div>
             {dur && (
-              <span className="text-[11px] font-semibold text-[#aaa] flex-shrink-0 w-10 text-right">{dur}</span>
+              <span className="text-[11px] font-semibold text-[#aaa] dark:text-[#555] flex-shrink-0 w-10 text-right">{dur}</span>
             )}
             <button
               onClick={() => onRemove(s.id)}
@@ -662,7 +636,7 @@ function ShiftRows({
       <div className="pt-1">
         <button
           onClick={onAdd}
-          className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] hover:text-[#111] transition-colors"
+          className="flex items-center gap-1.5 text-[13px] font-semibold text-[#555] dark:text-[#999] hover:text-[#111] dark:hover:text-[#e0e0e0] transition-colors"
         >
           <Plus size={13} />
           Add shift
@@ -770,17 +744,37 @@ export function AccountSettingsPage() {
   const { location } = useRouterState()
   const active = (new URLSearchParams(location.search).get('tab') as Category) ?? 'profile'
 
+  // Payroll renders the full payroll workspace (runs, compensation, tax config,
+  // settings, analytics, audit) — it manages its own header and wide layout.
+  if (active === 'payroll') {
+    return (
+      <div className="h-full overflow-y-auto">
+        <PayrollPage />
+      </div>
+    )
+  }
+
+  // Holidays renders the full Holiday Management workspace (calendar, pay rules,
+  // forecast, sign-ups, analytics) — it manages its own header and wide layout.
+  if (active === 'holidays') {
+    return (
+      <div className="h-full overflow-y-auto">
+        <HolidaysPage />
+      </div>
+    )
+  }
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-6 max-w-[640px] space-y-4">
         <div className="mb-6">
-          <h1 className="text-[22px] font-bold text-[#111]">{categoryLabels[active]}</h1>
+          <h1 className="text-[22px] font-bold text-[#111] dark:text-[#e0e0e0]">{categoryLabels[active]}</h1>
         </div>
         {active === 'profile'       && <ProfilePanel />}
+        {active === 'rewards'       && <RewardsSettingsPanel />}
         {active === 'security'      && <SecurityPanel />}
         {active === 'notifications' && <NotificationsPanel />}
         {active === 'team'          && <TeamPanel />}
-        {active === 'payroll'       && <PayrollPanel />}
         {active === 'forecourt'     && <ForecourtPanel />}
         {active === 'business'      && <BusinessPanel />}
       </div>

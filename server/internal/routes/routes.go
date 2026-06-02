@@ -11,6 +11,12 @@ import (
 	"project-sync/internal/routes/pumps"
 	"project-sync/internal/routes/shifts"
 	"project-sync/internal/routes/shiftschedules"
+	"project-sync/internal/routes/employeescores"
+	"project-sync/internal/routes/fuelintelligence"
+	"project-sync/internal/routes/holidays"
+	"project-sync/internal/routes/loyalty"
+	"project-sync/internal/routes/sps"
+	syncroutes "project-sync/internal/routes/sync"
 	"project-sync/internal/routes/tanks"
 	"project-sync/internal/routes/timeoff"
 	"project-sync/internal/routes/users"
@@ -61,5 +67,16 @@ func Register(r *gin.Engine, db *pgxpool.Pool) {
 	nlh := &handlers.NozzleLogHandler{DB: db}
 	protected.POST("/nozzle-logs", nlh.Create)
 
+	ih := &handlers.IssueHandler{DB: db}
+	protected.GET("/issues", ih.List)
+	protected.POST("/issues", ih.Create)
+	protected.PATCH("/issues/:id/status", ih.UpdateStatus)
+
 	platform.RegisterRoute(protected, db)
+	sps.RegisterRoute(protected, db)
+	fuelintelligence.RegisterRoute(protected, db)
+	employeescores.RegisterRoute(protected, db)
+	holidays.RegisterRoute(protected, db)
+	loyalty.RegisterRoute(protected, db)
+	syncroutes.RegisterRoute(protected, db)
 }

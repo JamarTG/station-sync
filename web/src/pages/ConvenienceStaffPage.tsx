@@ -1,11 +1,12 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { LogoLoader } from '../components/StationSyncLogo'
 import {
   useUsers, useUserPayroll, usePayrollPeriods, usePayrollRecords,
-  useCreateUser, useUpdatePay, usePayrollWeeklySummary, useUserAttendance,
+  useCreateUser, useUpdatePay, useUserAttendance,
+  useShiftsInRange, useShiftDeposits,
 } from '../hooks/useApi'
 import { api, updateUser } from '../lib/api'
-import type { User, PayrollPeriod, PayrollRecord } from '../lib/api'
+import type { User, PayrollPeriod, PayrollRecord, Deposit } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, ChevronRight, Download, MoreHorizontal, Pencil, Plus, Printer, Sparkles, X } from 'lucide-react'
 import { printPaySlip, printJobLetter, printPayrollRegister, downloadS01CSV, downloadHeartCSV } from '../lib/payrollExport'
@@ -23,6 +24,21 @@ function fmtDate(s: string | null | undefined) {
 
 function roleBadgeColor(_role: string) {
   return 'bg-[#f0f0f0] text-[#555]'
+}
+
+function userStatusLabel(u: User): string {
+  if (u.active) return 'Active'
+  return u.deactivation_reason ?? 'Inactive'
+}
+
+function userStatusBadgeClass(u: User): string {
+  if (u.active) return 'bg-green-100 text-green-700'
+  switch (u.deactivation_reason) {
+    case 'Suspension':  return 'bg-amber-100 text-amber-700'
+    case 'Vacation':    return 'bg-blue-100 text-blue-700'
+    case 'Termination': return 'bg-red-100 text-red-600'
+    default:            return 'bg-[#f0f0f0] text-[#999]'
+  }
 }
 
 // ── Add Employee Modal ────────────────────────────────────────────────────────
@@ -580,8 +596,8 @@ function EmployeeView({ user, onBack }: { user: User; onBack: () => void }) {
           </div>
           <h2 className="text-[20px] font-bold text-[#111]">{user.name}</h2>
           <div className="flex items-center gap-2 mt-1">
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${user.active ? 'bg-green-100 text-green-700' : 'bg-[#f0f0f0] text-[#999]'}`}>
-              {user.active ? 'Active' : 'Inactive'}
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${userStatusBadgeClass(user)}`}>
+              {userStatusLabel(user)}
             </span>
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${roleBadgeColor(user.role)}`}>{user.role}</span>
           </div>
@@ -872,11 +888,81 @@ function PayrollPanel({ onSelectPeriod }: { onSelectPeriod: (p: PayrollPeriod) =
   )
 }
 
+// ── Weekly overage / shortage cards ──────────────────────────────────────────
+
+const SHIFT_INFLOW = new Set(['Cash', 'Card', 'FX', 'Advance', 'Charge'])
+
+function localDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function ShiftDepositLoader({
+  shiftId, onLoad,
+}: {
+  shiftId: string
+  onLoad: (shiftId: string, data: Deposit[]) => void
+}) {
+  const { data } = useShiftDeposits(shiftId)
+  const ref = useRef(onLoad)
+  ref.current = onLoad
+  useEffect(() => {
+    if (data !== undefined) ref.current(shiftId, data)
+  }, [shiftId, data])
+  return null
+}
+
+function WeeklySummaryCards() {
+  const { start, end } = useMemo(() => {
+    const now = new Date()
+    const sun = new Date(now)
+    sun.setDate(now.getDate() - now.getDay())
+    return { start: localDate(sun), end: localDate(now) }
+  }, [])
+
+  const { data: shifts = [] } = useShiftsInRange(start, end)
+  const [depositsByShift, setDepositsByShift] = useState<Record<string, Deposit[]>>({})
+
+  const handleLoad = useRef((shiftId: string, data: Deposit[]) => {
+    setDepositsByShift((prev) => ({ ...prev, [shiftId]: data }))
+  })
+
+  const { totalOverage, totalShortage } = useMemo(() => {
+    let overage = 0, shortage = 0
+    for (const deps of Object.values(depositsByShift)) {
+      const inflow      = deps.filter((d) => SHIFT_INFLOW.has(d.type)).reduce((s, d) => s + d.amount, 0)
+      const expenditure = deps.filter((d) => d.type === 'Expenditure').reduce((s, d) => s + d.amount, 0)
+      const balance = inflow - expenditure
+      if (balance > 0) overage  += balance
+      else             shortage += Math.abs(balance)
+    }
+    return { totalOverage: overage, totalShortage: shortage }
+  }, [depositsByShift])
+
+  const fmtAmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+
+  return (
+    <>
+      {shifts.map((s) => (
+        <ShiftDepositLoader key={s.id} shiftId={s.id} onLoad={handleLoad.current} />
+      ))}
+      <div className="grid grid-cols-2 gap-3 shrink-0">
+        <div className={`rounded-2xl border p-4 ${totalOverage > 0 ? 'bg-green-50 border-green-200' : 'bg-white border-[#ebebeb]'}`}>
+          <p className="text-[11px] text-[#999] mb-1">Overages <span className="text-[#bbb]">| Week (current)</span></p>
+          <p className={`text-[15px] font-bold ${totalOverage > 0 ? 'text-green-700' : 'text-[#bbb]'}`}>{fmtAmt(totalOverage)}</p>
+        </div>
+        <div className={`rounded-2xl border p-4 ${totalShortage > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-[#ebebeb]'}`}>
+          <p className="text-[11px] text-[#999] mb-1">Shortages <span className="text-[#bbb]">| Week (current)</span></p>
+          <p className={`text-[15px] font-bold ${totalShortage > 0 ? 'text-[#c0392b]' : 'text-[#bbb]'}`}>{fmtAmt(totalShortage)}</p>
+        </div>
+      </div>
+    </>
+  )
+}
+
 // ── Staff Table ───────────────────────────────────────────────────────────────
 
 function StaffTable({ onSelect }: { onSelect: (u: User) => void }) {
   const { data: users = [], isLoading } = useUsers()
-  const { data: weekly }                = usePayrollWeeklySummary()
   const [inactiveOpen, setInactiveOpen] = useState(false)
 
   const active   = users.filter((u) => u.active)
@@ -884,16 +970,7 @@ function StaffTable({ onSelect }: { onSelect: (u: User) => void }) {
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col p-6 gap-5 min-w-0">
-      <div className="grid grid-cols-2 gap-3 shrink-0">
-        <div className={`rounded-2xl border p-4 ${(weekly?.total_overage ?? 0) > 0 ? 'bg-green-50 border-green-200' : 'bg-white border-[#ebebeb]'}`}>
-          <p className="text-[11px] text-[#999] mb-1">Overages <span className="text-[#bbb]">| Week (current)</span></p>
-          <p className={`text-[15px] font-bold ${(weekly?.total_overage ?? 0) > 0 ? 'text-green-700' : 'text-[#bbb]'}`}>{fmt(weekly?.total_overage ?? 0)}</p>
-        </div>
-        <div className={`rounded-2xl border p-4 ${(weekly?.total_shortage ?? 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-[#ebebeb]'}`}>
-          <p className="text-[11px] text-[#999] mb-1">Shortages <span className="text-[#bbb]">| Week (current)</span></p>
-          <p className={`text-[15px] font-bold ${(weekly?.total_shortage ?? 0) > 0 ? 'text-[#c0392b]' : 'text-[#bbb]'}`}>{fmt(weekly?.total_shortage ?? 0)}</p>
-        </div>
-      </div>
+      <WeeklySummaryCards />
       <div className="flex-1 min-h-0 bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
         <div className="grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 px-5 py-2.5 border-b border-[#f0f0f0] bg-[#fafafa] shrink-0">
           {['Name', 'Role', 'Email', 'Pay Rate', 'Sick Days', 'Last Paid', ''].map((h) => (
@@ -952,7 +1029,12 @@ function StaffTable({ onSelect }: { onSelect: (u: User) => void }) {
               {inactive.map((u) => (
                 <button key={u.id} onClick={() => onSelect(u)}
                   className="w-full grid grid-cols-[2fr_1fr_2fr_1fr_1fr_1fr_32px] gap-4 items-center px-5 py-3.5 border-b border-[#f8f8f8] last:border-0 hover:bg-[#fafafa] transition-colors text-left opacity-50">
-                  <p className="text-[13px] text-[#111] truncate">{u.name}</p>
+                  <div className="min-w-0 flex items-center gap-2">
+                    <p className="text-[13px] text-[#111] truncate">{u.name}</p>
+                    <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${userStatusBadgeClass(u)}`}>
+                      {userStatusLabel(u)}
+                    </span>
+                  </div>
                   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${roleBadgeColor(u.role)}`}>{u.role}</span>
                   <p className="text-[13px] text-[#666] truncate">{u.email || '—'}</p>
                   <p className="text-[13px] text-[#666]">—</p>
@@ -995,8 +1077,8 @@ export function ConvenienceStaffPage() {
           <h1 className="text-[22px] font-bold text-[#111] leading-tight">Staff</h1>
         </div>
         <button onClick={() => setShowAdd(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ddd] text-[#333] text-[13px] font-semibold rounded-xl hover:bg-[#f9f9f9] transition-colors">
-          <Plus size={14} /> Add Employee
+          className="px-4 py-2 border border-[#ddd] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors">
+          Add an employee
         </button>
       </div>
 

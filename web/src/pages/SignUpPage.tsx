@@ -52,17 +52,19 @@ const allFeatureIds = [
   ...sharedFeatures.map((f) => f.id),
 ]
 
+// Full plans — for operators who selected the Convenience Store / LPG Depot option
 const plans = [
   {
     id: 'starter',
     name: 'Starter',
     price: 499,
-    description: 'Everything you need to get one station up and running.',
+    description: 'Full station & store management for a single location.',
     features: [
-      '1 station',
-      'Up to 10 attendants',
-      'Sales & shift tracking',
+      '1 station + convenience store',
+      'Up to 10 staff',
+      'Sales, shift & inventory tracking',
       'Cash, card & FX recording',
+      'Payroll & scheduling management',
       'Basic shift reports',
       '5 GB account storage',
       'Email support',
@@ -73,13 +75,12 @@ const plans = [
     id: 'professional',
     name: 'Professional',
     price: 999,
-    description: 'Advanced tools for growing multi-station operations.',
+    description: 'Advanced tools for growing multi-site operations.',
     features: [
-      'Up to 5 stations',
-      'Unlimited attendants',
+      'Up to 5 stations & stores',
+      'Unlimited staff',
       'Everything in Starter',
       'Advanced analytics & reporting',
-      'Payroll & scheduling management',
       'Multi-user access & roles',
       '20 GB account storage',
       'Priority support',
@@ -92,8 +93,62 @@ const plans = [
     price: 1999,
     description: 'Full-scale management for large or multi-site operators.',
     features: [
-      'Unlimited stations',
+      'Up to 25 stations & stores',
       'Everything in Professional',
+      'Custom integrations & API access',
+      'Dedicated account manager',
+      'SLA guarantee',
+      'Custom branding & white-label',
+      '50 GB account storage',
+      '24/7 phone support',
+    ],
+    popular: false,
+  },
+]
+
+// Lite plans — service station only, no convenience store features
+const litePlans = [
+  {
+    id: 'lite-starter',
+    name: 'Lite Starter',
+    price: 149,
+    description: 'Essential shift management for a single service station.',
+    features: [
+      '1 station',
+      'Up to 10 attendants',
+      'Sales & shift tracking',
+      'Cash, card & FX recording',
+      'Basic shift reports',
+      '5 GB account storage',
+      'Email support',
+    ],
+    popular: false,
+  },
+  {
+    id: 'lite-pro',
+    name: 'Lite Pro',
+    price: 299,
+    description: 'Advanced tools for growing station operations.',
+    features: [
+      'Up to 5 stations',
+      'Unlimited attendants',
+      'Everything in Lite Starter',
+      'Advanced analytics & reporting',
+      'Payroll & scheduling management',
+      'Multi-user access & roles',
+      '20 GB account storage',
+      'Priority support',
+    ],
+    popular: true,
+  },
+  {
+    id: 'lite-enterprise',
+    name: 'Lite Enterprise',
+    price: 599,
+    description: 'Full-scale management for large or multi-site station operators.',
+    features: [
+      'Up to 25 stations',
+      'Everything in Lite Pro',
       'Custom integrations & API access',
       'Dedicated account manager',
       'SLA guarantee',
@@ -123,7 +178,7 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
   )
 }
 
-function InterestsPanel({ onContinue }: { onContinue: () => void }) {
+function InterestsPanel({ onContinue }: { onContinue: (hasCstore: boolean) => void }) {
   const [enabled, setEnabled] = useState<Record<string, boolean>>(
     Object.fromEntries(allFeatureIds.map((id) => [id, false]))
   )
@@ -207,7 +262,7 @@ function InterestsPanel({ onContinue }: { onContinue: () => void }) {
         </div>
 
         <button
-          onClick={() => onContinue()}
+          onClick={() => onContinue(enabled['conv_general'] === true)}
           disabled={!anyEnabled}
           className="w-full py-3.5 rounded-2xl bg-[#111] text-white text-[13px] font-bold uppercase tracking-widest hover:bg-[#333] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
         >
@@ -218,8 +273,22 @@ function InterestsPanel({ onContinue }: { onContinue: () => void }) {
   )
 }
 
-function PlansPanel({ onDone }: { onDone: () => void }) {
-  const [selected, setSelected] = useState('professional')
+function PlansPanel({ onDone, hasCstore }: { onDone: () => void; hasCstore: boolean }) {
+  const [isFullSuite, setIsFullSuite] = useState(hasCstore)
+  const [yearly, setYearly] = useState(false)
+  const [selected, setSelected] = useState(hasCstore ? 'professional' : 'lite-pro')
+
+  const activePlans = isFullSuite ? plans : litePlans
+
+  function switchPlanType(full: boolean) {
+    setIsFullSuite(full)
+    setSelected(full ? 'professional' : 'lite-pro')
+  }
+
+  // Yearly = 10 months price (2 months free), displayed as monthly equivalent
+  function monthlyDisplay(price: number) {
+    return yearly ? Math.round((price * 10) / 12) : price
+  }
 
   return (
     <div className="min-h-screen bg-[#f4f4f4] font-[Manrope] flex items-center justify-center p-6">
@@ -229,22 +298,63 @@ function PlansPanel({ onDone }: { onDone: () => void }) {
           <div className="w-9 h-9 bg-[#111] rounded-xl flex items-center justify-center flex-shrink-0">
             <StationSyncLogo size={20} color="white" />
           </div>
-          <span className="text-[15px] font-bold text-[#111] tracking-wide">StationSync</span>
+          <span className="text-[15px] font-bold text-[#111] tracking-wide">
+            StationSync{!isFullSuite && <span className="text-[#888] font-semibold"> Lite</span>}
+          </span>
         </div>
 
         <h1 className="text-[32px] font-bold text-[#111] leading-tight mb-1.5">Choose your plan</h1>
-        <p className="text-[13px] text-[#888] font-medium mb-10">
-          All plans include a 14-day free trial. No credit card required.
+        <p className="text-[13px] text-[#888] font-medium mb-8">
+          {isFullSuite
+            ? 'All plans include a 14-day free trial. No credit card required.'
+            : 'Service station management without the convenience store. All plans include a 14-day free trial.'}
         </p>
 
+        {/* Controls row */}
+        <div className="flex flex-col min-[560px]:flex-row items-start min-[560px]:items-center justify-between gap-4 mb-8">
+
+          {/* Plan type switcher */}
+          <div className="flex items-center bg-white border border-[#e0e0e0] rounded-xl p-1 gap-0.5">
+            <button
+              onClick={() => switchPlanType(false)}
+              className={`px-4 py-2 rounded-lg text-[12px] font-bold transition-all cursor-pointer ${
+                !isFullSuite ? 'bg-[#111] text-white' : 'text-[#888] hover:text-[#333]'
+              }`}
+            >
+              Lite
+            </button>
+            <button
+              onClick={() => switchPlanType(true)}
+              className={`px-4 py-2 rounded-lg text-[12px] font-bold transition-all cursor-pointer ${
+                isFullSuite ? 'bg-[#111] text-white' : 'text-[#888] hover:text-[#333]'
+              }`}
+            >
+              Full Suite
+            </button>
+          </div>
+
+          {/* Billing period toggle */}
+          <div className="flex items-center gap-3">
+            <span className={`text-[12px] font-semibold transition-colors ${!yearly ? 'text-[#111]' : 'text-[#bbb]'}`}>Monthly</span>
+            <Toggle on={yearly} onToggle={() => setYearly((v) => !v)} />
+            <span className={`text-[12px] font-semibold transition-colors ${yearly ? 'text-[#111]' : 'text-[#bbb]'}`}>Yearly</span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${
+              yearly ? 'bg-emerald-100 text-emerald-700' : 'bg-[#f0f0f0] text-[#bbb]'
+            }`}>
+              2 months free
+            </span>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 min-[640px]:grid-cols-3 gap-4 mb-8">
-          {plans.map((plan) => {
+          {activePlans.map((plan) => {
             const active = selected === plan.id
+            const displayPrice = monthlyDisplay(plan.price)
             return (
               <button
                 key={plan.id}
                 onClick={() => setSelected(plan.id)}
-                className={`relative text-left rounded-3xl border-2 p-7 transition-all flex flex-col ${
+                className={`relative text-left rounded-3xl border-2 p-7 transition-all flex flex-col cursor-pointer ${
                   active ? 'border-[#111] bg-[#111]' : 'border-[#ebebeb] bg-white hover:border-[#ccc]'
                 }`}
               >
@@ -260,14 +370,20 @@ function PlansPanel({ onDone }: { onDone: () => void }) {
                   {plan.name}
                 </p>
 
-                <div className="mb-1">
+                <div className="mb-0.5">
                   <span className={`text-[40px] font-bold leading-none tracking-tight ${active ? 'text-white' : 'text-[#111]'}`}>
-                    ${plan.price.toLocaleString()}
+                    ${displayPrice.toLocaleString()}
                   </span>
                   <span className={`text-[13px] font-medium ml-1 ${active ? 'text-white/50' : 'text-[#aaa]'}`}>/mo</span>
                 </div>
 
-                <p className={`text-[12px] font-medium leading-snug mb-6 ${active ? 'text-white/60' : 'text-[#888]'}`}>
+                {yearly && (
+                  <p className={`text-[11px] font-medium mb-1 ${active ? 'text-white/40' : 'text-[#bbb]'}`}>
+                    billed ${(plan.price * 10).toLocaleString()} annually
+                  </p>
+                )}
+
+                <p className={`text-[12px] font-medium leading-snug mb-6 mt-1 ${active ? 'text-white/60' : 'text-[#888]'}`}>
                   {plan.description}
                 </p>
 
@@ -671,6 +787,7 @@ export function SignUpPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('form')
   const [grades, setGrades] = useState<string[]>([])
+  const [hasCstore, setHasCstore] = useState(false)
   const [fullName, setFullName] = useState('')
   const [company, setCompany] = useState('')
   const [email, setEmail] = useState('')
@@ -691,13 +808,13 @@ export function SignUpPage() {
   if (step === 'interests') {
     return (
       <InterestsPanel
-        onContinue={() => setStep('plans')}
+        onContinue={(cstore) => { setHasCstore(cstore); setStep('plans') }}
       />
     )
   }
 
   if (step === 'plans') {
-    return <PlansPanel onDone={() => setStep('business')} />
+    return <PlansPanel hasCstore={hasCstore} onDone={() => setStep('business')} />
   }
 
   if (step === 'business') {

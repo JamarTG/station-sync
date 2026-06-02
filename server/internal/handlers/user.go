@@ -17,20 +17,24 @@ type UserHandler struct {
 
 const userSelectCols = `id::text, business_id::text, branch_id::text, name, role, email, active,
 	COALESCE(phone,''), COALESCE(nis,''), COALESCE(trn,''),
-	employed_on::text, date_of_birth::text, must_change_password, pay_rate, pay_type, sick_days`
+	employed_on::text, date_of_birth::text, must_change_password, pay_rate, pay_type, overtime_rate, sick_days,
+	deactivation_reason, reactivate_on::text, deactivation_note`
 
 func scanUser(row interface {
 	Scan(...any) error
 }, u *model.User) error {
 	return row.Scan(&u.ID, &u.BusinessID, &u.BranchID, &u.Name, &u.Role, &u.Email, &u.Active,
 		&u.Phone, &u.NIS, &u.TRN, &u.EmployedOn, &u.DateOfBirth, &u.MustChangePassword,
-		&u.PayRate, &u.PayType, &u.SickDays)
+		&u.PayRate, &u.PayType, &u.OvertimeRate, &u.SickDays,
+		&u.DeactivationReason, &u.ReactivateOn, &u.DeactivationNote)
 }
 
 func (h *UserHandler) List(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	rows, err := h.DB.Query(c.Request.Context(), `
 		SELECT `+userSelectCols+`,
+			(SELECT COUNT(*) FROM time_off_requests tor
+			 WHERE tor.user_id = u.id AND tor.status = 'Approved') AS sick_days_used,
 			(SELECT pr.net_pay FROM payroll_records pr
 			 JOIN payroll_periods pp ON pp.id = pr.period_id
 			 WHERE pr.user_id = u.id
@@ -51,7 +55,9 @@ func (h *UserHandler) List(c *gin.Context) {
 		if err := rows.Scan(
 			&u.ID, &u.BusinessID, &u.BranchID, &u.Name, &u.Role, &u.Email, &u.Active,
 			&u.Phone, &u.NIS, &u.TRN, &u.EmployedOn, &u.DateOfBirth, &u.MustChangePassword,
-			&u.PayRate, &u.PayType, &u.SickDays, &u.LatestNetPay,
+			&u.PayRate, &u.PayType, &u.OvertimeRate, &u.SickDays,
+			&u.DeactivationReason, &u.ReactivateOn, &u.DeactivationNote,
+			&u.SickDaysUsed, &u.LatestNetPay,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -79,8 +85,9 @@ func (h *UserHandler) Get(c *gin.Context) {
 
 func (h *UserHandler) UpdatePay(c *gin.Context) {
 	var body struct {
-		PayRate *float64 `json:"pay_rate"`
-		PayType *string  `json:"pay_type"`
+		PayRate      *float64 `json:"pay_rate"`
+		PayType      *string  `json:"pay_type"`
+		OvertimeRate *float64 `json:"overtime_rate"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -89,10 +96,10 @@ func (h *UserHandler) UpdatePay(c *gin.Context) {
 
 	var u model.User
 	err := scanUser(h.DB.QueryRow(c.Request.Context(), `
-		UPDATE users SET pay_rate = $1, pay_type = $2
-		WHERE id = $3
+		UPDATE users SET pay_rate = $1, pay_type = $2, overtime_rate = $3
+		WHERE id = $4
 		RETURNING `+userSelectCols,
-		body.PayRate, body.PayType, c.Param("id"),
+		body.PayRate, body.PayType, body.OvertimeRate, c.Param("id"),
 	), &u)
 	if err == pgx.ErrNoRows {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
@@ -267,6 +274,13 @@ func (h *UserHandler) Update(c *gin.Context) {
 		DateOfBirth *string `json:"date_of_birth"`
 		Active      *bool   `json:"active"`
 		SickDays    *int    `json:"sick_days"`
+		// Deactivation metadata. Sent as explicit nulls to clear on reactivation,
+		// so these are applied directly (not COALESCE-guarded) when the key is
+		// present. A pointer-to-pointer captures "field omitted" vs "field null".
+		DeactivationReason *string `json:"deactivation_reason"`
+		ReactivateOn       *string `json:"reactivate_on"`
+		DeactivationNote   *string `json:"deactivation_note"`
+		SetDeactivation    bool    `json:"set_deactivation"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -286,7 +300,10 @@ func (h *UserHandler) Update(c *gin.Context) {
 				employed_on   = COALESCE(NULLIF($9,'')::date, employed_on),
 				date_of_birth = COALESCE(NULLIF($10,'')::date, date_of_birth),
 				active        = COALESCE($11, active),
-				sick_days     = COALESCE($12, sick_days)
+				sick_days     = COALESCE($12, sick_days),
+				deactivation_reason = CASE WHEN $13 THEN $14 ELSE deactivation_reason END,
+				reactivate_on       = CASE WHEN $13 THEN NULLIF($15,'')::date ELSE reactivate_on END,
+				deactivation_note   = CASE WHEN $13 THEN $16 ELSE deactivation_note END
 			WHERE id = $1 AND business_id = $2
 			RETURNING `+userSelectCols,
 			c.Param("id"), businessID,
@@ -294,6 +311,9 @@ func (h *UserHandler) Update(c *gin.Context) {
 			func() string { if body.EmployedOn != nil { return *body.EmployedOn }; return "" }(),
 			func() string { if body.DateOfBirth != nil { return *body.DateOfBirth }; return "" }(),
 			body.Active, body.SickDays,
+			body.SetDeactivation, body.DeactivationReason,
+			func() string { if body.ReactivateOn != nil { return *body.ReactivateOn }; return "" }(),
+			body.DeactivationNote,
 		),
 		&u,
 	)

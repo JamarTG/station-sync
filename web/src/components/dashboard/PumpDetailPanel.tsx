@@ -24,11 +24,12 @@ interface Props {
   pricePerLitre?: number
   nozzles: NozzleRow[]
   onChange: (nozzles: NozzleRow[]) => void
+  onSave?: (rows: NozzleRow[]) => void
   readOnly?: boolean
   openingReadOnly?: boolean
 }
 
-export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, readOnly, openingReadOnly }: Props) {
+export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, onSave, readOnly, openingReadOnly }: Props) {
   const label = fuelType ? (gradeLabels[fuelType] ?? fuelType) : '—'
   const [touched, setTouched] = useState<Record<number, boolean>>({})
 
@@ -45,6 +46,14 @@ export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, re
 
   function markTouched(index: number) {
     setTouched((prev) => ({ ...prev, [index]: true }))
+  }
+
+  function handleBlur(index: number) {
+    markTouched(index)
+    const row = rows[index]
+    if (onSave && row && row.opening !== '' && row.closing !== '') {
+      onSave(rows)
+    }
   }
 
   const totalLitres = rows.reduce((sum, n) => {
@@ -97,7 +106,7 @@ export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, re
                       inputMode="decimal"
                       value={fmtInput(n.opening)}
                       onChange={(e) => !isOpeningReadOnly && updateNozzle(i, 'opening', e.target.value)}
-                      onBlur={() => !isOpeningReadOnly && markTouched(i)}
+                      onBlur={() => !isOpeningReadOnly && handleBlur(i)}
                       placeholder="—"
                       readOnly={isOpeningReadOnly}
                       className={clsx(
@@ -113,7 +122,7 @@ export function PumpDetailPanel({ fuelType, pricePerLitre, nozzles, onChange, re
                       inputMode="decimal"
                       value={fmtInput(n.closing)}
                       onChange={(e) => !readOnly && updateNozzle(i, 'closing', e.target.value)}
-                      onBlur={() => !readOnly && markTouched(i)}
+                      onBlur={() => !readOnly && handleBlur(i)}
                       placeholder="—"
                       readOnly={readOnly}
                       className={clsx(

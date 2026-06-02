@@ -3,6 +3,7 @@ import { LogoLoader } from '../components/StationSyncLogo'
 import { Building2, Users, GitBranch, LogOut } from 'lucide-react'
 import { getPlatformAccounts, clearToken } from '../lib/api'
 import type { AccountSummary } from '../lib/api'
+import { matchesSearch } from '../lib/search'
 
 interface Props {
   userName: string
@@ -30,8 +31,7 @@ export function PlatformAdminPage({ userName, onLogout }: Props) {
   }
 
   const filtered = accounts.filter((a) =>
-    a.name.toLowerCase().includes(search.toLowerCase())
-  )
+    matchesSearch(search, { text: [a.name, (a as any).email, (a as any).owner_name] }))
 
   return (
     <div className="min-h-screen bg-[#f4f4f4] font-[Manrope]">

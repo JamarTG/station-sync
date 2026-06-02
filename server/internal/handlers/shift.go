@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -228,4 +229,11 @@ func (h *ShiftHandler) Close(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, s)
+
+	// Auto-score the shift in the background — non-blocking, failure is silent.
+	go func() {
+		ctx := context.Background()
+		ComputeAndStoreShiftScore(ctx, h.DB, s.ID, s.BusinessID)
+		TriggerEmployeeScoring(s.ID, s.BusinessID, s.ShiftType, h.DB)
+	}()
 }

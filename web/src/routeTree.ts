@@ -18,10 +18,16 @@ import { ChargesPage } from './pages/ChargesPage'
 import { AccountSettingsPage } from './pages/AccountSettingsPage'
 import { ExpensesPage } from './pages/ExpensesPage'
 import { TanksPage } from './pages/TanksPage'
+import { DepositsPage } from './pages/DepositsPage'
 import { ConvenienceStaffPage } from './pages/ConvenienceStaffPage'
 import { ConvenienceSchedulePage } from './pages/ConvenienceSchedulePage'
 import { ProductsPage } from './pages/ProductsPage'
 import { ConvenienceSalesPage } from './pages/ConvenienceSalesPage'
+import { RewardsPage } from './pages/RewardsPage'
+import { FuelIntelligencePage } from './pages/FuelIntelligencePage'
+import { PayrollPage } from './pages/PayrollPage'
+import { EmployeeRankingsPage } from './pages/EmployeeRankingsPage'
+import { HolidaysPage } from './pages/HolidaysPage'
 
 // Root: just renders <Outlet /> — no layout, no auth logic
 const rootRoute = createRootRoute({ component: Outlet, notFoundComponent: NotFoundPage })
@@ -126,6 +132,12 @@ const convProductsRoute = createRoute({
   component: ProductsPage,
 })
 
+const convRewardsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/convenience/rewards',
+  component: RewardsPage,
+})
+
 const settingsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/settings',
@@ -142,6 +154,44 @@ const tanksRoute = createRoute({
   getParentRoute: () => appRoute,
   path: '/tanks',
   component: TanksPage,
+})
+
+const depositsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/deposits',
+  component: DepositsPage,
+})
+
+// Consolidated rankings (SPS + CPS + APS). /rankings is kept for backward
+// compatibility; /employee-rankings renders the same consolidated page.
+const rankingsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/rankings',
+  component: EmployeeRankingsPage,
+})
+
+const fuelIntelligenceRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/fuel-intelligence',
+  component: FuelIntelligencePage,
+})
+
+const payrollRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/payroll',
+  component: PayrollPage,
+})
+
+const employeeRankingsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/employee-rankings',
+  component: EmployeeRankingsPage,
+})
+
+const holidaysRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: '/holidays',
+  component: HolidaysPage,
 })
 
 export const routeTree = rootRoute.addChildren([
@@ -161,8 +211,15 @@ export const routeTree = rootRoute.addChildren([
     convStaffRoute,
     convScheduleRoute,
     convProductsRoute,
+    convRewardsRoute,
     expensesRoute,
     tanksRoute,
+    depositsRoute,
+    rankingsRoute,
+    fuelIntelligenceRoute,
+    payrollRoute,
+    employeeRankingsRoute,
+    holidaysRoute,
     settingsRoute,
   ]),
 ])

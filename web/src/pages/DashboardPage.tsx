@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../lib/authContext'
 import { ReportsDashboard } from '../components/dashboard/ReportsDashboard'
 import { AttendantDashboard } from '../components/dashboard/AttendantDashboard'
@@ -12,7 +12,7 @@ import { TotalSalesCard } from '../components/dashboard/TotalSalesCard'
 import { RecentActivityCard } from '../components/dashboard/RecentActivityCard'
 import { ActionBar } from '../components/dashboard/ActionBar'
 import { usePumps, useFuels, useNozzles, useOpenShift, useOpenCStoreShift, useShiftFuelPrices, useShiftAttendance, useTanks, useShiftTankLogs, useShiftFuelReceivals, useShiftOrders, useShiftDeposits } from '../hooks/useApi'
-import { closeShift, upsertTankLog, upsertNozzleLog, type Tank } from '../lib/api'
+import { closeShift, upsertTankLog, upsertNozzleLog, createCStoreShift, takeoverCStoreShift, type Tank, type Shift } from '../lib/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowLeft } from 'lucide-react'
@@ -20,20 +20,73 @@ import { EditFuelPricesModal } from '../components/dashboard/EditFuelPricesModal
 import { ConvenienceStoreBreakdownModal } from '../components/dashboard/ConvenienceStoreBreakdownModal'
 import { ReportIssueModal } from '../components/dashboard/ReportIssueModal'
 import { NewShiftLoginModal } from '../components/dashboard/NewShiftLoginModal'
+import { EndShiftFlow } from '../components/dashboard/EndShiftFlow'
 
 
-const idleBtnClass = 'px-4 py-2 border border-[#ddd] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'
+const idleBtnClass = 'px-4 py-2 border border-[#ddd] dark:border-[#333] rounded-xl text-[12px] font-semibold text-[#333] dark:text-[#ccc] bg-white dark:bg-[#1a1a1a] hover:bg-[#f9f9f9] dark:hover:bg-[#1a1a1a] transition-colors'
 
-function SupervisorIdleView({ stationShiftOpen, cstoreShiftOpen }: { tanks: Tank[]; stationShiftOpen: boolean; cstoreShiftOpen: boolean }) {
+function SupervisorIdleView({ stationShiftOpen, cstoreShiftOpen, cstoreShift }: { tanks: Tank[]; stationShiftOpen: boolean; cstoreShiftOpen: boolean; cstoreShift: Shift | null | undefined }) {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [showReportIssue, setShowReportIssue] = useState(false)
   const [showNewShiftLogin, setShowNewShiftLogin] = useState(false)
+  const [showCstoreShiftLogin, setShowCstoreShiftLogin] = useState(false)
+  const [cstoreActing, setCstoreActing] = useState(false)
 
   const firstName = user?.name?.trim().split(/\s+/)[0] ?? ''
   const h = new Date().getHours()
   const greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
   const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long' })
+
+  async function handleCstoreConfirm() {
+    if (!user?.id) return
+    setCstoreActing(true)
+    try {
+      if (cstoreShift) {
+        // Try API PATCH to update supervisor; fall back gracefully if backend doesn't support it yet
+        try { await takeoverCStoreShift(cstoreShift.id, user.id) } catch {}
+        // Always write to localStorage so the idle gate stays unlocked on refresh
+        localStorage.setItem('ss_cstore_owner', JSON.stringify({ shiftId: cstoreShift.id, userId: user.id }))
+      } else {
+        const now = new Date()
+        await createCStoreShift({
+          supervisor_id: user.id,
+          date: now.toISOString().slice(0, 10),
+          start_time: `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:00`,
+        })
+      }
+      qc.invalidateQueries({ queryKey: ['shifts', 'open', 'convenience'] })
+    } catch (err) {
+      console.error('Failed to start/takeover cstore shift:', err)
+    } finally {
+      setCstoreActing(false)
+    }
+  }
+
+  const scheduledToday = useMemo(() => {
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      // Try new multi-schedule key first, fall back to old single key
+      const newRaw = localStorage.getItem('ss_published_schedules')
+      const schedules: Array<{ startISO: string; endISO: string; days: Record<string, unknown> }> = newRaw
+        ? JSON.parse(newRaw)
+        : (() => {
+            const oldRaw = localStorage.getItem('ss_published_schedule')
+            return oldRaw ? [JSON.parse(oldRaw)] : []
+          })()
+      const schedule = schedules.find((s) => today >= s.startISO && today <= s.endISO)
+      if (!schedule) return { morning: [] as string[], evening: [] as string[] }
+      const dayPlan = schedule.days?.[today] as { staffMorning?: Array<{ userName: string }>; staffEvening?: Array<{ userName: string }> } | undefined
+      if (!dayPlan) return { morning: [] as string[], evening: [] as string[] }
+      return {
+        morning: (dayPlan.staffMorning ?? []).map((a) => a.userName),
+        evening: (dayPlan.staffEvening ?? []).map((a) => a.userName),
+      }
+    } catch {
+      return { morning: [] as string[], evening: [] as string[] }
+    }
+  }, [])
 
   const statusPill = (active: boolean) => (
     <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase flex-shrink-0 ${
@@ -46,10 +99,10 @@ function SupervisorIdleView({ stationShiftOpen, cstoreShiftOpen }: { tanks: Tank
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide flex flex-col" style={{ scrollbarWidth: 'none' }}>
 
-      <div className="px-6 pt-8 pb-6 border-b border-[#f0f0f0] flex-shrink-0 flex items-center justify-between gap-4">
+      <div className="px-6 pt-8 pb-6 border-b border-[#f0f0f0] dark:border-[#1e1e1e] flex-shrink-0 flex items-center justify-between gap-4">
         <div>
-          <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase mb-1">{dateStr}</p>
-          <h1 className="text-[28px] font-bold text-[#111] tracking-tight leading-none">
+          <p className="text-[11px] font-bold tracking-widest text-[#bbb] dark:text-[#444] uppercase mb-1">{dateStr}</p>
+          <h1 className="text-[28px] font-bold text-[#111] dark:text-[#e0e0e0] tracking-tight leading-none">
             {greeting}{firstName ? `, ${firstName}` : ''}
           </h1>
         </div>
@@ -61,16 +114,55 @@ function SupervisorIdleView({ stationShiftOpen, cstoreShiftOpen }: { tanks: Tank
 
       <div className="flex-1 p-6 space-y-4">
 
-        <div className="bg-white border border-[#ebebeb] rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#f0f0f0] flex items-center justify-between gap-4">
+        <div className="bg-white dark:bg-[#1a1a1a] border border-[#ebebeb] dark:border-[#222] rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#f0f0f0] dark:border-[#1e1e1e] flex items-center justify-between gap-4">
             <div>
-              <p className="text-[13px] font-bold text-[#111] uppercase tracking-wide">Service Station</p>
-              <p className="text-[11px] font-medium text-[#bbb] mt-0.5">
+              <p className="text-[13px] font-bold text-[#111] dark:text-[#e0e0e0] uppercase tracking-wide">Service Station</p>
+              <p className="text-[11px] font-medium text-[#bbb] dark:text-[#444] mt-0.5">
                 {stationShiftOpen ? 'A shift is currently running' : 'No shift in progress'}
               </p>
             </div>
             {statusPill(stationShiftOpen)}
           </div>
+
+          {(scheduledToday.morning.length > 0 || scheduledToday.evening.length > 0) && (
+            <div className="px-5 py-3 border-b border-[#f0f0f0] dark:border-[#1e1e1e]">
+              <p className="text-[10px] font-bold tracking-widest text-[#bbb] dark:text-[#444] uppercase mb-2.5">Today's Schedule</p>
+              <div className="flex flex-col gap-2">
+                {scheduledToday.morning.length > 0 && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-[10px] font-bold text-amber-500 dark:text-amber-400 uppercase tracking-widest mt-0.5 w-6 shrink-0">AM</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {scheduledToday.morning.map((name, i) => (
+                        <div key={i} className="flex items-center gap-1.5 bg-[#f4f4f4] dark:bg-[#222] rounded-lg px-2 py-1">
+                          <div className="w-5 h-5 rounded-full bg-[#aaa] dark:bg-[#555] text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+                            {name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-[11px] font-semibold text-[#333] dark:text-[#ccc] leading-none">{name.split(' ')[0]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {scheduledToday.evening.length > 0 && (
+                  <div className="flex items-start gap-3">
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-widest mt-0.5 w-6 shrink-0">PM</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {scheduledToday.evening.map((name, i) => (
+                        <div key={i} className="flex items-center gap-1.5 bg-[#f4f4f4] dark:bg-[#222] rounded-lg px-2 py-1">
+                          <div className="w-5 h-5 rounded-full bg-[#aaa] dark:bg-[#555] text-white flex items-center justify-center text-[9px] font-bold shrink-0">
+                            {name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-[11px] font-semibold text-[#333] dark:text-[#ccc] leading-none">{name.split(' ')[0]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="px-5 py-4 flex gap-2 flex-wrap">
             <button onClick={() => setShowNewShiftLogin(true)} className={idleBtnClass}>
               {stationShiftOpen ? 'Takeover shift' : 'Start a shift'}
@@ -78,40 +170,50 @@ function SupervisorIdleView({ stationShiftOpen, cstoreShiftOpen }: { tanks: Tank
           </div>
         </div>
 
-        <div className="bg-white border border-[#ebebeb] rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#f0f0f0] flex items-center justify-between gap-4">
+        <div className="bg-white dark:bg-[#1a1a1a] border border-[#ebebeb] dark:border-[#222] rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#f0f0f0] dark:border-[#1e1e1e] flex items-center justify-between gap-4">
             <div>
-              <p className="text-[13px] font-bold text-[#111] uppercase tracking-wide">Convenience Store</p>
-              <p className="text-[11px] font-medium text-[#bbb] mt-0.5">
+              <p className="text-[13px] font-bold text-[#111] dark:text-[#e0e0e0] uppercase tracking-wide">Convenience Store</p>
+              <p className="text-[11px] font-medium text-[#bbb] dark:text-[#444] mt-0.5">
                 {cstoreShiftOpen ? 'A shift is currently running' : 'No shift in progress'}
               </p>
             </div>
             {statusPill(cstoreShiftOpen)}
           </div>
           <div className="px-5 py-4 flex gap-2 flex-wrap">
-            <button onClick={() => setShowNewShiftLogin(true)} className={idleBtnClass}>
-              {cstoreShiftOpen ? 'Takeover shift' : 'Start a shift'}
+            <button
+              onClick={() => setShowCstoreShiftLogin(true)}
+              disabled={cstoreActing}
+              className={`${idleBtnClass} disabled:opacity-50`}
+            >
+              {cstoreActing ? 'Starting…' : cstoreShiftOpen ? 'Takeover shift' : 'Start a shift'}
             </button>
           </div>
         </div>
 
       </div>
 
-      <div className="py-3 text-center border-t border-[#f4f4f4] flex-shrink-0">
-        <span className="text-[10px] font-medium text-[#ccc] tracking-widest">&copy; 2025 STATIONSYNC</span>
+      <div className="py-3 text-center border-t border-[#f4f4f4] dark:border-[#1e1e1e] flex-shrink-0">
+        <span className="text-[10px] font-medium text-[#ccc] dark:text-[#444] tracking-widest">&copy; 2025 STATIONSYNC</span>
       </div>
 
       {showReportIssue && <ReportIssueModal onClose={() => setShowReportIssue(false)} />}
       {showNewShiftLogin && <NewShiftLoginModal onClose={() => setShowNewShiftLogin(false)} onConfirm={() => setShowNewShiftLogin(false)} />}
+      {showCstoreShiftLogin && (
+        <NewShiftLoginModal
+          onClose={() => setShowCstoreShiftLogin(false)}
+          onConfirm={() => { setShowCstoreShiftLogin(false); handleCstoreConfirm() }}
+        />
+      )}
     </div>
   )
 }
 
 function NotConfigured({ label }: { label: string }) {
   return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-white gap-4 p-8">
-      <p className="text-[13px] font-semibold text-[#888] uppercase tracking-widest">{label} ARE NOT CONFIGURED</p>
-      <button className="px-4 py-2 border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] uppercase tracking-widest hover:bg-[#f4f4f4] transition-colors">
+    <div className="flex-1 flex flex-col items-center justify-center bg-white dark:bg-[#1a1a1a] gap-4 p-8">
+      <p className="text-[13px] font-semibold text-[#888] dark:text-[#666] uppercase tracking-widest">{label} ARE NOT CONFIGURED</p>
+      <button className="px-4 py-2 border border-[#ddd] dark:border-[#333] rounded-xl text-[13px] font-semibold text-[#333] dark:text-[#ccc] uppercase tracking-widest hover:bg-[#f4f4f4] dark:hover:bg-[#222] transition-colors">
         CONTACT ADMINISTRATOR
       </button>
     </div>
@@ -121,7 +223,7 @@ function NotConfigured({ label }: { label: string }) {
 const managerRoles = new Set(['Super Admin', 'Admin', 'Manager'])
 
 export function DashboardPage() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const queryClient = useQueryClient()
 
   const [selectedFuel, setSelectedFuel] = useState<Fuel | null>(null)
@@ -132,6 +234,8 @@ export function DashboardPage() {
   const [showEditPrices, setShowEditPrices] = useState(false)
   const [showConvenienceBreakdown, setShowConvenienceBreakdown] = useState(false)
   const [shiftEnded, setShiftEnded] = useState(false)
+  const [showEndShiftFlow, setShowEndShiftFlow] = useState(false)
+  const [endingShiftId, setEndingShiftId] = useState<string | null>(null)
 
   const [nozzleReadings, setNozzleReadings] = useState<Record<string, NozzleRow[]>>({})
   const [tankReadings, setTankReadings] = useState<Record<string, { opening: string; closing: string }>>({})
@@ -151,7 +255,7 @@ export function DashboardPage() {
   const { data: tanks = [] } = useTanks()
   const { data: fuelPricesData = [] } = useShiftFuelPrices(shift?.id)
   const { data: shiftAttendance = [] } = useShiftAttendance(shift?.id)
-  const { data: tankLogsData = [] } = useShiftTankLogs(shift?.id)
+  const { data: tankLogsData = [], isLoading: loadingTankLogs } = useShiftTankLogs(shift?.id)
   const { data: receivalsData = [] } = useShiftFuelReceivals(shift?.id)
 
   const firstPump = pumps[0]
@@ -192,6 +296,27 @@ export function DashboardPage() {
     const next = { ...nozzleReadings, [fuelType]: rows }
     setNozzleReadings(next)
     if (shift?.id) localStorage.setItem(`pump_readings_${shift.id}`, JSON.stringify(next))
+  }
+
+  async function saveNozzleRows(rows: NozzleRow[]) {
+    if (!shift?.id) return
+    for (const row of rows) {
+      if (row.nozzleId && row.opening !== '' && row.closing !== '') {
+        const start = parseFloat(row.opening)
+        const end   = parseFloat(row.closing)
+        if (!isNaN(start) && !isNaN(end)) {
+          try {
+            await upsertNozzleLog(shift.id, {
+              nozzle_id: row.nozzleId,
+              starting_reading: start,
+              ending_reading: end,
+            })
+          } catch {}
+        }
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ['shifts', shift.id, 'nozzle-logs'] })
+    queryClient.invalidateQueries({ queryKey: ['fuel-summary'] })
   }
 
   async function handleShiftEnd() {
@@ -322,6 +447,34 @@ export function DashboardPage() {
     } catch {}
   }, [shift?.id])
 
+  // Pre-populate opening readings from previous shift's closing values
+  // Runs once pump + nozzle config is available for a brand-new shift with no saved data
+  useEffect(() => {
+    if (!shift?.id || pumpNozzles.length === 0 || pumps.length === 0 || fuels.length === 0) return
+    const savedKey = `pump_readings_${shift.id}`
+    if (localStorage.getItem(savedKey)) return   // already initialised – don't overwrite
+    let prevClosings: Record<string, string[]> = {}
+    try { prevClosings = JSON.parse(localStorage.getItem('ss_pump_closing_openings') ?? 'null') ?? {} } catch {}
+    if (Object.keys(prevClosings).length === 0) return   // no previous shift data
+    const grades = fuels.map((f) => f.name)
+    const init: Record<string, NozzleRow[]> = {}
+    for (const grade of grades) {
+      init[grade] = pumpNozzles
+        .filter((n) => n.fuel_name === grade)
+        .map((n) => ({ nozzle: n, pumpIndex: pumps.findIndex((p) => p.id === n.pump_id) }))
+        .filter((r) => r.pumpIndex >= 0)
+        .sort((a, b) => a.pumpIndex - b.pumpIndex)
+        .map(({ nozzle, pumpIndex }, i) => ({
+          nozzleId: nozzle.id,
+          opening:  (prevClosings[grade] ?? [])[i] ?? '',
+          closing:  '',
+          pumpNumber: pumpIndex + 1,
+        }))
+    }
+    setNozzleReadings(init)
+    localStorage.setItem(savedKey, JSON.stringify(init))
+  }, [shift?.id, pumpNozzles.length, pumps.length, fuels.length])
+
   useEffect(() => {
     if (shift === undefined) refetchShift()
   }, [shift])
@@ -343,6 +496,24 @@ export function DashboardPage() {
       return next
     })
   }, [tankLogsData])
+
+  // Pre-populate tank opening readings from the previous shift's closing values
+  useEffect(() => {
+    if (!shift?.id || tanks.length === 0 || loadingTankLogs || tankLogsData.length > 0) return
+    let prevClosings: Record<string, string> = {}
+    try { prevClosings = JSON.parse(localStorage.getItem('ss_tank_closing_openings') ?? 'null') ?? {} } catch {}
+    if (Object.keys(prevClosings).length === 0) return
+    setTankReadings((prev) => {
+      const next = { ...prev }
+      for (const tank of tanks) {
+        const prevClosing = prevClosings[tank.id]
+        if (prevClosing && (!next[tank.id] || (next[tank.id].opening === '' && next[tank.id].closing === ''))) {
+          next[tank.id] = { opening: prevClosing, closing: '' }
+        }
+      }
+      return next
+    })
+  }, [shift?.id, tanks.length, loadingTankLogs, tankLogsData.length])
 
   useEffect(() => {
     function onResize() {
@@ -368,38 +539,60 @@ export function DashboardPage() {
   if (user?.role === 'Attendant') return <AttendantDashboard />
   if (user?.role === 'Cashier') return <CashierDashboard />
 
-  if (!shift || shift.supervisor_id !== user?.id) {
-    return <SupervisorIdleView tanks={tanks} stationShiftOpen={!!shift} cstoreShiftOpen={!!cstoreShift} />
+  const canEndShift = allFuelGrades.every((g) => activeNozzlesComplete(g)) && tanks.every((t) => (tankReadings[t.id]?.opening ?? '') !== '' && (tankReadings[t.id]?.closing ?? '') !== '')
+
+  function openEndShiftFlow() {
+    if (shift?.id) {
+      setEndingShiftId(shift.id)
+      setShowEndShiftFlow(true)
+    }
   }
 
+  // Check whether the current user owns the cstore shift — either via the API-persisted supervisor_id
+  // or via a localStorage record written when they took over (fallback for when PATCH isn't available yet).
+  const userOwnsCstore = (() => {
+    if (!cstoreShift || !user?.id) return false
+    if (cstoreShift.supervisor_id === user.id) return true
+    try {
+      const saved = JSON.parse(localStorage.getItem('ss_cstore_owner') ?? 'null') as { shiftId: string; userId: string } | null
+      return saved?.shiftId === cstoreShift.id && saved?.userId === user.id
+    } catch { return false }
+  })()
+
+  const supervisorIsIdle = (!shift || shift.supervisor_id !== user?.id) && !userOwnsCstore
+
   return (
+    <>
+    {supervisorIsIdle ? (
+      <SupervisorIdleView tanks={tanks} stationShiftOpen={!!shift} cstoreShiftOpen={!!cstoreShift} cstoreShift={cstoreShift} />
+    ) : (
     <div className="flex h-full overflow-hidden">
 
       {/* Main scrollable content */}
       <div className="flex-[2] min-w-0 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
         <div className="p-6 flex flex-col gap-5">
-          <ActionBar shiftEnded={shiftEnded} canEndShift={allFuelGrades.every((g) => activeNozzlesComplete(g)) && tanks.every((t) => (tankReadings[t.id]?.opening ?? '') !== '' && (tankReadings[t.id]?.closing ?? '') !== '')} onShiftEnd={handleShiftEnd} onNewShift={handleNewShift} />
+          <ActionBar canEndShift={canEndShift} onEndShiftClick={openEndShiftFlow} />
 
           <div>
-            <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Service Station</p>
+            <p className="text-[11px] font-bold tracking-widest text-[#aaa] dark:text-[#555] uppercase mb-3">Service Station</p>
             <TotalSalesCard totalSales={hasSalesData ? totalSalesAcrossPumps : 0} totalLitres={hasSalesData ? totalLitresAcrossPumps : 0} attendantSales={attendantSales} gradeSales={gradeSales} attendantGradeSales={attendantGradeSalesMap} shiftId={shift?.id} />
           </div>
 
           {isNarrow && (
-            <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden">
-              <div className="px-5 py-4 border-b border-[#f0f0f0]">
-                <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase">Readings</p>
+            <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl border border-[#ebebeb] dark:border-[#222] overflow-hidden">
+              <div className="px-5 py-4 border-b border-[#f0f0f0] dark:border-[#1e1e1e]">
+                <p className="text-[11px] font-bold tracking-widest text-[#aaa] dark:text-[#555] uppercase">Readings</p>
               </div>
               <div className="flex">
                 <button
                   onClick={() => setCalibrationModal('pumps')}
-                  className="flex-1 px-5 py-4 text-[13px] font-semibold text-[#333] hover:bg-[#fafafa] transition-colors border-r border-[#f0f0f0] text-left"
+                  className="flex-1 px-5 py-4 text-[13px] font-semibold text-[#333] dark:text-[#ccc] hover:bg-[#fafafa] dark:hover:bg-[#161616] transition-colors border-r border-[#f0f0f0] dark:border-[#1e1e1e] text-left"
                 >
                   PUMPS
                 </button>
                 <button
                   onClick={() => setCalibrationModal('tanks')}
-                  className="flex-1 px-5 py-4 text-[13px] font-semibold text-[#333] hover:bg-[#fafafa] transition-colors text-left"
+                  className="flex-1 px-5 py-4 text-[13px] font-semibold text-[#333] dark:text-[#ccc] hover:bg-[#fafafa] dark:hover:bg-[#161616] transition-colors text-left"
                 >
                   TANKS
                 </button>
@@ -407,7 +600,7 @@ export function DashboardPage() {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl overflow-hidden border border-[#ebebeb] h-[300px] flex flex-col">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl overflow-hidden border border-[#ebebeb] dark:border-[#222] h-[300px] flex flex-col">
             <AccountsPanel selected={selectedAccount} onSelect={setSelectedAccount} />
             <RecentActivityCard account={selectedAccount} readOnly={shiftEnded} attendantSales={attendantSales} attendantGradeSales={attendantGradeSalesMap} shiftId={shift?.id} />
           </div>
@@ -419,14 +612,14 @@ export function DashboardPage() {
             const fmtC = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
             return (
               <div>
-                <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-3">Convenience Store</p>
-                <button onClick={() => setShowConvenienceBreakdown(true)} className="bg-white rounded-2xl border border-[#ebebeb] p-6 text-left w-full hover:border-[#ccc] transition-colors">
-                  <p className="text-[13px] font-semibold text-[#888] mb-3">Total Sales</p>
-                  <p className="text-[42px] font-bold text-[#111] leading-none tracking-tight mb-5">
+                <p className="text-[11px] font-bold tracking-widest text-[#aaa] dark:text-[#555] uppercase mb-3">Convenience Store</p>
+                <button onClick={() => setShowConvenienceBreakdown(true)} className="bg-white dark:bg-[#1a1a1a] rounded-2xl border border-[#ebebeb] dark:border-[#222] p-6 text-left w-full hover:border-[#ccc] dark:hover:border-[#444] transition-colors">
+                  <p className="text-[13px] font-semibold text-[#888] dark:text-[#666] mb-3">Total Sales</p>
+                  <p className="text-[42px] font-bold text-[#111] dark:text-[#e0e0e0] leading-none tracking-tight mb-5">
                     {cstoreTotalSales > 0 ? `J$ ${cstoreTotalSales.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : 'J$ 0.00'}
                   </p>
-                  <div className="flex items-center justify-between pt-4 border-t border-[#f0f0f0]">
-                    <span className="text-[13px] font-medium text-[#888]">Balance</span>
+                  <div className="flex items-center justify-between pt-4 border-t border-[#f0f0f0] dark:border-[#1e1e1e]">
+                    <span className="text-[13px] font-medium text-[#888] dark:text-[#666]">Balance</span>
                     <span className={`text-[13px] font-semibold ${cstoreBalance < 0 ? 'text-red-500' : cstoreBalance > 0 ? 'text-green-600' : 'text-[#bbb]'}`}>
                       {cstoreBalance < 0 ? `-${fmtC(Math.abs(cstoreBalance))}` : cstoreBalance > 0 ? `+${fmtC(cstoreBalance)}` : 'J$0.00'}
                     </span>
@@ -440,7 +633,7 @@ export function DashboardPage() {
 
       {/* Pumps column — hidden on narrow screens */}
       {!isNarrow && (
-        <div className="flex-1 min-w-0 border-l border-[#e8e8e8] flex flex-col overflow-hidden">
+        <div className="flex-1 min-w-0 border-l border-[#e8e8e8] dark:border-[#222] flex flex-col overflow-hidden">
           {pumps.length === 0 ? (
             <NotConfigured label="Pumps" />
           ) : (
@@ -454,6 +647,7 @@ export function DashboardPage() {
                     fuelType={selectedFuel.name}
                     nozzles={getNozzles(selectedFuel.name)}
                     onChange={(rows) => setNozzles(selectedFuel.name, rows)}
+                    onSave={saveNozzleRows}
                     pricePerLitre={fuelPrices[selectedFuel.name]}
                     readOnly={shiftEnded}
                   />
@@ -466,7 +660,7 @@ export function DashboardPage() {
 
       {/* Tanks column — hidden on narrow screens */}
       {!isNarrow && (
-        <div className="flex-1 min-w-0 border-l border-[#e8e8e8] flex flex-col overflow-hidden">
+        <div className="flex-1 min-w-0 border-l border-[#e8e8e8] dark:border-[#222] flex flex-col overflow-hidden">
           {false ? (
             <NotConfigured label="Tanks" />
           ) : (
@@ -492,18 +686,18 @@ export function DashboardPage() {
       {/* Pumps modal — narrow screens only */}
       {calibrationModal === 'pumps' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl w-full max-w-[500px] h-[850px] overflow-y-auto shadow-xl">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl w-full max-w-[500px] h-[850px] overflow-y-auto shadow-xl">
             <div className="px-5 pt-4 pb-3 flex items-center justify-between">
               <button
                 onClick={() => setCalibrationModal(null)}
-                className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+                className="flex items-center gap-2 border border-[#ddd] dark:border-[#333] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] dark:text-[#ccc] hover:bg-[#f4f4f4] dark:hover:bg-[#222] transition-colors"
               >
                 <ArrowLeft size={13} />
                 Go back
               </button>
               <button
                 onClick={() => setCalibrationModal('tanks')}
-                className="text-[13px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors"
+                className="text-[13px] font-semibold text-[#333] dark:text-[#ccc] border border-[#ddd] dark:border-[#333] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] dark:hover:bg-[#222] transition-colors"
               >
                 Switch to Tanks
               </button>
@@ -512,7 +706,7 @@ export function DashboardPage() {
               <NotConfigured label="Pumps" />
             ) : (
               <>
-                <div className="border-b border-[#f0f0f0]">
+                <div className="border-b border-[#f0f0f0] dark:border-[#1e1e1e]">
                   <PumpsPanel selected={selectedFuel} onSelect={handleFuelSelect} onEditPrice={() => setShowEditPrices(true)} price={selectedFuel ? (fuelPrices[selectedFuel.name] || null) : null} />
                 </div>
                 <div className="h-[850px]">
@@ -523,6 +717,7 @@ export function DashboardPage() {
                     fuelType={selectedFuel.name}
                     nozzles={getNozzles(selectedFuel.name)}
                     onChange={(rows) => setNozzles(selectedFuel.name, rows)}
+                    onSave={saveNozzleRows}
                     pricePerLitre={fuelPrices[selectedFuel.name]}
                     readOnly={shiftEnded}
                   />
@@ -537,18 +732,18 @@ export function DashboardPage() {
       {/* Tanks modal — narrow screens only */}
       {calibrationModal === 'tanks' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl w-full max-w-[500px] h-[850px] flex flex-col overflow-hidden shadow-xl">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl w-full max-w-[500px] h-[850px] flex flex-col overflow-hidden shadow-xl">
             <div className="px-5 pt-4 pb-3 flex items-center justify-between flex-shrink-0">
               <button
                 onClick={() => setCalibrationModal(null)}
-                className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+                className="flex items-center gap-2 border border-[#ddd] dark:border-[#333] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] dark:text-[#ccc] hover:bg-[#f4f4f4] dark:hover:bg-[#222] transition-colors"
               >
                 <ArrowLeft size={13} />
                 Go back
               </button>
               <button
                 onClick={() => setCalibrationModal('pumps')}
-                className="text-[13px] font-semibold text-[#333] border border-[#ddd] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] transition-colors"
+                className="text-[13px] font-semibold text-[#333] dark:text-[#ccc] border border-[#ddd] dark:border-[#333] rounded-lg px-3 py-1 hover:bg-[#f4f4f4] dark:hover:bg-[#222] transition-colors"
               >
                 Switch to Pumps
               </button>
@@ -593,5 +788,17 @@ export function DashboardPage() {
         />
       )}
     </div>
+    )}
+    {showEndShiftFlow && endingShiftId && (
+      <EndShiftFlow
+        shiftId={endingShiftId}
+        totalSales={totalSalesAcrossPumps}
+        attendantSales={attendantSales}
+        onEndShift={handleShiftEnd}
+        onLogout={logout}
+        onClose={() => setShowEndShiftFlow(false)}
+      />
+    )}
+    </>
   )
 }

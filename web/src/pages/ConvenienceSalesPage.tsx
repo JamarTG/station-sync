@@ -9,6 +9,7 @@ import { printOrderReceipt } from '../lib/printReceipt'
 import { InvoiceView, type CartItem } from '../components/dashboard/InvoiceView'
 import { SettleCreditModal } from '../components/dashboard/SettleCreditModal'
 import type { Order, Shift } from '../lib/api'
+import { matchesSearch } from '../lib/search'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -425,14 +426,8 @@ function TransactionsTable({
     return false
   })
 
-  const filtered = query.trim()
-    ? transactions.filter((t) =>
-        t.invoice_no.toLowerCase().includes(query.toLowerCase()) ||
-        t.cashier.toLowerCase().includes(query.toLowerCase()) ||
-        t.method.toLowerCase().includes(query.toLowerCase()) ||
-        t.status.toLowerCase().includes(query.toLowerCase())
-      )
-    : transactions
+  const filtered = transactions.filter((t) =>
+    matchesSearch(query, { text: [t.invoice_no, t.cashier, t.method, t.status] }))
 
   const heldTxns = filtered.filter((t) => t.status === 'Held')
   const mainTxns = filtered.filter((t) => t.status !== 'Held')
@@ -692,12 +687,8 @@ function CStoreManagerView() {
     .slice()
     .sort((a, b) => b.date.localeCompare(a.date))
 
-  const filtered = query.trim()
-    ? shifts.filter((s) =>
-        s.supervisor_name.toLowerCase().includes(query.toLowerCase()) ||
-        fmtDate(s.date).toLowerCase().includes(query.toLowerCase())
-      )
-    : shifts
+  const filtered = shifts.filter((s) =>
+    matchesSearch(query, { text: [s.supervisor_name, fmtDate(s.date)], date: s.date }))
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -766,7 +757,7 @@ function CStoreManagerView() {
 
           {shifts.length > 0 && (
             <div className="px-5 py-3 border-t border-[#f0f0f0] shrink-0">
-              <p className="text-[11px] font-medium text-[#bbb]">{filtered.length} shift{filtered.length !== 1 ? 's' : ''}</p>
+              <p className="text-[20px] font-bold text-[#111]">{filtered.length}</p>
             </div>
           )}
         </div>

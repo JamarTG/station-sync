@@ -3,16 +3,19 @@ import { useQueryClient } from '@tanstack/react-query'
 import { LogoLoader } from '../components/StationSyncLogo'
 import { ArrowLeft, ChevronRight, Cylinder, Fuel, Search, X } from 'lucide-react'
 import { useAuth } from '../lib/authContext'
-import { useOpenShift, useShiftAttendance, useShiftDeposits, useShiftFuelPrices, useShiftsInRange, useTanks, usePumps, useFuels, useNozzles, useShiftTankLogs, useFuelSummary, useShiftNozzleLogs } from '../hooks/useApi'
+import { useOpenShift, useShiftAttendance, useShiftDeposits, useShiftFuelPrices, useShiftsInRange, useTanks, usePumps, useFuels, useNozzles, useShiftTankLogs, useFuelSummary, useShiftNozzleLogs, useShiftFuelReceivals } from '../hooks/useApi'
 import { upsertNozzleLog, upsertTankLog } from '../lib/api'
-import type { Deposit, FuelSummary, Nozzle, Pump, Shift, Tank } from '../lib/api'
+import { matchesSearch } from '../lib/search'
+import type { Deposit, FuelReceival, FuelSummary, Nozzle, Pump, Shift, ShiftAttendance, Tank } from '../lib/api'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const fmt = (n: number) => `J$${n.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
 
 function displayType(type: string): string {
-  if (type === 'Card') return 'Card Deposit'
+  if (type === 'CashDeposit') return 'Cash Deposit'
+  if (type === 'CardDeposit') return 'Card Deposit'
+  if (type === 'FXDeposit')   return 'FX Deposit'
   return type
 }
 
@@ -73,25 +76,25 @@ function BreakdownPanel({ deposits, selected }: { deposits: Deposit[]; selected:
 
   return (
     <div className="h-full flex flex-col overflow-y-auto">
-      <div className="p-5 border-b border-[#f0f0f0] shrink-0">
-        <p className="text-[13px] font-bold text-[#111]">Sales</p>
+      <div className="p-5 border-b border-[#f0f0f0] dark:border-[#1e1e1e] shrink-0">
+        <p className="text-[13px] font-bold text-[#111] dark:text-[#e0e0e0]">Sales</p>
       </div>
 
       {/* Breakdown by type */}
-      <div className="p-5 border-b border-[#f0f0f0] shrink-0">
-        <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase mb-3">Breakdown</p>
+      <div className="p-5 border-b border-[#f0f0f0] dark:border-[#1e1e1e] shrink-0">
+        <p className="text-[11px] font-bold tracking-widest text-[#bbb] dark:text-[#444] uppercase mb-3">Breakdown</p>
         {entries.length === 0 ? (
-          <p className="text-[13px] font-medium text-[#bbb]">No transactions yet</p>
+          <p className="text-[13px] font-medium text-[#bbb] dark:text-[#444]">No transactions yet</p>
         ) : (
           <div className="space-y-2">
             {entries.map(([type, amount]) => (
               <div key={type} className="flex items-center justify-between">
-                <p className="text-[13px] font-medium text-[#555]">{displayType(type)}</p>
+                <p className="text-[13px] font-medium text-[#555] dark:text-[#999]">{displayType(type)}</p>
                 <div className="flex items-center gap-3">
                   <div className="w-20 h-1.5 rounded-full bg-[#f0f0f0] overflow-hidden">
                     <div className="h-full bg-[#111] rounded-full" style={{ width: grand > 0 ? `${(amount / grand) * 100}%` : '0%' }} />
                   </div>
-                  <p className="text-[13px] font-semibold text-[#111] w-24 text-right">{fmt(amount)}</p>
+                  <p className="text-[13px] font-semibold text-[#111] dark:text-[#e0e0e0] w-24 text-right">{fmt(amount)}</p>
                 </div>
               </div>
             ))}
@@ -101,30 +104,30 @@ function BreakdownPanel({ deposits, selected }: { deposits: Deposit[]; selected:
 
       {/* Summary */}
       {deposits.length > 0 && (
-        <div className="p-5 border-b border-[#f0f0f0] shrink-0">
-          <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase mb-3">Summary</p>
+        <div className="p-5 border-b border-[#f0f0f0] dark:border-[#1e1e1e] shrink-0">
+          <p className="text-[11px] font-bold tracking-widest text-[#bbb] dark:text-[#444] uppercase mb-3">Summary</p>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-[13px] font-medium text-[#555]">Expenditures</p>
-              <p className={`text-[13px] font-semibold ${totalExpenditure > 0 ? 'text-red-500' : 'text-[#bbb]'}`}>
+              <p className="text-[13px] font-medium text-[#555] dark:text-[#999]">Expenditures</p>
+              <p className={`text-[13px] font-semibold ${totalExpenditure > 0 ? 'text-red-500' : 'text-[#bbb] dark:text-[#444]'}`}>
                 {totalExpenditure > 0 ? `-${fmt(totalExpenditure)}` : '--'}
               </p>
             </div>
             <div className="flex items-center justify-between">
-              <p className="text-[13px] font-medium text-[#555]">Balance</p>
-              <p className={`text-[13px] font-semibold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-500' : 'text-[#111]'}`}>
+              <p className="text-[13px] font-medium text-[#555] dark:text-[#999]">Balance</p>
+              <p className={`text-[13px] font-semibold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-500' : 'text-[#111] dark:text-[#e0e0e0]'}`}>
                 {balance > 0 ? `+${fmt(balance)}` : balance < 0 ? `-${fmt(Math.abs(balance))}` : fmt(0)}
               </p>
             </div>
             <div className="flex items-center justify-between">
-              <p className="text-[13px] font-medium text-[#555]">Overage</p>
-              <p className={`text-[13px] font-semibold ${overage > 0 ? 'text-green-600' : 'text-[#bbb]'}`}>
+              <p className="text-[13px] font-medium text-[#555] dark:text-[#999]">Overage</p>
+              <p className={`text-[13px] font-semibold ${overage > 0 ? 'text-green-600' : 'text-[#bbb] dark:text-[#444]'}`}>
                 {overage > 0 ? `+${fmt(overage)}` : '--'}
               </p>
             </div>
             <div className="flex items-center justify-between">
-              <p className="text-[13px] font-medium text-[#555]">Shortage</p>
-              <p className={`text-[13px] font-semibold ${shortage > 0 ? 'text-red-500' : 'text-[#bbb]'}`}>
+              <p className="text-[13px] font-medium text-[#555] dark:text-[#999]">Shortage</p>
+              <p className={`text-[13px] font-semibold ${shortage > 0 ? 'text-red-500' : 'text-[#bbb] dark:text-[#444]'}`}>
                 {shortage > 0 ? `-${fmt(shortage)}` : '--'}
               </p>
             </div>
@@ -135,12 +138,12 @@ function BreakdownPanel({ deposits, selected }: { deposits: Deposit[]; selected:
       {/* Selected transaction detail */}
       {!selected ? (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-[13px] font-medium text-[#bbb]">Select a transaction to view details</p>
+          <p className="text-[13px] font-medium text-[#bbb] dark:text-[#444]">Select a transaction to view details</p>
         </div>
       ) : (
         <div className="shrink-0">
-          <div className="p-5 border-b border-[#f0f0f0]">
-            <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase mb-3">Transaction</p>
+          <div className="p-5 border-b border-[#f0f0f0] dark:border-[#1e1e1e]">
+            <p className="text-[11px] font-bold tracking-widest text-[#bbb] dark:text-[#444] uppercase mb-3">Transaction</p>
             {[
               { label: 'Attendant', value: selected.attendant_name },
               { label: 'Type',      value: displayType(selected.type) },
@@ -150,8 +153,8 @@ function BreakdownPanel({ deposits, selected }: { deposits: Deposit[]; selected:
               ...(selected.metadata ? [{ label: 'Note', value: selected.metadata }] : []),
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center py-2.5 border-b border-[#f8f8f8] last:border-0">
-                <span className="text-[12px] text-[#999] w-24 shrink-0">{label}</span>
-                <span className="text-[13px] text-[#111]">{value}</span>
+                <span className="text-[12px] text-[#999] dark:text-[#666] w-24 shrink-0">{label}</span>
+                <span className="text-[13px] text-[#111] dark:text-[#e0e0e0]">{value}</span>
               </div>
             ))}
           </div>
@@ -164,30 +167,20 @@ function BreakdownPanel({ deposits, selected }: { deposits: Deposit[]; selected:
 // ── Transactions Table (cashier / attendant view) ─────────────────────────────
 
 function TransactionsView() {
-  const { user } = useAuth()
-  const { data: shift }       = useOpenShift()
-  const { data: allDeposits = [] } = useShiftDeposits(shift?.id)
+  const { data: shift }   = useOpenShift()
+  const { data: deposits = [] } = useShiftDeposits(shift?.id)
   const [selected, setSelected] = useState<Deposit | null>(null)
   const [query, setQuery] = useState('')
 
-  const isAttendant = user?.role === 'Attendant'
-  const deposits = isAttendant
-    ? allDeposits.filter((d) => d.attendant_id === user?.id)
-    : allDeposits
-
-  const filtered = query.trim()
-    ? deposits.filter((d) =>
-        d.attendant_name.toLowerCase().includes(query.toLowerCase()) ||
-        d.type.toLowerCase().includes(query.toLowerCase())
-      )
-    : deposits
+  const filtered = deposits.filter((d) =>
+    matchesSearch(query, { text: [d.attendant_name, d.type] }))
 
   return (
     <div className="flex flex-1 overflow-hidden">
       {/* Left: transactions table */}
       <div className="flex-1 overflow-hidden flex flex-col p-6 gap-4 min-w-0">
         {/* Search bar */}
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-white border border-[#ebebeb] rounded-xl shrink-0">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-white border border-[#ebebeb] dark:border-[#222] rounded-xl shrink-0">
           <Search size={14} className="text-[#bbb] shrink-0" />
           <input
             type="text"
@@ -203,8 +196,8 @@ function TransactionsView() {
           )}
         </div>
 
-        <div className="flex-1 bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
-          <div className="grid grid-cols-[1fr_1fr_1.5fr_1fr_1fr_32px] gap-4 px-5 py-2.5 border-b border-[#f0f0f0] bg-[#fafafa] shrink-0">
+        <div className="flex-1 bg-white rounded-2xl border border-[#ebebeb] dark:border-[#222] overflow-hidden flex flex-col">
+          <div className="grid grid-cols-[1fr_1fr_1.5fr_1fr_1fr_32px] gap-4 px-5 py-2.5 border-b border-[#f0f0f0] dark:border-[#1e1e1e] bg-[#fafafa] shrink-0">
             {['Time', 'Shift', 'Attendant', 'Type', 'Amount', ''].map((h) => (
               <p key={h} className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
             ))}
@@ -243,7 +236,7 @@ function TransactionsView() {
           )}
 
           {deposits.length > 0 && (
-            <div className="flex items-center justify-between px-5 py-3 border-t border-[#f0f0f0] shrink-0">
+            <div className="flex items-center justify-between px-5 py-3 border-t border-[#f0f0f0] dark:border-[#1e1e1e] shrink-0">
               <p className="text-[20px] font-bold text-[#111]">{deposits.length}</p>
               <p className="text-[13px] font-bold text-[#111]">{fmt(deposits.reduce((s, d) => s + d.amount, 0))}</p>
             </div>
@@ -252,57 +245,14 @@ function TransactionsView() {
       </div>
 
       {/* Right: breakdown panel */}
-      <div className="w-[380px] shrink-0 border-l border-[#e8e8e8] h-full">
+      <div className="w-[380px] shrink-0 border-l border-[#e8e8e8] dark:border-[#222] h-full">
         <BreakdownPanel deposits={deposits} selected={selected} />
       </div>
     </div>
   )
 }
 
-// ── Tanks Panel (manager view) ────────────────────────────────────────────────
 
-function TanksPanel() {
-  const { data: tanks = [], isLoading } = useTanks()
-
-  return (
-    <div className="h-full flex flex-col">
-      <div className="p-5 flex-1 flex flex-col min-h-0">
-        <p className="mb-4">
-          <span className="text-[13px] font-bold text-[#111]">Tanks</span>
-          <span className="text-[13px] font-medium text-[#aaa]"> | Overview</span>
-        </p>
-        <div className="grid grid-cols-[20px_1fr_1fr_auto] gap-3 mb-2">
-          {['#', 'Name', 'Fuel', 'Capacity'].map((h) => (
-            <p key={h} className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
-          ))}
-        </div>
-        {isLoading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <LogoLoader />
-          </div>
-        ) : tanks.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-[13px] font-medium text-[#bbb]">No tanks configured</p>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto flex flex-col">
-            {tanks.map((tank, i) => (
-              <div key={tank.id} className="grid grid-cols-[20px_1fr_1fr_auto] gap-3 items-center py-2.5 border-b border-[#f8f8f8] last:border-0">
-                <p className="text-[11px] font-bold text-[#ccc]">{i + 1}</p>
-                <p className="text-[13px] font-semibold text-[#111]">{tank.name}</p>
-                <p className="text-[13px] text-[#666]">{tank.fuel_name}</p>
-                <p className="text-[13px] font-semibold text-[#111] text-right">{tank.capacity_litres.toLocaleString('en-JM')}L</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div className="flex items-center justify-end border-t border-[#f0f0f0] px-5 py-3">
-        <p className="text-[13px] font-bold text-[#bbb]">{tanks.length} tank{tanks.length !== 1 ? 's' : ''}</p>
-      </div>
-    </div>
-  )
-}
 
 // ── Shift Detail Panel ────────────────────────────────────────────────────────
 
@@ -313,11 +263,11 @@ function ShiftDetailPanel({ shift }: { shift: Shift | null }) {
   for (const d of deposits) totals[d.type] = (totals[d.type] ?? 0) + d.amount
   const entries = Object.entries(totals).sort(([, a], [, b]) => b - a)
   const grand = entries.reduce((s, [, v]) => s + v, 0)
-  const { balance, overage, shortage } = calcSummary(deposits)
+  const { balance, overage, shortage, totalExpenditure } = calcSummary(deposits)
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      <div className="p-5 border-b border-[#f0f0f0] shrink-0">
+      <div className="p-5 border-b border-[#f0f0f0] dark:border-[#1e1e1e] shrink-0">
         <p className="text-[13px] font-bold text-[#111]">Sales</p>
         {shift && (
           <p className="text-[28px] font-bold text-[#111] leading-none mt-3">{fmt(grand)}</p>
@@ -336,12 +286,12 @@ function ShiftDetailPanel({ shift }: { shift: Shift | null }) {
         </div>
       ) : (
         <>
-          <div className="p-5 border-b border-[#f0f0f0] shrink-0">
+          <div className="p-5 border-b border-[#f0f0f0] dark:border-[#1e1e1e] shrink-0">
             <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase mb-3">Breakdown</p>
             <div className="space-y-2">
               {entries.map(([type, amount]) => (
                 <div key={type} className="flex items-center justify-between">
-                  <p className="text-[13px] font-medium text-[#555]">{type}</p>
+                  <p className="text-[13px] font-medium text-[#555]">{displayType(type)}</p>
                   <div className="flex items-center gap-3">
                     <div className="w-20 h-1.5 rounded-full bg-[#f0f0f0] overflow-hidden">
                       <div className="h-full bg-[#111] rounded-full" style={{ width: grand > 0 ? `${(amount / grand) * 100}%` : '0%' }} />
@@ -356,6 +306,12 @@ function ShiftDetailPanel({ shift }: { shift: Shift | null }) {
           <div className="p-5 shrink-0">
             <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase mb-3">Summary</p>
             <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-[13px] font-medium text-[#555]">Expenditures</p>
+                <p className={`text-[13px] font-semibold ${totalExpenditure > 0 ? 'text-red-500' : 'text-[#bbb]'}`}>
+                  {totalExpenditure > 0 ? `-${fmt(totalExpenditure)}` : '--'}
+                </p>
+              </div>
               <div className="flex items-center justify-between">
                 <p className="text-[13px] font-medium text-[#555]">Balance</p>
                 <p className={`text-[13px] font-semibold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-500' : 'text-[#111]'}`}>
@@ -417,7 +373,7 @@ function PumpNozzleRows({
         return (
           <div
             key={n.nozzleNumber}
-            className="grid grid-cols-[28px_1fr_1fr_1fr] gap-3 items-center py-1.5 border-b border-[#f4f4f4] last:border-b-0"
+            className="grid grid-cols-[28px_1fr_1fr_1fr] gap-3 items-center py-1.5 border-b border-[#f4f4f4] dark:border-[#1e1e1e] last:border-b-0"
           >
             <p className="text-[12px] font-bold text-[#ccc]">{pumpNum}</p>
             <p className="text-[13px] text-[#666]">
@@ -460,7 +416,7 @@ function PumpEditRows({
         return (
           <div
             key={nozzle.id}
-            className="grid grid-cols-[28px_1fr_1fr_1fr] gap-3 items-center py-1.5 border-b border-[#f4f4f4] last:border-b-0"
+            className="grid grid-cols-[28px_1fr_1fr_1fr] gap-3 items-center py-1.5 border-b border-[#f4f4f4] dark:border-[#1e1e1e] last:border-b-0"
           >
             <p className="text-[12px] font-bold text-[#ccc]">{pumpNum}</p>
             <input
@@ -493,6 +449,7 @@ function PumpsPanel({ shiftId }: { shiftId: string }) {
   const { data: fuels = [], isLoading: fuelsLoading } = useFuels()
   const { data: nozzles = [] } = useNozzles()
   const { data: nozzleLogs = [] } = useShiftNozzleLogs(shiftId)
+  const { data: fuelPrices = [] } = useShiftFuelPrices(shiftId)
   const [activeFuelId, setActiveFuelId] = useState<string | null>(null)
   const [editMode, setEditMode] = useState(false)
   const [editState, setEditState] = useState<Record<string, { opening: string; closing: string }>>({})
@@ -509,6 +466,22 @@ function PumpsPanel({ shiftId }: { shiftId: string }) {
         return log ? sum + (log.ending_reading - log.starting_reading) : sum
       }, 0)
   }, [nozzles, nozzleLogs, pumps, effectiveFuel])
+
+  const totalSales = useMemo(() => {
+    let total = 0
+    for (const fuel of fuels) {
+      const price = fuelPrices.find((fp) => fp.fuel_name === fuel.name)?.price
+      if (!price) continue
+      const litres = nozzles
+        .filter((n) => pumps.some((p) => p.id === n.pump_id) && n.fuel_id === fuel.id)
+        .reduce((sum, n) => {
+          const log = nozzleLogs.find((l) => l.nozzle_id === n.id)
+          return log ? sum + (log.ending_reading - log.starting_reading) : sum
+        }, 0)
+      total += litres * price
+    }
+    return total
+  }, [fuels, fuelPrices, nozzles, nozzleLogs, pumps])
 
   function enterEditMode() {
     const state: Record<string, { opening: string; closing: string }> = {}
@@ -621,13 +594,18 @@ function PumpsPanel({ shiftId }: { shiftId: string }) {
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between border-t border-[#f0f0f0] px-5 py-3 shrink-0">
+      <div className="flex items-center justify-between border-t border-[#f0f0f0] dark:border-[#1e1e1e] px-5 py-3 shrink-0">
         <span className="flex items-center gap-1 text-[12px] font-semibold text-[#888]">
           <Fuel size={12} />{pumps.length}
         </span>
-        {totalLitres > 0 && (
-          <p className="text-[12px] font-semibold text-[#888]">{totalLitres.toLocaleString('en-JM')}L</p>
-        )}
+        <div className="flex items-center gap-3">
+          {totalLitres > 0 && (
+            <p className="text-[12px] font-semibold text-[#888]">{totalLitres.toLocaleString('en-JM')}L</p>
+          )}
+          {totalSales > 0 && (
+            <p className="text-[12px] font-semibold text-[#333]">{fmt(totalSales)}</p>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -646,7 +624,7 @@ function TankEditRow({
 }) {
   const vals = editState[tank.id] ?? { opening: '', closing: '', delivery: '' }
   return (
-    <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 items-center py-1.5 border-b border-[#f4f4f4] last:border-b-0">
+    <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 items-center py-1.5 border-b border-[#f4f4f4] dark:border-[#1e1e1e] last:border-b-0">
       <div>
         <p className="text-[13px] font-semibold text-[#111]">{tank.name}</p>
         <p className="text-[11px] text-[#aaa]">{tank.fuel_name}</p>
@@ -676,11 +654,35 @@ function TankEditRow({
   )
 }
 
+const WET_STOCK_TABS = ['Levels', 'Fuel Receivals'] as const
+type WetStockTab = typeof WET_STOCK_TABS[number]
+
 function TankLogsPanel({ shiftId }: { shiftId: string }) {
+  const [activeTab, setActiveTab] = useState<WetStockTab>('Levels')
   const { data: tanks = [], isLoading: tanksLoading } = useTanks()
   const { data: logs  = [], isLoading: logsLoading  } = useShiftTankLogs(shiftId)
+  const { data: receivals = [], isLoading: receivalsLoading } = useShiftFuelReceivals(shiftId)
+  const { data: pumps = [] } = usePumps()
 
-  const isLoading = tanksLoading || logsLoading
+  // Fixed hooks for up to 8 pumps (rules of hooks — always called)
+  const fs0 = useFuelSummary(pumps[0]?.id, shiftId)
+  const fs1 = useFuelSummary(pumps[1]?.id, shiftId)
+  const fs2 = useFuelSummary(pumps[2]?.id, shiftId)
+  const fs3 = useFuelSummary(pumps[3]?.id, shiftId)
+  const fs4 = useFuelSummary(pumps[4]?.id, shiftId)
+  const fs5 = useFuelSummary(pumps[5]?.id, shiftId)
+  const fs6 = useFuelSummary(pumps[6]?.id, shiftId)
+  const fs7 = useFuelSummary(pumps[7]?.id, shiftId)
+
+  const litresByFuel = useMemo(() => {
+    const map: Record<string, number> = {}
+    for (const s of [fs0, fs1, fs2, fs3, fs4, fs5, fs6, fs7].flatMap((q) => q.data ?? [])) {
+      map[s.fuelType] = (map[s.fuelType] ?? 0) + s.totalLitresSold
+    }
+    return map
+  }, [fs0.data, fs1.data, fs2.data, fs3.data, fs4.data, fs5.data, fs6.data, fs7.data])
+
+  const isLoadingLevels = tanksLoading || logsLoading
   const rows = tanks.map((t) => ({ tank: t, log: logs.find((l) => l.tank_id === t.id) ?? null }))
 
   const totalDelivery = useMemo(
@@ -691,55 +693,140 @@ function TankLogsPanel({ shiftId }: { shiftId: string }) {
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <div className="flex-1 p-5 flex flex-col min-h-0 overflow-hidden">
-        {/* Title */}
-        <p className="mb-4 shrink-0">
-          <span className="text-[13px] font-bold text-[#111]">Tanks</span>
-          <span className="text-[13px] font-medium text-[#aaa]"> | Levels</span>
-        </p>
-
-        {/* Column headers */}
-        <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 mb-2 shrink-0">
-          {['Tank', 'Opening', 'Closing', 'Delivery'].map((h) => (
-            <p key={h} className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
-          ))}
-        </div>
-
-        {isLoading ? (
-          <div className="flex-1 flex items-center justify-center"><LogoLoader /></div>
-        ) : tanks.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-[13px] font-medium text-[#bbb]">No tanks configured</p>
-          </div>
-        ) : (
-          <div className="flex-1 overflow-y-auto">
-            {rows.map(({ tank, log }) => (
-              <div
-                key={tank.id}
-                className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 items-center py-1.5 border-b border-[#f4f4f4] last:border-b-0"
+        {/* Title + tabs */}
+        <div className="flex items-center justify-between mb-4 shrink-0">
+          <p>
+            <span className="text-[13px] font-bold text-[#111]">Tanks</span>
+            <span className="text-[13px] font-medium text-[#aaa]"> | {activeTab}</span>
+          </p>
+          <div className="flex gap-0.5">
+            {WET_STOCK_TABS.map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-colors ${
+                  tab === activeTab ? 'bg-[#f0f0f0] text-[#111]' : 'text-[#bbb] hover:text-[#555]'
+                }`}
               >
-                <div>
-                  <p className="text-[13px] font-semibold text-[#111]">{tank.name}</p>
-                  <p className="text-[11px] text-[#aaa]">{tank.fuel_name}</p>
-                </div>
-                <p className="text-[13px] text-[#666]">
-                  {log?.opening_level != null ? `${log.opening_level.toLocaleString('en-JM')}L` : '—'}
-                </p>
-                <p className="text-[13px] text-[#666]">
-                  {log?.closing_level != null ? `${log.closing_level.toLocaleString('en-JM')}L` : '—'}
-                </p>
-                <p className="text-[13px] font-semibold text-[#111]">
-                  {log?.delivery_litres != null ? `${log.delivery_litres.toLocaleString('en-JM')}L` : '—'}
-                </p>
-              </div>
+                {tab}
+              </button>
             ))}
           </div>
+        </div>
+
+        {activeTab === 'Levels' && (
+          <>
+            <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr] gap-3 mb-2 shrink-0">
+              {['Tank', 'Opening', 'Closing', 'Variance', 'Wet Stock'].map((h) => (
+                <p key={h} className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
+              ))}
+            </div>
+            {isLoadingLevels ? (
+              <div className="flex-1 flex items-center justify-center"><LogoLoader /></div>
+            ) : tanks.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-[13px] font-medium text-[#bbb]">No tanks configured</p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto">
+                {rows.map(({ tank, log }) => {
+                  const tOpen = log?.opening_level
+                  const tClose = log?.closing_level
+                  const receival = receivals.find((r) => r.tank_id === tank.id) ?? receivals.find((r) => r.fuel_name === tank.fuel_name) ?? null
+                  const fuelReceived = receival?.opening_level != null && receival?.closing_level != null
+                    ? receival.closing_level - receival.opening_level
+                    : null
+                  const suggestedLitres = tOpen != null && tClose != null
+                    ? (fuelReceived != null ? tOpen + fuelReceived - tClose : tOpen >= tClose ? tOpen - tClose : null)
+                    : null
+                  const actualLitresSold = litresByFuel[tank.fuel_name] ?? null
+                  const variance = suggestedLitres != null && actualLitresSold != null ? actualLitresSold - suggestedLitres : null
+                  const wetStockPct = variance != null && actualLitresSold != null && actualLitresSold > 0
+                    ? (variance / actualLitresSold) * 100
+                    : null
+                  const wetColor = wetStockPct == null ? 'text-[#111]'
+                    : wetStockPct > 1 ? 'text-blue-500'
+                    : wetStockPct > -0.5 ? 'text-yellow-500'
+                    : 'text-red-500'
+                  return (
+                    <div
+                      key={tank.id}
+                      className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr] gap-3 items-center py-1.5 border-b border-[#f4f4f4] dark:border-[#1e1e1e] last:border-b-0"
+                    >
+                      <div>
+                        <p className="text-[13px] font-semibold text-[#111]">{tank.name}</p>
+                        <p className="text-[11px] text-[#aaa]">{tank.fuel_name}</p>
+                      </div>
+                      <p className="text-[13px] text-[#666]">
+                        {tOpen != null ? `${tOpen.toLocaleString('en-JM')}L` : '—'}
+                      </p>
+                      <p className="text-[13px] text-[#666]">
+                        {tClose != null ? `${tClose.toLocaleString('en-JM')}L` : '—'}
+                      </p>
+                      <p className={`text-[13px] font-semibold ${variance == null ? 'text-[#bbb]' : variance < 0 ? 'text-red-500' : 'text-[#333]'}`}>
+                        {variance != null ? `${variance >= 0 ? '+' : ''}${variance.toLocaleString('en-JM')}L` : '—'}
+                      </p>
+                      <p className={`text-[13px] font-semibold ${wetColor}`}>
+                        {wetStockPct != null
+                          ? `${wetStockPct >= 0 ? '+' : ''}${wetStockPct.toFixed(2)}%`
+                          : suggestedLitres != null ? `${suggestedLitres.toLocaleString('en-JM')}L` : '—'}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {activeTab === 'Fuel Receivals' && (
+          <>
+            <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 mb-2 shrink-0">
+              {['Fuel', 'Ordered', 'Delivered', 'Variance'].map((h) => (
+                <p key={h} className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
+              ))}
+            </div>
+            {receivalsLoading ? (
+              <div className="flex-1 flex items-center justify-center"><LogoLoader /></div>
+            ) : receivals.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-[13px] font-medium text-[#bbb]">No fuel receivals recorded</p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto">
+                {receivals.map((r: FuelReceival) => {
+                  const fuelReceived = r.opening_level != null && r.closing_level != null
+                    ? r.closing_level - r.opening_level
+                    : null
+                  const variance = fuelReceived != null ? fuelReceived - r.litres_ordered : null
+                  return (
+                    <div
+                      key={r.id}
+                      className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-3 items-center py-1.5 border-b border-[#f4f4f4] dark:border-[#1e1e1e] last:border-b-0"
+                    >
+                      <p className="text-[13px] font-semibold text-[#111]">{r.fuel_name}</p>
+                      <p className="text-[13px] text-[#666]">
+                        {r.litres_ordered.toLocaleString('en-JM')}L
+                      </p>
+                      <p className="text-[13px] text-[#666]">
+                        {fuelReceived != null ? `${fuelReceived.toLocaleString('en-JM')}L` : '—'}
+                      </p>
+                      <p className={`text-[13px] font-semibold ${variance == null ? 'text-[#bbb]' : variance < 0 ? 'text-red-500' : 'text-[#111]'}`}>
+                        {variance != null ? `${variance >= 0 ? '+' : ''}${variance.toLocaleString('en-JM')}L` : '---'}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
         )}
       </div>
-      <div className="flex items-center justify-between border-t border-[#f0f0f0] px-5 py-3 shrink-0">
+      <div className="flex items-center justify-between border-t border-[#f0f0f0] dark:border-[#1e1e1e] px-5 py-3 shrink-0">
         <span className="flex items-center gap-1 text-[12px] font-semibold text-[#888]">
           <Cylinder size={12} />{tanks.length}
         </span>
-        {totalDelivery > 0 && (
+        {activeTab === 'Levels' && totalDelivery > 0 && (
           <p className="text-[12px] font-semibold text-[#888]">{totalDelivery.toLocaleString('en-JM')}L</p>
         )}
       </div>
@@ -835,7 +922,7 @@ function AccountsSection({ deposits }: { deposits: Deposit[] }) {
               return (
                 <div
                   key={d.id}
-                  className="grid grid-cols-[20px_1fr_auto] gap-3 items-center py-1.5 border-b border-[#f4f4f4] last:border-b-0"
+                  className="grid grid-cols-[20px_1fr_auto] gap-3 items-center py-1.5 border-b border-[#f4f4f4] dark:border-[#1e1e1e] last:border-b-0"
                 >
                   <p className="text-[12px] font-bold text-[#ccc]">{i + 1}</p>
                   <div className="min-w-0">
@@ -850,9 +937,9 @@ function AccountsSection({ deposits }: { deposits: Deposit[] }) {
         )}
       </div>
 
-      <div className="flex items-center justify-between border-t border-[#f0f0f0] px-5 py-3 shrink-0">
-        <span className="flex items-center gap-1 text-[12px] font-semibold text-[#888]">{filtered.length}</span>
-        {total > 0 && <p className="text-[12px] font-semibold text-[#888]">{fmt(total)}</p>}
+      <div className="flex items-center justify-between border-t border-[#f0f0f0] dark:border-[#1e1e1e] px-5 py-3 shrink-0">
+        <p className="text-[20px] font-bold text-[#111]">{filtered.length}</p>
+        {total > 0 && <p className="text-[13px] font-bold text-[#111]">{fmt(total)}</p>}
       </div>
     </div>
   )
@@ -876,7 +963,7 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
   for (const d of deposits) totals[d.type] = (totals[d.type] ?? 0) + d.amount
   const entries = Object.entries(totals).sort(([, a], [, b]) => b - a)
   const grand   = entries.reduce((s, [, v]) => s + v, 0)
-  const { balance, overage, shortage } = calcSummary(deposits)
+  const { totalExpenditure } = calcSummary(deposits)
   const open = !shift.end_time
 
   // Per-attendant: group duplicate attendance records, sum sales across distinct pump assignments
@@ -909,6 +996,17 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
     })
   }, [attendance, deposits, pumpSummaries, pumps])
 
+  // Overage = sum of positive attendant balances; shortage = sum of negative ones
+  const attendantOverage  = attendantRows.reduce((s, r) => r.balance > 0 ? s + r.balance : s, 0)
+  const attendantShortage = attendantRows.reduce((s, r) => r.balance < 0 ? s + Math.abs(r.balance) : s, 0)
+
+  // Balance using the same formula as TotalSalesCard:
+  //   inflow (Cash/Card/FX/Advance/Expenditure/Charge) + shortages - overages - totalFuelSales
+  const CARD_INFLOW_TYPES = new Set(['Cash', 'Card', 'FX', 'Advance', 'Expenditure', 'Charge'])
+  const cardInflow      = deposits.filter((d) => CARD_INFLOW_TYPES.has(d.type)).reduce((s, d) => s + d.amount, 0)
+  const totalFuelSales  = pumps.reduce((s, p) => s + (pumpSummaries[p.id] ?? []).reduce((ps, f) => ps + f.totalSales, 0), 0)
+  const salesBalance    = totalFuelSales > 0 ? cardInflow + attendantShortage - attendantOverage - totalFuelSales : null
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Invisible pump summary loaders — feeds pumpSummaries state */}
@@ -917,7 +1015,7 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
       ))}
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#ebebeb] flex-shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#ebebeb] dark:border-[#222] flex-shrink-0">
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-[13px] text-[#888] hover:text-[#111] transition-colors"
@@ -925,7 +1023,7 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
           <ArrowLeft size={14} /> Go back
         </button>
         {!open && (
-          <button className="px-4 py-2 border border-[#ddd] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors">
+          <button className="px-4 py-2 border border-[#ddd] dark:border-[#333] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors">
             Edit
           </button>
         )}
@@ -933,10 +1031,10 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left: shift info + summary */}
-        <div className="w-[340px] shrink-0 border-r border-[#e8e8e8] flex flex-col overflow-hidden">
+        <div className="w-[340px] shrink-0 border-r border-[#e8e8e8] dark:border-[#222] flex flex-col overflow-hidden">
 
           {/* Identity — fixed */}
-          <div className="p-5 border-b border-[#e8e8e8] shrink-0">
+          <div className="p-5 border-b border-[#e8e8e8] dark:border-[#222] shrink-0">
             <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-1">Shift</p>
             <div className="flex items-center justify-between">
               <p className="text-[28px] font-bold text-[#111] leading-none">{fmt(grand)}</p>
@@ -955,14 +1053,14 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
           <div className="flex-1 overflow-y-auto flex flex-col">
 
           {/* Info rows */}
-          <div className="p-5 border-b border-[#e8e8e8]">
+          <div className="p-5 border-b border-[#e8e8e8] dark:border-[#222]">
             {[
               { label: 'Date',       value: fmtDate(shift.date) },
               { label: 'Supervisor', value: shift.supervisor_name },
               { label: 'Start',      value: shift.start_time ? fmtTime(`1970-01-01T${shift.start_time}`) : '—' },
               { label: 'End',        value: shift.end_time   ? fmtTime(`1970-01-01T${shift.end_time}`)   : '—' },
             ].map(({ label, value }) => (
-              <div key={label} className="flex items-center py-1.5 border-b border-[#f4f4f4] last:border-b-0">
+              <div key={label} className="flex items-center py-1.5 border-b border-[#f4f4f4] dark:border-[#1e1e1e] last:border-b-0">
                 <span className="text-[12px] text-[#999] w-24 shrink-0">{label}</span>
                 <span className="text-[13px] font-semibold text-[#111]">{value}</span>
               </div>
@@ -971,12 +1069,12 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
 
           {/* Prices */}
           {fuelPrices.length > 0 && (
-            <div className="p-5 border-b border-[#e8e8e8]">
+            <div className="p-5 border-b border-[#e8e8e8] dark:border-[#222]">
               <p className="mb-4">
                 <span className="text-[13px] font-bold text-[#111]">Prices</span>
               </p>
               {fuelPrices.map((fp) => (
-                <div key={fp.fuel_id} className="flex items-center py-1.5 border-b border-[#f4f4f4] last:border-b-0">
+                <div key={fp.fuel_id} className="flex items-center py-1.5 border-b border-[#f4f4f4] dark:border-[#1e1e1e] last:border-b-0">
                   <span className="text-[12px] text-[#999] flex-1">{fp.fuel_name}</span>
                   <span className="text-[13px] font-semibold text-[#111]">{fmt(fp.price)}<span className="text-[11px] font-medium text-[#aaa]">/L</span></span>
                 </div>
@@ -985,28 +1083,39 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
           )}
 
           {/* Summary */}
-          <div className="p-5 border-b border-[#e8e8e8]">
+          <div className="p-5 border-b border-[#e8e8e8] dark:border-[#222]">
             <p className="mb-4">
               <span className="text-[13px] font-bold text-[#111]">Summary</span>
             </p>
             {[
               {
+                label: 'Expenditures',
+                value: totalExpenditure > 0 ? `-${fmt(totalExpenditure)}` : '--',
+                color: totalExpenditure > 0 ? 'text-red-500' : 'text-[#bbb]',
+              },
+              {
                 label: 'Balance',
-                value: balance > 0 ? `+${fmt(balance)}` : balance < 0 ? `-${fmt(Math.abs(balance))}` : fmt(0),
-                color: balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-500' : 'text-[#111]',
+                value: salesBalance == null ? '--'
+                  : salesBalance > 0 ? `+${fmt(salesBalance)}`
+                  : salesBalance < 0 ? `-${fmt(Math.abs(salesBalance))}`
+                  : fmt(0),
+                color: salesBalance == null ? 'text-[#bbb]'
+                  : salesBalance > 0 ? 'text-green-600'
+                  : salesBalance < 0 ? 'text-red-500'
+                  : 'text-[#111]',
               },
               {
                 label: 'Overage',
-                value: overage > 0 ? `+${fmt(overage)}` : '--',
-                color: overage > 0 ? 'text-green-600' : 'text-[#bbb]',
+                value: attendantOverage > 0 ? `+${fmt(attendantOverage)}` : '--',
+                color: attendantOverage > 0 ? 'text-green-600' : 'text-[#bbb]',
               },
               {
                 label: 'Shortage',
-                value: shortage > 0 ? `-${fmt(shortage)}` : '--',
-                color: shortage > 0 ? 'text-red-500' : 'text-[#bbb]',
+                value: attendantShortage > 0 ? `-${fmt(attendantShortage)}` : '--',
+                color: attendantShortage > 0 ? 'text-red-500' : 'text-[#bbb]',
               },
             ].map(({ label, value, color }) => (
-              <div key={label} className="flex items-center justify-between py-1.5 border-b border-[#f4f4f4] last:border-b-0">
+              <div key={label} className="flex items-center justify-between py-1.5 border-b border-[#f4f4f4] dark:border-[#1e1e1e] last:border-b-0">
                 <span className="text-[12px] text-[#999]">{label}</span>
                 <span className={`text-[13px] font-semibold ${color}`}>{value}</span>
               </div>
@@ -1015,14 +1124,14 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
 
           {/* Sales Breakdown */}
           {entries.length > 0 && (
-            <div className="p-5 border-b border-[#e8e8e8]">
+            <div className="p-5 border-b border-[#e8e8e8] dark:border-[#222]">
               <p className="mb-4">
                 <span className="text-[13px] font-bold text-[#111]">Breakdown</span>
               </p>
               <div className="space-y-2.5">
                 {entries.map(([type, amount]) => (
                   <div key={type} className="flex items-center justify-between gap-3">
-                    <p className="text-[13px] font-medium text-[#555] shrink-0">{type}</p>
+                    <p className="text-[13px] font-medium text-[#555] shrink-0">{displayType(type)}</p>
                     <div className="flex items-center gap-3 flex-1 justify-end">
                       <div className="w-20 h-1.5 rounded-full bg-[#f0f0f0] overflow-hidden">
                         <div className="h-full bg-[#111] rounded-full" style={{ width: grand > 0 ? `${(amount / grand) * 100}%` : '0%' }} />
@@ -1039,10 +1148,10 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
         </div>
 
         {/* Right: pumps + tanks (top) · attendants (bottom) */}
-        <div className="flex flex-col flex-1 overflow-hidden divide-y divide-[#e8e8e8]">
+        <div className="flex flex-col flex-1 overflow-hidden divide-y divide-[#e8e8e8] dark:divide-[#222]">
 
           {/* Top: Pumps + Tanks side by side — taller */}
-          <div className="flex-[3] overflow-hidden flex divide-x divide-[#e8e8e8] min-h-0">
+          <div className="flex-[3] overflow-hidden flex divide-x divide-[#e8e8e8] dark:divide-[#222] min-h-0">
             <div className="flex-1 overflow-hidden flex flex-col min-w-0">
               <PumpsPanel shiftId={shift.id} />
             </div>
@@ -1052,7 +1161,7 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
           </div>
 
           {/* Bottom: Attendants + Accounts side by side */}
-          <div className="flex-[4] overflow-hidden flex min-h-0 divide-x divide-[#e8e8e8]">
+          <div className="flex-[4] overflow-hidden flex min-h-0 divide-x divide-[#e8e8e8] dark:divide-[#222]">
 
             {/* Attendants */}
             <div className="flex-[5] overflow-hidden flex flex-col min-h-0">
@@ -1079,7 +1188,7 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
                     {attendantRows.map((row) => (
                       <div
                         key={row.name}
-                        className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 items-center py-1.5 border-b border-[#f4f4f4] last:border-b-0"
+                        className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4 items-center py-1.5 border-b border-[#f4f4f4] dark:border-[#1e1e1e] last:border-b-0"
                       >
                         <div>
                           <p className="text-[13px] font-semibold text-[#111] truncate">{row.name}</p>
@@ -1104,8 +1213,8 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
                   </div>
                 )}
               </div>
-              <div className="flex items-center justify-between border-t border-[#f0f0f0] px-5 py-3 shrink-0">
-                <p className="text-[12px] font-semibold text-[#888]">{attendantRows.length} attendant{attendantRows.length !== 1 ? 's' : ''}</p>
+              <div className="flex items-center justify-between border-t border-[#f0f0f0] dark:border-[#1e1e1e] px-5 py-3 shrink-0">
+                <p className="text-[20px] font-bold text-[#111]">{attendantRows.length}</p>
                 <p className="text-[13px] font-bold text-[#111]">{fmt(grand)}</p>
               </div>
             </div>
@@ -1123,16 +1232,72 @@ function ShiftDetailView({ shift, onBack }: { shift: Shift; onBack: () => void }
   )
 }
 
-// ── Per-row balance cell ──────────────────────────────────────────────────────
+// ── Per-row stat cells ────────────────────────────────────────────────────────
 
-function ShiftRowBalance({ shiftId }: { shiftId: string }) {
+function ShiftRowCash({ shiftId }: { shiftId: string }) {
   const { data: deposits = [], isLoading } = useShiftDeposits(shiftId)
   if (isLoading) return <p className="text-[12px] text-[#ccc]">—</p>
-  const { balance } = calcSummary(deposits)
+  const cash = deposits.filter((d) => d.type === 'Cash').reduce((s, d) => s + d.amount, 0)
+  return <p className="text-[13px] font-semibold text-[#111]">{cash > 0 ? fmt(cash) : '--'}</p>
+}
+
+function ShiftRowExpenditure({ shiftId }: { shiftId: string }) {
+  const { data: deposits = [], isLoading } = useShiftDeposits(shiftId)
+  if (isLoading) return <p className="text-[12px] text-[#ccc]">—</p>
+  const exp = deposits.filter((d) => d.type === 'Expenditure').reduce((s, d) => s + d.amount, 0)
+  return <p className={`text-[13px] font-semibold ${exp > 0 ? 'text-red-500' : 'text-[#bbb]'}`}>{exp > 0 ? fmt(exp) : '--'}</p>
+}
+
+const CARD_INFLOW = new Set(['Cash', 'Card', 'FX', 'Advance', 'Expenditure', 'Charge'])
+
+function ShiftRowBalance({ shiftId }: { shiftId: string }) {
+  const { data: deposits  = [], isLoading } = useShiftDeposits(shiftId)
+  const { data: attendance = [] }           = useShiftAttendance(shiftId)
+  const { data: pumps      = [] }           = usePumps()
+  const [pumpSummaries, setPumpSummaries]   = useState<Record<string, FuelSummary[]>>({})
+
+  const handleLoad = useCallback((pumpId: string, data: FuelSummary[]) => {
+    setPumpSummaries((prev) => ({ ...prev, [pumpId]: data }))
+  }, [])
+
+  const attendantRows = useMemo(() => {
+    const map = new Map<string, { name: string; pumpIds: Set<string> }>()
+    for (const att of attendance) {
+      if (!map.has(att.user_id))
+        map.set(att.user_id, { name: att.user_name, pumpIds: new Set() })
+      if (att.pump_id) map.get(att.user_id)!.pumpIds.add(att.pump_id)
+    }
+    return [...map.entries()].map(([userId, { pumpIds }]) => {
+      const sold      = [...pumpIds].reduce((s, pid) => s + (pumpSummaries[pid] ?? []).reduce((ps, f) => ps + f.totalSales, 0), 0)
+      const deposited = deposits.filter((d) => d.attendant_id === userId && INFLOW_TYPES.has(d.type)).reduce((s, d) => s + d.amount, 0)
+      return { sold, deposited, balance: deposited - sold }
+    })
+  }, [attendance, deposits, pumpSummaries])
+
+  const overage      = attendantRows.reduce((s, r) => r.balance > 0 ? s + r.balance : s, 0)
+  const shortage     = attendantRows.reduce((s, r) => r.balance < 0 ? s + Math.abs(r.balance) : s, 0)
+  const cardInflow   = deposits.filter((d) => CARD_INFLOW.has(d.type)).reduce((s, d) => s + d.amount, 0)
+  const fuelSales    = pumps.reduce((s, p) => s + (pumpSummaries[p.id] ?? []).reduce((ps, f) => ps + f.totalSales, 0), 0)
+  const salesBalance = fuelSales > 0 ? cardInflow + shortage - overage - fuelSales : null
+
+  const display = isLoading ? '—'
+    : salesBalance == null   ? '--'
+    : salesBalance > 0       ? `+${fmt(salesBalance)}`
+    : salesBalance < 0       ? `-${fmt(Math.abs(salesBalance))}`
+    : fmt(0)
+
+  const color = salesBalance == null || isLoading ? 'text-[#bbb]'
+    : salesBalance > 0 ? 'text-green-600'
+    : salesBalance < 0 ? 'text-red-500'
+    : 'text-[#111]'
+
   return (
-    <p className={`text-[13px] font-semibold ${balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-500' : 'text-[#111]'}`}>
-      {balance > 0 ? `+${fmt(balance)}` : balance < 0 ? `-${fmt(Math.abs(balance))}` : fmt(0)}
-    </p>
+    <>
+      {pumps.map((p) => (
+        <PumpSummaryLoader key={p.id} pumpId={p.id} shiftId={shiftId} onLoad={handleLoad} />
+      ))}
+      <p className={`text-[13px] font-semibold ${color}`}>{display}</p>
+    </>
   )
 }
 
@@ -1152,11 +1317,45 @@ function ShiftDepositsLoader({
   return null
 }
 
+function ShiftAttendanceLoader({
+  shiftId, onLoad,
+}: {
+  shiftId: string; onLoad: (shiftId: string, data: ShiftAttendance[]) => void
+}) {
+  const { data } = useShiftAttendance(shiftId)
+  const ref = useRef(onLoad)
+  ref.current = onLoad
+  useEffect(() => {
+    if (data !== undefined) ref.current(shiftId, data)
+  }, [shiftId, data])
+  return null
+}
+
+function ShiftPumpLoader({
+  pumpId, shiftId, onLoad,
+}: {
+  pumpId: string; shiftId: string; onLoad: (pumpId: string, shiftId: string, data: FuelSummary[]) => void
+}) {
+  const { data } = useFuelSummary(pumpId, shiftId)
+  const ref = useRef(onLoad)
+  ref.current = onLoad
+  useEffect(() => {
+    if (data !== undefined) ref.current(pumpId, shiftId, data)
+  }, [pumpId, shiftId, data])
+  return null
+}
+
 function PeriodSummaryPanel({ shifts }: { shifts: Shift[] }) {
-  const [depositsByShift, setDepositsByShift] = useState<Record<string, Deposit[]>>({})
-  const handleLoad = useCallback((shiftId: string, data: Deposit[]) => {
-    setDepositsByShift((prev) => ({ ...prev, [shiftId]: data }))
-  }, [])
+  const { data: pumps = [] }                                          = usePumps()
+  const [depositsByShift,    setDepositsByShift]    = useState<Record<string, Deposit[]>>({})
+  const [attendanceByShift,  setAttendanceByShift]  = useState<Record<string, ShiftAttendance[]>>({})
+  const [pumpSummaries,      setPumpSummaries]      = useState<Record<string, Record<string, FuelSummary[]>>>({})
+  // pumpSummaries: shiftId → pumpId → FuelSummary[]
+
+  const handleDeposits   = useCallback((shiftId: string, data: Deposit[])          => setDepositsByShift(   (p) => ({ ...p, [shiftId]: data })), [])
+  const handleAttendance = useCallback((shiftId: string, data: ShiftAttendance[])  => setAttendanceByShift( (p) => ({ ...p, [shiftId]: data })), [])
+  const handlePump       = useCallback((pumpId: string, shiftId: string, data: FuelSummary[]) =>
+    setPumpSummaries((p) => ({ ...p, [shiftId]: { ...(p[shiftId] ?? {}), [pumpId]: data } })), [])
 
   const deposits = useMemo(
     () => shifts.flatMap((s) => depositsByShift[s.id] ?? []),
@@ -1167,15 +1366,56 @@ function PeriodSummaryPanel({ shifts }: { shifts: Shift[] }) {
   for (const d of deposits) totals[d.type] = (totals[d.type] ?? 0) + d.amount
   const entries = Object.entries(totals).sort(([, a], [, b]) => b - a)
   const grand   = entries.reduce((s, [, v]) => s + v, 0)
-  const { balance, overage, shortage } = calcSummary(deposits)
+  const { totalExpenditure } = calcSummary(deposits)
+
+  // Per-attendant rows aggregated across all shifts
+  const attendantRows = useMemo(() => {
+    const map = new Map<string, { sold: number; deposited: number }>()
+    for (const shift of shifts) {
+      const att   = attendanceByShift[shift.id]  ?? []
+      const deps  = depositsByShift[shift.id]    ?? []
+      const sps   = pumpSummaries[shift.id]      ?? {}
+      const pumpsByUser = new Map<string, Set<string>>()
+      for (const a of att) {
+        if (!pumpsByUser.has(a.user_id)) pumpsByUser.set(a.user_id, new Set())
+        if (a.pump_id) pumpsByUser.get(a.user_id)!.add(a.pump_id)
+      }
+      for (const [userId, pumpIds] of pumpsByUser) {
+        const sold      = [...pumpIds].reduce((s, pid) => s + (sps[pid] ?? []).reduce((ps, f) => ps + f.totalSales, 0), 0)
+        const deposited = deps.filter((d) => d.attendant_id === userId && INFLOW_TYPES.has(d.type)).reduce((s, d) => s + d.amount, 0)
+        const existing  = map.get(userId)
+        if (existing) { existing.sold += sold; existing.deposited += deposited }
+        else          map.set(userId, { sold, deposited })
+      }
+    }
+    return [...map.values()].map(({ sold, deposited }) => ({ sold, deposited, balance: deposited - sold }))
+  }, [shifts, attendanceByShift, depositsByShift, pumpSummaries])
+
+  const attendantOverage  = attendantRows.reduce((s, r) => r.balance > 0 ? s + r.balance : s, 0)
+  const attendantShortage = attendantRows.reduce((s, r) => r.balance < 0 ? s + Math.abs(r.balance) : s, 0)
+
+  const cardInflow     = deposits.filter((d) => CARD_INFLOW.has(d.type)).reduce((s, d) => s + d.amount, 0)
+  const totalFuelSales = shifts.reduce((s, shift) => {
+    const sps = pumpSummaries[shift.id] ?? {}
+    return s + pumps.reduce((ps, p) => ps + (sps[p.id] ?? []).reduce((fs, f) => fs + f.totalSales, 0), 0)
+  }, 0)
+  const salesBalance = totalFuelSales > 0
+    ? cardInflow + attendantShortage - attendantOverage - totalFuelSales
+    : null
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {shifts.map((s) => (
-        <ShiftDepositsLoader key={s.id} shiftId={s.id} onLoad={handleLoad} />
+        <ShiftDepositsLoader   key={`dep-${s.id}`}  shiftId={s.id} onLoad={handleDeposits} />
       ))}
+      {shifts.map((s) => (
+        <ShiftAttendanceLoader key={`att-${s.id}`}  shiftId={s.id} onLoad={handleAttendance} />
+      ))}
+      {shifts.flatMap((s) => pumps.map((p) => (
+        <ShiftPumpLoader key={`${p.id}:${s.id}`} pumpId={p.id} shiftId={s.id} onLoad={handlePump} />
+      )))}
 
-      <div className="p-5 border-b border-[#f0f0f0] shrink-0">
+      <div className="p-5 border-b border-[#f0f0f0] dark:border-[#1e1e1e] shrink-0">
         <p className="text-[13px] font-bold text-[#111]">Sales</p>
         <p className="text-[28px] font-bold text-[#111] leading-none mt-3">{fmt(grand)}</p>
       </div>
@@ -1186,12 +1426,12 @@ function PeriodSummaryPanel({ shifts }: { shifts: Shift[] }) {
         </div>
       ) : (
         <>
-          <div className="p-5 border-b border-[#f0f0f0] shrink-0">
+          <div className="p-5 border-b border-[#f0f0f0] dark:border-[#1e1e1e] shrink-0">
             <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase mb-3">Breakdown</p>
             <div className="space-y-2">
               {entries.map(([type, amount]) => (
                 <div key={type} className="flex items-center justify-between">
-                  <p className="text-[13px] font-medium text-[#555]">{type}</p>
+                  <p className="text-[13px] font-medium text-[#555]">{displayType(type)}</p>
                   <div className="flex items-center gap-3">
                     <div className="w-20 h-1.5 rounded-full bg-[#f0f0f0] overflow-hidden">
                       <div className="h-full bg-[#111] rounded-full" style={{ width: grand > 0 ? `${(amount / grand) * 100}%` : '0%' }} />
@@ -1207,9 +1447,32 @@ function PeriodSummaryPanel({ shifts }: { shifts: Shift[] }) {
             <p className="text-[11px] font-bold tracking-widest text-[#bbb] uppercase mb-3">Summary</p>
             <div className="space-y-2">
               {[
-                { label: 'Balance',  value: balance > 0 ? `+${fmt(balance)}` : balance < 0 ? `-${fmt(Math.abs(balance))}` : fmt(0), color: balance > 0 ? 'text-green-600' : balance < 0 ? 'text-red-500' : 'text-[#111]' },
-                { label: 'Overage',  value: overage  > 0 ? `+${fmt(overage)}`  : '--', color: overage  > 0 ? 'text-green-600' : 'text-[#bbb]' },
-                { label: 'Shortage', value: shortage > 0 ? `-${fmt(shortage)}` : '--', color: shortage > 0 ? 'text-red-500'  : 'text-[#bbb]' },
+                {
+                  label: 'Expenditures',
+                  value: totalExpenditure > 0 ? `-${fmt(totalExpenditure)}` : '--',
+                  color: totalExpenditure > 0 ? 'text-red-500' : 'text-[#bbb]',
+                },
+                {
+                  label: 'Balance',
+                  value: salesBalance == null ? '--'
+                    : salesBalance > 0 ? `+${fmt(salesBalance)}`
+                    : salesBalance < 0 ? `-${fmt(Math.abs(salesBalance))}`
+                    : fmt(0),
+                  color: salesBalance == null ? 'text-[#bbb]'
+                    : salesBalance > 0 ? 'text-green-600'
+                    : salesBalance < 0 ? 'text-red-500'
+                    : 'text-[#111]',
+                },
+                {
+                  label: 'Overage',
+                  value: attendantOverage  > 0 ? `+${fmt(attendantOverage)}`  : '--',
+                  color: attendantOverage  > 0 ? 'text-green-600' : 'text-[#bbb]',
+                },
+                {
+                  label: 'Shortage',
+                  value: attendantShortage > 0 ? `-${fmt(attendantShortage)}` : '--',
+                  color: attendantShortage > 0 ? 'text-red-500'  : 'text-[#bbb]',
+                },
               ].map(({ label, value, color }) => (
                 <div key={label} className="flex items-center justify-between">
                   <p className="text-[13px] font-medium text-[#555]">{label}</p>
@@ -1243,12 +1506,8 @@ function ManagerView() {
     .slice()
     .sort((a, b) => b.date.localeCompare(a.date))
 
-  const filtered = query.trim()
-    ? shifts.filter((s) =>
-        s.supervisor_name.toLowerCase().includes(query.toLowerCase()) ||
-        fmtDate(s.date).toLowerCase().includes(query.toLowerCase())
-      )
-    : shifts
+  const filtered = shifts.filter((s) =>
+    matchesSearch(query, { text: [s.supervisor_name, fmtDate(s.date)], date: s.date }))
 
   if (viewShift) {
     return <ShiftDetailView shift={viewShift} onBack={() => setViewShift(null)} />
@@ -1258,7 +1517,7 @@ function ManagerView() {
     <div className="flex flex-1 overflow-hidden">
       <div className="flex-1 overflow-hidden flex flex-col p-6 gap-4 min-w-0">
         {/* Search bar */}
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-white border border-[#ebebeb] rounded-xl shrink-0">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-white border border-[#ebebeb] dark:border-[#222] rounded-xl shrink-0">
           <Search size={14} className="text-[#bbb] shrink-0" />
           <input
             type="text"
@@ -1274,9 +1533,9 @@ function ManagerView() {
           )}
         </div>
 
-        <div className="flex-1 bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col">
-          <div className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_40px] gap-4 px-5 py-2.5 border-b border-[#f0f0f0] bg-[#fafafa] shrink-0">
-            {['Time', 'Date', 'Supervisor', 'Status', 'Balance', ''].map((h) => (
+        <div className="flex-1 bg-white rounded-2xl border border-[#ebebeb] dark:border-[#222] overflow-hidden flex flex-col">
+          <div className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_40px] gap-4 px-5 py-2.5 border-b border-[#f0f0f0] dark:border-[#1e1e1e] bg-[#fafafa] shrink-0">
+            {['Time', 'Date', 'Supervisor', 'Cash', 'Expenditures', 'Balance', ''].map((h) => (
               <p key={h} className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">{h}</p>
             ))}
           </div>
@@ -1300,16 +1559,15 @@ function ManagerView() {
                   <button
                     key={s.id}
                     onClick={() => setViewShift(s)}
-                    className="w-full grid grid-cols-[1fr_1fr_2fr_1fr_1fr_40px] gap-4 items-center px-5 py-3.5 border-b border-[#f8f8f8] last:border-0 transition-colors text-left hover:bg-[#fafafa]"
+                    className="w-full grid grid-cols-[1fr_1fr_2fr_1fr_1fr_1fr_40px] gap-4 items-center px-5 py-3.5 border-b border-[#f8f8f8] last:border-0 transition-colors text-left hover:bg-[#fafafa]"
                   >
                     <p className="text-[11px] font-bold text-[#666]">
                       {s.start_time ? fmtTime(`1970-01-01T${s.start_time}`) : '—'}
                     </p>
                     <p className="text-[11px] font-bold text-[#666]">{fmtDate(s.date)}</p>
                     <p className="text-[13px] font-semibold text-[#111] truncate">{s.supervisor_name}</p>
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full w-fit ${
-                      open ? 'bg-[#d1e7dd] text-[#0a5435]' : 'bg-[#f0f0f0] text-[#555]'
-                    }`}>{open ? 'Open' : 'Closed'}</span>
+                    <ShiftRowCash shiftId={s.id} />
+                    <ShiftRowExpenditure shiftId={s.id} />
                     <ShiftRowBalance shiftId={s.id} />
                     <ChevronRight size={14} className="text-[#ccc]" />
                   </button>
@@ -1319,15 +1577,14 @@ function ManagerView() {
           )}
 
           {shifts.length > 0 && (
-            <div className="px-5 py-3 border-t border-[#f0f0f0] shrink-0">
-              <p className="text-[11px] font-medium text-[#bbb]">{filtered.length} shift{filtered.length !== 1 ? 's' : ''}</p>
+            <div className="px-5 py-3 border-t border-[#f0f0f0] dark:border-[#1e1e1e] shrink-0">
+              <p className="text-[20px] font-bold text-[#111]">{filtered.length}</p>
             </div>
           )}
         </div>
       </div>
 
-      <div className="w-[420px] shrink-0 border-l border-[#e8e8e8] h-full flex flex-col divide-y divide-[#e8e8e8]">
-        <div className="shrink-0"><TanksPanel /></div>
+      <div className="w-[420px] shrink-0 border-l border-[#e8e8e8] dark:border-[#222] h-full flex flex-col">
         <div className="flex-1 min-h-0 overflow-hidden">
           <PeriodSummaryPanel shifts={shifts} />
         </div>
@@ -1346,7 +1603,7 @@ export function SalesPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#ebebeb] flex-shrink-0">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[#ebebeb] dark:border-[#222] flex-shrink-0">
         <div>
           <p className="text-[11px] font-bold tracking-widest text-[#aaa] uppercase mb-0.5">Service Station</p>
           <h1 className="text-[22px] font-bold text-[#111] leading-tight">Sales</h1>

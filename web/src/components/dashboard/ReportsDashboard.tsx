@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { UserPlus, Receipt, CreditCard, Megaphone, Sparkles, ChevronDown, ChevronUp, Plus, Search, X, Calendar, BarChart2, ShoppingCart } from 'lucide-react'
+import { useState, useRef, useEffect, useMemo } from 'react'
+import { ChevronDown, ChevronUp, Plus, Search, X } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { SetupBanner } from './SetupBanner'
 import { useAuth } from '../../lib/authContext'
-import { useOpenShift, useShiftDeposits, useTanks, useBranches, useShiftTankLogs, usePumps, useFuelSummary } from '../../hooks/useApi'
+import { useOpenShift, useShiftDeposits, useTanks, useBranches, useShiftTankLogs, useAllTimeFuelRankings, useShiftsInRange, useProducts, useIssues } from '../../hooks/useApi'
+import type { Deposit } from '../../lib/api'
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -29,18 +30,12 @@ const WEEKLY_LABELS      = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const WEEKLY_SALES       = [182000, 210000, 195000, 230000, 278000, 310000, 145000]
 const WEEKLY_EXPENDITURE = [ 28000,  35000,  22000,  41000,  38000,  52000,  18000]
 
-const QUICK_ACTIONS = [
-  { icon: UserPlus,  label: 'Invite member' },
-  { icon: Receipt,   label: 'Add expense' },
-  { icon: CreditCard, label: 'Record payment' },
-  { icon: Megaphone, label: 'Make an announcement' },
-  { icon: Sparkles,  label: 'Generate...' },
-]
 
-function ActionPill({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+const QUICK_ACTIONS = ['Invite member', 'Add expense', 'Make an announcement']
+
+function ActionPill({ label }: { label: string }) {
   return (
-    <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#ddd] rounded-xl text-[13px] font-semibold text-[#333] hover:bg-[#f9f9f9] transition-colors whitespace-nowrap flex-shrink-0">
-      <Icon size={13} className="text-[#888]" />
+    <button className="px-4 py-2 border border-[#ddd] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors whitespace-nowrap flex-shrink-0">
       {label}
     </button>
   )
@@ -180,7 +175,7 @@ function StaffLeaderboard({ fuelRows, fuelTotal }: {
   )
 }
 
-function CashPanel({ cashDeposits }: { cashDeposits: { id: string; attendant_name: string; amount: number }[] }) {
+function CashPanel({ cashDeposits }: { cashDeposits: Deposit[] }) {
   const [tab, setTab] = useState<'fuel' | 'cstore'>('fuel')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [searching, setSearching] = useState(false)
@@ -234,9 +229,6 @@ function CashPanel({ cashDeposits }: { cashDeposits: { id: string; attendant_nam
                 <ChevronUp size={12} className="text-[#666]" />
               </span>
             </button>
-            <button className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]">
-              <Plus size={13} />
-            </button>
             <button
               onClick={() => setSearching(true)}
               className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]"
@@ -272,9 +264,17 @@ function CashPanel({ cashDeposits }: { cashDeposits: { id: string; attendant_nam
   )
 }
 
-function SalesPanel() {
+function SalesPanel({ deposits }: { deposits: Deposit[] }) {
   const [tab, setTab] = useState<'fuel' | 'cstore'>('fuel')
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
+
+  const rows = [...deposits.filter((d) => d.type !== 'Expenditure')]
+    .sort((a, b) => sortDir === 'desc'
+      ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      : new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )
+
+  const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-JM', { month: 'short', day: 'numeric' })
 
   return (
     <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col h-[400px]">
@@ -284,18 +284,8 @@ function SalesPanel() {
         </p>
         <div className="flex items-center gap-1">
           <div className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
-            <button
-              onClick={() => setTab('fuel')}
-              className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${tab === 'fuel' ? 'bg-[#111] text-white' : 'text-[#888] hover:bg-[#f4f4f4]'}`}
-            >
-              Fuel
-            </button>
-            <button
-              onClick={() => setTab('cstore')}
-              className={`px-3 py-1.5 text-[11px] font-bold transition-colors border-l border-[#ddd] ${tab === 'cstore' ? 'bg-[#111] text-white' : 'text-[#888] hover:bg-[#f4f4f4]'}`}
-            >
-              C. Store
-            </button>
+            <button onClick={() => setTab('fuel')} className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${tab === 'fuel' ? 'bg-[#111] text-white' : 'text-[#888] hover:bg-[#f4f4f4]'}`}>Fuel</button>
+            <button onClick={() => setTab('cstore')} className={`px-3 py-1.5 text-[11px] font-bold transition-colors border-l border-[#ddd] ${tab === 'cstore' ? 'bg-[#111] text-white' : 'text-[#888] hover:bg-[#f4f4f4]'}`}>C. Store</button>
           </div>
           <button className="flex items-center border border-[#ddd] rounded-lg overflow-hidden">
             <span onClick={() => setSortDir('desc')} className={`px-2 py-1.5 hover:bg-[#f4f4f4] border-r border-[#ddd] transition-colors cursor-pointer ${sortDir === 'desc' ? 'bg-[#f4f4f4]' : ''}`}>
@@ -305,21 +295,30 @@ function SalesPanel() {
               <ChevronUp size={12} className="text-[#666]" />
             </span>
           </button>
-          <button className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]">
-            <Plus size={13} />
-          </button>
-          <button className="w-7 h-7 border border-[#ddd] rounded-lg flex items-center justify-center hover:bg-[#f4f4f4] transition-colors text-[#666]">
-            <Search size={13} />
-          </button>
         </div>
       </div>
-      <div className="grid px-5 py-2 border-b border-[#f8f8f8] flex-shrink-0" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
-        {['Branch', 'Date', 'Time', 'Amount'].map((c) => (
+      <div className="grid px-5 py-2 border-b border-[#f8f8f8] flex-shrink-0" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr' }}>
+        {['Attendant', 'Type', 'Date', 'Amount'].map((c) => (
           <p key={c} className="text-[10px] font-bold tracking-widest text-[#ccc] uppercase">{c}</p>
         ))}
       </div>
-      <div className="flex-1 overflow-y-auto scrollbar-hide flex items-center justify-center" style={{ scrollbarWidth: 'none' }}>
-        <p className="text-[12px] font-medium text-[#ccc]">No sales recorded yet</p>
+      <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+        {tab === 'cstore' || rows.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-[12px] font-medium text-[#ccc]">{tab === 'cstore' ? 'No data available' : 'No sales recorded yet'}</p>
+          </div>
+        ) : (
+          <div className="flex flex-col">
+            {rows.map((d) => (
+              <div key={d.id} className="grid px-5 py-3 border-b border-[#f8f8f8]" style={{ gridTemplateColumns: '2fr 1fr 1fr 1fr' }}>
+                <p className="text-[12px] font-semibold text-[#111] truncate">{d.attendant_name}</p>
+                <p className="text-[12px] font-semibold text-[#666]">{d.type}</p>
+                <p className="text-[12px] font-semibold text-[#666]">{fmtDate(d.created_at)}</p>
+                <p className="text-[12px] font-semibold text-[#444]">{fmtJ(d.amount)}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -498,7 +497,7 @@ function depositInShift(createdAt: string, start: string, end: string): boolean 
   return s < e ? mins >= s && mins < e : mins >= s || mins < e  // handles overnight spans
 }
 
-function SalesBreakdownCard({ deposits }: { deposits: import('../lib/api').Deposit[] }) {
+function SalesBreakdownCard({ deposits }: { deposits: Deposit[] }) {
   const [period, setPeriod] = useState<ShiftPeriod>('AM')
 
   function cyclePeriod() {
@@ -687,35 +686,106 @@ function ProductLeaderboard() {
   )
 }
 
-function QuickActionsPanel() {
-  const navigate = useNavigate()
-
-  const ACTIONS = [
-    { icon: UserPlus,     label: 'Add Staff',   to: '/staff' },
-    { icon: Receipt,      label: 'Add Expense', to: '/expenses' },
-    { icon: Calendar,     label: 'Schedule',    to: '/schedule' },
-    { icon: ShoppingCart, label: 'Products',    to: '/convenience/products' },
-    { icon: BarChart2,    label: 'Reports',     to: '/reports' },
-    { icon: CreditCard,   label: 'Charges',     to: '/charges' },
-  ]
+function LowStockDashboardPanel() {
+  const { data: products = [] } = useProducts()
+  const low = products.filter((p) => p.stock_qty < 10).sort((a, b) => a.stock_qty - b.stock_qty)
 
   return (
-    <div className="bg-white rounded-2xl border border-[#ebebeb] p-5">
-      <p className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase mb-4">Quick Actions</p>
-      <div className="flex flex-col gap-1.5">
-        {ACTIONS.map(({ icon: Icon, label, to }) => (
-          <button
-            key={label}
-            onClick={() => navigate({ to })}
-            className="flex items-center gap-3 px-4 py-3 bg-white border border-[#ddd] rounded-xl hover:bg-[#f9f9f9] transition-colors text-left"
-          >
-            <Icon size={15} className="text-[#111] shrink-0" />
-            <p className="text-[13px] font-semibold text-[#111]">{label}</p>
-          </button>
-        ))}
+    <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col flex-1 min-h-[270px]">
+      <div className="px-5 py-4 border-b border-[#f0f0f0] flex-shrink-0">
+        <p className="text-[13px] font-bold text-[#111]">
+          Products <span className="font-medium text-[#aaa]">| Low Stock</span>
+        </p>
       </div>
+      {low.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-[12px] font-medium text-[#ccc]">All stocked up</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-[1fr_auto] gap-3 px-5 py-2.5 border-b border-[#f0f0f0] flex-shrink-0">
+            <p className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase">Name</p>
+            <p className="text-[10px] font-bold tracking-widest text-[#bbb] uppercase text-right">Stock</p>
+          </div>
+          <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+            {low.map((p) => (
+              <div key={p.id} className="flex items-center justify-between px-5 py-3 border-b border-[#f8f8f8] last:border-0">
+                <p className="text-[12px] font-semibold text-[#111] truncate">{p.name}</p>
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ml-3 ${
+                  p.stock_qty === 0 ? 'bg-red-50 text-red-500' : 'bg-[#fff3cd] text-[#856404]'
+                }`}>
+                  {p.stock_qty === 0 ? 'Out' : p.stock_qty}
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
+}
+
+const STATUS_STYLES: Record<string, string> = {
+  'Open':        'bg-red-50 text-red-500',
+  'In Progress': 'bg-[#fff3cd] text-[#856404]',
+  'Resolved':    'bg-green-50 text-green-600',
+}
+
+function IssuesDashboardPanel() {
+  const { data: issues = [] } = useIssues()
+  const open = issues.filter((i) => i.status !== 'Resolved')
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col h-[570px]">
+      <div className="px-5 py-4 border-b border-[#f0f0f0] flex items-center justify-between flex-shrink-0">
+        <p className="text-[13px] font-bold text-[#111]">
+          Issues <span className="font-medium text-[#aaa]">| Open</span>
+        </p>
+        {open.length > 0 && (
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-500">
+            {open.length}
+          </span>
+        )}
+      </div>
+      {issues.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-[12px] font-medium text-[#ccc]">No issues reported</p>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+          {issues.map((issue) => (
+            <div key={issue.id} className="px-5 py-3 border-b border-[#f8f8f8] last:border-0">
+              <div className="flex items-start justify-between gap-2 mb-1">
+                <p className="text-[12px] font-semibold text-[#111] leading-tight flex-1 truncate">
+                  {issue.description}
+                </p>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${STATUS_STYLES[issue.status] ?? 'bg-[#f0f0f0] text-[#888]'}`}>
+                  {issue.status}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-medium text-[#bbb]">{issue.category}</span>
+                <span className="text-[#ddd]">·</span>
+                <span className="text-[10px] font-medium text-[#bbb]">{issue.reporter_name}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function localDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function ShiftDepositLoader({ shiftId, onLoad }: { shiftId: string; onLoad: (id: string, data: Deposit[]) => void }) {
+  const { data } = useShiftDeposits(shiftId)
+  const ref = useRef(onLoad)
+  ref.current = onLoad
+  useEffect(() => { if (data !== undefined) ref.current(shiftId, data) }, [shiftId, data])
+  return null
 }
 
 export function ReportsDashboard() {
@@ -725,38 +795,31 @@ export function ReportsDashboard() {
   const { data: tanks = [] } = useTanks()
   const { data: branches = [] } = useBranches()
   const { data: tankLogs = [] } = useShiftTankLogs(shift?.id)
-  const { data: pumps = [] } = usePumps()
-
-  // Fixed hooks for up to 8 pumps (rules of hooks — always called)
-  const fs0 = useFuelSummary(pumps[0]?.id, shift?.id)
-  const fs1 = useFuelSummary(pumps[1]?.id, shift?.id)
-  const fs2 = useFuelSummary(pumps[2]?.id, shift?.id)
-  const fs3 = useFuelSummary(pumps[3]?.id, shift?.id)
-  const fs4 = useFuelSummary(pumps[4]?.id, shift?.id)
-  const fs5 = useFuelSummary(pumps[5]?.id, shift?.id)
-  const fs6 = useFuelSummary(pumps[6]?.id, shift?.id)
-  const fs7 = useFuelSummary(pumps[7]?.id, shift?.id)
-
-  const allSummaries = [fs0, fs1, fs2, fs3, fs4, fs5, fs6, fs7].map((q) => q.data ?? [])
-
-  const fuelSalesMap: Record<string, number> = {}
-  const fuelLitresMap: Record<string, number> = {}
-  for (const summaries of allSummaries) {
-    for (const fs of summaries) {
-      fuelSalesMap[fs.fuelType] = (fuelSalesMap[fs.fuelType] ?? 0) + fs.totalSales
-      fuelLitresMap[fs.fuelType] = (fuelLitresMap[fs.fuelType] ?? 0) + fs.totalLitresSold
-    }
-  }
-  const fuelBars = Object.entries(fuelSalesMap).sort(([, a], [, b]) => b - a)
+  const { data: fuelRankings = [] } = useAllTimeFuelRankings()
+  const fuelBars      = fuelRankings.map((r) => [r.fuel_type, r.total_sales] as [string, number])
+  const fuelLitresMap = Object.fromEntries(fuelRankings.map((r) => [r.fuel_type, r.total_litres]))
   const totalFuelSales = fuelBars.reduce((s, [, v]) => s + v, 0)
+
+  // Accumulate deposits across all shifts this week
+  const { weekStart, weekEnd } = useMemo(() => {
+    const now = new Date()
+    const sun = new Date(now); sun.setDate(now.getDate() - now.getDay())
+    return { weekStart: localDate(sun), weekEnd: localDate(now) }
+  }, [])
+  const { data: weekShifts = [] } = useShiftsInRange(weekStart, weekEnd)
+  const [depositsByShift, setDepositsByShift] = useState<Record<string, Deposit[]>>({})
+  const handleLoad = useRef((id: string, data: Deposit[]) => {
+    setDepositsByShift((prev) => ({ ...prev, [id]: data }))
+  })
+  const allDeposits = useMemo(() => Object.values(depositsByShift).flat(), [depositsByShift])
 
   const branchName = (id: string) => branches.find((b) => b.id === id)?.name ?? '--'
 
-  const cashDeposits   = deposits.filter((d) => d.type === 'Cash')
-  const chargeDeposits = deposits.filter((d) => d.type === 'Charge')
+  const cashDeposits   = allDeposits.filter((d) => d.type === 'Cash')
+  const chargeDeposits = allDeposits.filter((d) => d.type === 'Charge')
 
   const staffSalesMap: Record<string, number> = {}
-  for (const d of deposits) {
+  for (const d of allDeposits) {
     if (['Cash', 'Card', 'Charge', 'FX', 'Advance'].includes(d.type)) {
       staffSalesMap[d.attendant_name] = (staffSalesMap[d.attendant_name] ?? 0) + d.amount
     }
@@ -778,16 +841,22 @@ export function ReportsDashboard() {
 
   return (
     <div className="h-full overflow-y-auto scrollbar-hide bg-white" style={{ scrollbarWidth: 'none' }}>
+      {weekShifts.map((s) => (
+        <ShiftDepositLoader key={s.id} shiftId={s.id} onLoad={handleLoad.current} />
+      ))}
       <div className="p-6 flex flex-col gap-6">
 
         <SetupBanner />
 
         {/* Insights header */}
         <div className="flex flex-col gap-4">
-          <div>
+          <div className="flex items-center justify-between gap-4">
             <h1 className="text-[26px] font-bold text-[#111] leading-tight">
               {getGreeting()}{user?.name ? `, ${user.name.split(' ')[0]}` : ''}
             </h1>
+            <button className="px-4 py-2 border border-[#ddd] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors flex-shrink-0">
+              Start a new branch
+            </button>
           </div>
 
           {/* Quick actions */}
@@ -795,8 +864,8 @@ export function ReportsDashboard() {
             className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1"
             style={{ scrollbarWidth: 'none' }}
           >
-            {QUICK_ACTIONS.map((a) => (
-              <ActionPill key={a.label} icon={a.icon} label={a.label} />
+            {QUICK_ACTIONS.map((label) => (
+              <ActionPill key={label} label={label} />
             ))}
           </div>
 
@@ -806,7 +875,7 @@ export function ReportsDashboard() {
             <InsightCard label="Avg Daily — 87"  value="1,240 L" sub="Last 30 days" />
             <InsightCard label="Avg Daily — 90"  value="890 L"   sub="Last 30 days" />
             <InsightCard label="Avg Daily — ULSD" value="2,100 L" sub="Last 30 days" />
-            <InsightCard label="Active Staff"    value={deposits.length > 0 ? String(new Set(deposits.map((d) => d.attendant_id)).size) : '--'} sub="Current shift" />
+            <InsightCard label="Active Staff"    value={allDeposits.length > 0 ? String(new Set(allDeposits.map((d) => d.attendant_id)).size) : '--'} sub="This week" />
           </div>
         </div>
 
@@ -814,13 +883,13 @@ export function ReportsDashboard() {
         <div className="grid grid-cols-1 min-[1000px]:grid-cols-3 gap-4 items-start">
 
           {/* Left column */}
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 min-h-0">
             <CashPanel cashDeposits={cashDeposits} />
 
-            <SalesPanel />
+            <SalesPanel deposits={allDeposits} />
 
             <div className="bg-white rounded-2xl border border-[#ebebeb] overflow-hidden flex flex-col h-[400px]">
-              <div className="flex-shrink-0"><CardHeader title="Charges" subtitle="Credit" showActions /></div>
+              <div className="flex-shrink-0"><CardHeader title="Charges" subtitle="Credit" /></div>
               <div className="flex-1 overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
                 {chargeDeposits.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
@@ -844,6 +913,8 @@ export function ReportsDashboard() {
                 </p>
               </div>
             </div>
+
+            <LowStockDashboardPanel />
 
           </div>
 
@@ -914,7 +985,8 @@ export function ReportsDashboard() {
               </div>
             </div>
 
-            <QuickActionsPanel />
+            <IssuesDashboardPanel />
+
           </div>
 
         </div>

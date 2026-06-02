@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/iaman/dev/web/stationsync/station-sync/server/internal/routes/shifts/**)",
+      "Read(//c/Users/iaman/dev/web/stationsync/station-sync/server/internal/routes/shiftschedules/**)",
+      "Read(//c/Users/iaman/dev/web/stationsync/station-sync/server/internal/handlers/**)",
+      "Read(//c/Users/iaman/dev/web/stationsync/station-sync/server/internal/model/**)",
+      "Bash(find c:/Users/iaman/dev/web/stationsync/station-sync/server -name \"*.sql\" | head -20)",
+      "Read(//c/Users/iaman/dev/web/stationsync/station-sync/server/**)",
+      "Bash(PGPASSWORD=in10Tiona! psql -h localhost -U postgres -d station_sync -c 'UPDATE users SET password_hash = '\\\\''$2a$10$Jf3mMZ14lGFZdZubVsxLquUOElhDL6dboIzhgHWVkXb/IqTqTkO9m'\\\\'' WHERE email IN \\('\\\\''alewis@station.com'\\\\'','\\\\''slawes@station.com'\\\\'','\\\\''ssmith@station.com'\\\\'','\\\\''tbrisco@station.com'\\\\'','\\\\''mbrown@station.com'\\\\'','\\\\''djohnson@station.com'\\\\'','\\\\''aclarke@station.com'\\\\'','\\\\''rthompson@station.com'\\\\'','\\\\''kwilliams@station.com'\\\\''\\);')",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\iaman\\\\dev\\\\web\\\\stationsync\\\\station-sync\\\\server\" -Recurse -Filter \"main.go\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(npx tsc *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\iaman\\dev\\web\\stationsync\\station-sync\\server\\internal\\model",
+      "c:\\Users\\iaman\\dev\\web\\stationsync\\station-sync\\server\\internal\\handlers",
+      "c:\\Users\\iaman\\dev\\web\\stationsync\\station-sync\\server\\internal\\routes\\auth",
+      "c:\\Users\\iaman\\dev\\web\\stationsync\\station-sync\\server\\internal\\routes\\shifts",
+      "c:\\Users\\iaman\\dev\\web\\stationsync\\station-sync\\server\\internal\\routes",
+      "c:\\Users\\iaman\\dev\\web\\stationsync\\station-sync\\server\\internal\\db"
+    ]
+  }
+}

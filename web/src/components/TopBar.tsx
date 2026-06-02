@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Menu, Settings, LogOut, Bell, Moon, Sun } from 'lucide-react'
 import { useAuth } from '../lib/authContext'
+import { SyncStatusIndicator } from './SyncStatusIndicator'
 
 interface Props {
   onMenuClick: () => void
@@ -61,6 +62,9 @@ export function TopBar({ onMenuClick, onLogout, dark, onToggleDark }: Props) {
 
       {/* Right side */}
       <div className="flex items-center gap-3 text-[12px]">
+        {/* Offline / sync status */}
+        <SyncStatusIndicator />
+
         {/* Dark mode toggle */}
         <button
           onClick={onToggleDark}

@@ -171,6 +171,46 @@ func (h *PumpHandler) GetFuelSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (h *PumpHandler) GetAllTimeFuelRankings(c *gin.Context) {
+	businessID := c.GetString("business_id")
+	branchID := c.GetString("branch_id")
+	rows, err := h.DB.Query(c.Request.Context(), `
+		SELECT
+			f.name AS fuel_type,
+			COALESCE(SUM(CASE WHEN nl.ending_reading > nl.starting_reading THEN nl.ending_reading - nl.starting_reading ELSE 0 END), 0) AS total_litres,
+			COALESCE(SUM(CASE WHEN nl.ending_reading > nl.starting_reading THEN (nl.ending_reading - nl.starting_reading) * COALESCE(sfp.price, 0) ELSE 0 END), 0) AS total_sales
+		FROM fuels f
+		JOIN nozzles n ON n.fuel_id = f.id
+		JOIN pumps p ON p.id = n.pump_id AND p.business_id = $1 AND ($2 = '' OR p.branch_id::text = $2)
+		LEFT JOIN nozzle_logs nl ON nl.nozzle_id = n.id
+		LEFT JOIN shift_fuel_prices sfp ON sfp.fuel_id = n.fuel_id AND sfp.shift_id = nl.shift_id
+		GROUP BY f.name
+		ORDER BY total_litres DESC
+	`, businessID, branchID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	defer rows.Close()
+
+	type FuelRanking struct {
+		FuelType    string  `json:"fuel_type"`
+		TotalLitres float64 `json:"total_litres"`
+		TotalSales  float64 `json:"total_sales"`
+	}
+
+	results := []FuelRanking{}
+	for rows.Next() {
+		var fr FuelRanking
+		if err := rows.Scan(&fr.FuelType, &fr.TotalLitres, &fr.TotalSales); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		results = append(results, fr)
+	}
+	c.JSON(http.StatusOK, results)
+}
+
 func (h *PumpHandler) GetShiftFuelSales(c *gin.Context) {
 	businessID := c.GetString("business_id")
 	rows, err := h.DB.Query(c.Request.Context(), `

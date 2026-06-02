@@ -20,14 +20,17 @@ import {
   getShiftFuelReceivals,
   getShiftNozzleLogs,
   getTimeOffRequests,
+  getIssues,
   type Branch,
   type Fuel,
   type FuelReceival,
+  type Issue,
   type Nozzle,
   type NozzleLog,
   type Pump,
   type Shift,
   type FuelSummary,
+  type FuelRanking,
   type Tank,
   type TankLog,
   type TimeOffRequest,
@@ -136,10 +139,10 @@ export function useShiftOrders(shiftId: string | undefined) {
   })
 }
 
-export function useCustomers() {
+export function useCustomers(type?: string) {
   return useQuery<Customer[]>({
-    queryKey: ['customers'],
-    queryFn: getCustomers,
+    queryKey: type ? ['customers', type] : ['customers'],
+    queryFn: () => getCustomers(type),
   })
 }
 
@@ -171,6 +174,13 @@ export function useFuelSummary(pumpId: string | undefined, shiftId: string | und
     queryFn: () =>
       api.get<FuelSummary[]>(`/pumps/${pumpId}/shifts/${shiftId}/fuel-summary`).then((r) => r.data),
     enabled: !!pumpId && !!shiftId,
+  })
+}
+
+export function useAllTimeFuelRankings() {
+  return useQuery<FuelRanking[]>({
+    queryKey: ['fuel-rankings-all-time'],
+    queryFn: () => api.get<FuelRanking[]>('/pumps/fuel-rankings').then((r) => r.data),
   })
 }
 
@@ -238,8 +248,8 @@ export function useCreateUser() {
 
 export function useUpdatePay() {
   const qc = useQueryClient()
-  return async (userId: string, pay_rate: number | null, pay_type: string | null) => {
-    const res = await api.patch<User>(`/users/${userId}/pay`, { pay_rate, pay_type })
+  return async (userId: string, pay_rate: number | null, pay_type: string | null, overtime_rate: number | null) => {
+    const res = await api.patch<User>(`/users/${userId}/pay`, { pay_rate, pay_type, overtime_rate })
     await qc.invalidateQueries({ queryKey: ['users'] })
     return res.data
   }
@@ -265,5 +275,12 @@ export function useShiftNozzleLogs(shiftId: string | undefined) {
     queryKey: ['shifts', shiftId, 'nozzle-logs'],
     queryFn: () => getShiftNozzleLogs(shiftId!),
     enabled: !!shiftId,
+  })
+}
+
+export function useIssues() {
+  return useQuery<Issue[]>({
+    queryKey: ['issues'],
+    queryFn: getIssues,
   })
 }

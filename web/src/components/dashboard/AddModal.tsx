@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, X, Package, Truck, User } from 'lucide-react'
+import { ArrowLeft, X, Package, Truck, User, ClipboardList } from 'lucide-react'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
 import { useQueryClient } from '@tanstack/react-query'
 import { createProduct } from '../../lib/api'
@@ -22,6 +22,12 @@ const options = [
     label: 'Customer',
     description: 'Add a new customer to your records',
     icon: User,
+  },
+  {
+    id: 'inventory-log',
+    label: 'Inventory Log',
+    description: 'Log a stock adjustment or inventory change',
+    icon: ClipboardList,
   },
 ]
 
@@ -194,7 +200,8 @@ export function AddModal({ onClose }: Props) {
 
   if (selected === 'product')       return <AddProductForm onBack={() => setSelected(null)} onClose={onClose} />
   if (selected === 'stock-receival') return <ComingSoonForm label="Stock Receival" onBack={() => setSelected(null)} onClose={onClose} />
-  if (selected === 'customer')      return <ComingSoonForm label="Add Customer" onBack={() => setSelected(null)} onClose={onClose} />
+  if (selected === 'customer')       return <ComingSoonForm label="Add Customer"     onBack={() => setSelected(null)} onClose={onClose} />
+  if (selected === 'inventory-log') return <ComingSoonForm label="Inventory Log"    onBack={() => setSelected(null)} onClose={onClose} />
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/30 backdrop-blur-sm" onClick={onClose}>

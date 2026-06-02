@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Eye, EyeOff, X } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { useAuth } from '../../lib/authContext'
 import {
@@ -9,7 +10,8 @@ import {
   useShiftDeposits,
   useFuelSummary,
 } from '../../hooks/useApi'
-import type { Deposit, Pump } from '../../lib/api'
+import { api } from '../../lib/api'
+import type { AuthUser, Deposit, Pump } from '../../lib/api'
 import { CashDepositModal } from './CashDropModal'
 import { CardModal } from './CardModal'
 import { ChargeModal } from './ChargeModal'
@@ -17,13 +19,123 @@ import { FXModal } from './FXModal'
 import { AdvanceModal } from './AdvanceModal'
 import { ReportIssueModal } from './ReportIssueModal'
 import { NewShiftLoginModal } from './NewShiftLoginModal'
+import { CashierDashboard } from './CashierDashboard'
 
 type RecordType = 'cash' | 'card' | 'charge' | 'fx' | 'advance' | null
 
 const btnClass = 'px-4 py-2 border border-[#ddd] rounded-xl text-[12px] font-semibold text-[#333] bg-white hover:bg-[#f9f9f9] transition-colors'
 
+const APPROVER_ROLES = new Set(['Super Admin', 'Admin', 'Manager', 'Supervisor'])
 
-function AttendantIdleView({ onReportIssue }: { onReportIssue: () => void; onNewShift: () => void; cstoreShiftOpen: boolean }) {
+// ── Convenience-store approval modal ─────────────────────────────────────────
+// Verifies a supervisor/manager's credentials WITHOUT touching the current
+// session — purely a role check. On success calls onApprove().
+
+function CStoreApprovalModal({ onClose, onApprove }: { onClose: () => void; onApprove: () => void }) {
+  const [email, setEmail]               = useState('')
+  const [password, setPassword]         = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [error, setError]               = useState<string | null>(null)
+  const [loading, setLoading]           = useState(false)
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      // Raw call — intentionally NOT calling setToken / saveUser so the
+      // attendant's session is left completely untouched.
+      const res = await api.post<{ token: string; user: AuthUser }>('/auth/login', { email, password })
+      const verifiedUser = res.data.user
+      if (APPROVER_ROLES.has(verifiedUser.role)) {
+        onApprove()
+        onClose()
+      } else {
+        setError('Access denied. A supervisor, manager, or admin must approve this.')
+      }
+    } catch {
+      setError('Invalid email or password. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-3xl w-full max-w-[440px] p-8 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-end mb-8">
+          <button
+            onClick={onClose}
+            className="flex items-center gap-2 border border-[#ddd] rounded-full px-4 py-1.5 text-[13px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors"
+          >
+            <X size={13} />Cancel
+          </button>
+        </div>
+
+        <h2 className="text-[28px] font-bold text-[#111] leading-none mb-1">Approval required</h2>
+        <p className="text-[14px] text-[#888] font-medium mb-8">
+          A supervisor, manager, or admin must sign in to start or take over a convenience store shift.
+        </p>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div>
+            <label className="text-[13px] font-semibold text-[#888] block mb-2">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setError(null) }}
+              placeholder="supervisor@example.com"
+              required
+              className="w-full border border-[#e0e0e0] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] focus:outline-none focus:border-[#bbb] transition-colors"
+            />
+          </div>
+
+          <div>
+            <label className="text-[13px] font-semibold text-[#888] block mb-2">Password</label>
+            <div className="flex items-center border border-[#e0e0e0] rounded-xl px-4 py-2.5 gap-2 focus-within:border-[#bbb] transition-colors">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setError(null) }}
+                placeholder="••••••••"
+                required
+                className="flex-1 text-[13px] font-semibold text-[#333] focus:outline-none bg-transparent"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="text-[#aaa] hover:text-[#555] transition-colors flex-shrink-0"
+              >
+                {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <p className="text-[12px] font-semibold text-red-500">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading || !email || !password}
+            className="mt-2 w-full py-4 rounded-2xl bg-[#111] text-[15px] font-semibold text-white hover:bg-[#222] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Verifying…' : 'Approve'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+
+function AttendantIdleView({ onReportIssue, onNewShift, cstoreShiftOpen, onCStoreApproval }: { onReportIssue: () => void; onNewShift: () => void; cstoreShiftOpen: boolean; onCStoreApproval: () => void }) {
   const { user } = useAuth()
   const navigate = useNavigate()
 
@@ -59,6 +171,27 @@ function AttendantIdleView({ onReportIssue }: { onReportIssue: () => void; onNew
           <p className="text-[12px] text-[#bbb] mt-1">Your supervisor will clock you in once the shift starts.</p>
         </div>
 
+        {/* Convenience store panel */}
+        <div className="bg-white border border-[#ebebeb] rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#f0f0f0] flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-bold text-[#111] uppercase tracking-wide">Convenience Store</p>
+              <p className="text-[11px] font-medium text-[#bbb] mt-0.5">
+                {cstoreShiftOpen ? 'A shift is currently running' : 'No shift in progress'}
+              </p>
+            </div>
+            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase flex-shrink-0 ${
+              cstoreShiftOpen ? 'bg-amber-50 text-amber-600' : 'bg-[#f4f4f4] text-[#bbb]'
+            }`}>
+              {cstoreShiftOpen ? 'In progress' : 'Inactive'}
+            </span>
+          </div>
+          <div className="px-5 py-4">
+            <button onClick={onCStoreApproval} className={btnClass}>
+              {cstoreShiftOpen ? 'Takeover shift' : 'Start a shift'}
+            </button>
+          </div>
+        </div>
 
       </div>
 
@@ -106,6 +239,19 @@ export function AttendantDashboard() {
   const [recording, setRecording] = useState<RecordType>(null)
   const [showReportIssue, setShowReportIssue] = useState(false)
   const [showNewShiftLogin, setShowNewShiftLogin] = useState(false)
+  const [showCStoreApproval, setShowCStoreApproval] = useState(false)
+  const [cstoreApprovedSession, setCstoreApprovedSession] = useState(false)
+
+  // Persist approval across refreshes — keyed by shift ID + user ID so it
+  // auto-invalidates when the shift changes or a different user logs in.
+  const cstoreApprovedPersisted = !!cstoreShift?.id && !!user?.id && (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('ss_cstore_approved') ?? 'null') as { shiftId: string; userId: string } | null
+      return saved?.shiftId === cstoreShift.id && saved?.userId === user.id
+    } catch { return false }
+  })()
+
+  const cstoreApproved = cstoreApprovedSession || cstoreApprovedPersisted
 
   const myAttendance = attendance.filter((a) => a.user_id === user?.id)
   const clockIn = myAttendance[0]?.clock_in
@@ -171,7 +317,10 @@ export function AttendantDashboard() {
   }
   const fuelBars = Object.entries(fuelSalesMap).sort(([, a], [, b]) => b - a)
 
-  const isIdle = true
+  const isIdle = !shift || myAttendance.length === 0
+
+  // Supervisor approved the attendant to work the c-store — show the cashier POS
+  if (cstoreApproved) return <CashierDashboard />
 
   if (isIdle) {
     return (
@@ -180,9 +329,21 @@ export function AttendantDashboard() {
           onReportIssue={() => setShowReportIssue(true)}
           onNewShift={() => setShowNewShiftLogin(true)}
           cstoreShiftOpen={!!cstoreShift}
+          onCStoreApproval={() => setShowCStoreApproval(true)}
         />
         {showReportIssue && <ReportIssueModal onClose={() => setShowReportIssue(false)} />}
         {showNewShiftLogin && <NewShiftLoginModal onClose={() => setShowNewShiftLogin(false)} onConfirm={() => setShowNewShiftLogin(false)} />}
+        {showCStoreApproval && (
+          <CStoreApprovalModal
+            onClose={() => setShowCStoreApproval(false)}
+            onApprove={() => {
+              if (cstoreShift?.id && user?.id) {
+                localStorage.setItem('ss_cstore_approved', JSON.stringify({ shiftId: cstoreShift.id, userId: user.id }))
+              }
+              setCstoreApprovedSession(true)
+            }}
+          />
+        )}
       </div>
     )
   }

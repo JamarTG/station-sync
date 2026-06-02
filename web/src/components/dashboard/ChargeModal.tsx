@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react'
 import { ArrowLeft, X } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useEscapeKey } from '../../hooks/useEscapeKey'
-import { useShiftAttendance, useShiftFuelPrices, useFuels } from '../../hooks/useApi'
+import { useShiftAttendance, useShiftFuelPrices, useFuels, useCustomers } from '../../hooks/useApi'
 import { createDeposit, updateDeposit } from '../../lib/api'
+import { loadChargeIds } from '../../lib/chargeIds'
 import { fmtInput, parseInput, fmtNum } from '../../lib/fmt'
 
 interface Props {
@@ -21,6 +22,15 @@ export function ChargeModal({ onBack, onClose, isEditing, depositId, initialData
   const { data: attendance = [] } = useShiftAttendance(shiftId)
   const { data: fuelPricesData = [] } = useShiftFuelPrices(shiftId)
   const { data: fuels = [] } = useFuels()
+  const { data: allCustomers = [] } = useCustomers()
+
+  // Charge customer options
+  const chargeIds = loadChargeIds()
+  const customerOptions = allCustomers.filter(
+    (c) => c.customer_type === 'charge' || chargeIds.has(c.id)
+  )
+
+  // First shift attendant used silently as attendant_id (required by API)
   const attendantOptions = attendance.reduce<{ id: string; name: string }[]>((acc, a) => {
     if (!acc.some((o) => o.id === a.user_id)) acc.push({ id: a.user_id, name: a.user_name })
     return acc
@@ -30,27 +40,33 @@ export function ChargeModal({ onBack, onClose, isEditing, depositId, initialData
     fuelPricesData.map((fp) => [fp.fuel_name, fp.price])
   )
 
-  const [fuelGrade, setFuelGrade] = useState(initialData?.fuelType ?? '')
-  const [amount, setAmount] = useState('')
-  const [attendant, setAttendant] = useState(initialData?.name ?? '')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (attendantOptions.length > 0 && !attendant) setAttendant(attendantOptions[0].name)
-  }, [attendantOptions.length])
+  const [fuelGrade,    setFuelGrade]    = useState(initialData?.fuelType ?? '')
+  const [amount,       setAmount]       = useState('')
+  const [customer,     setCustomer]     = useState(initialData?.name ?? '')
+  const [licencePlate, setLicencePlate] = useState('')
+  const [attendantId,  setAttendantId]  = useState('')
+  const [loading,      setLoading]      = useState(false)
+  const [error,        setError]        = useState('')
 
   useEffect(() => {
     if (fuels.length > 0 && !fuelGrade) setFuelGrade(fuels[0].name)
   }, [fuels.length])
+
+  useEffect(() => {
+    if (customerOptions.length > 0 && !customer) setCustomer(customerOptions[0].name)
+  }, [customerOptions.length])
+
+  useEffect(() => {
+    if (attendantOptions.length > 0 && !attendantId) setAttendantId(attendantOptions[0].id)
+  }, [attendantOptions.length])
 
   const numAmount = parseFloat(amount) || 0
   const effectiveAmount = numAmount > 0 ? numAmount : (initialData?.amount ?? 0)
   const litres = fuelGrade && pricePerLitre[fuelGrade] ? effectiveAmount / pricePerLitre[fuelGrade] : 0
 
   async function handleSubmit() {
-    if (!shiftId || effectiveAmount === 0 || !fuelGrade) return
-    const entry = attendantOptions.find((a) => a.name === attendant)
+    if (!shiftId || effectiveAmount === 0 || !fuelGrade || !customer || !licencePlate.trim() || !attendantId) return
+    const entry = attendantOptions.find((a) => a.id === attendantId)
     if (!entry) return
     setLoading(true)
     setError('')
@@ -59,7 +75,12 @@ export function ChargeModal({ onBack, onClose, isEditing, depositId, initialData
         attendant_id: entry.id,
         type: 'Charge',
         amount: effectiveAmount,
-        metadata: JSON.stringify({ fuel_type: fuelGrade, litres: parseFloat(litres.toFixed(4)) }),
+        metadata: JSON.stringify({
+          customer_name: customer,
+          license_plate: licencePlate.trim() || null,
+          fuel_type: fuelGrade,
+          litres: parseFloat(litres.toFixed(4)),
+        }),
       }
       if (isEditing && depositId) {
         await updateDeposit(shiftId, depositId, payload)
@@ -133,16 +154,39 @@ export function ChargeModal({ onBack, onClose, isEditing, depositId, initialData
           {fmtNum(litres)}
         </p>
 
-        <div className="mb-8">
-          <label className="text-[13px] font-semibold text-[#888] block mb-2">Attendant</label>
+        <p className="text-[13px] font-semibold text-[#888] mb-2">license plate no.</p>
+        <input
+          type="text"
+          value={licencePlate}
+          onChange={(e) => setLicencePlate(e.target.value)}
+          placeholder="e.g. AB 1234"
+          className="w-48 border border-[#e0e0e0] rounded-xl px-4 py-3 text-[13px] font-medium text-[#333] focus:outline-none mb-6"
+        />
+
+        <div className="mb-6">
+          <label className="text-[13px] font-semibold text-[#888] block mb-2">customer</label>
           <select
-            value={attendant}
-            onChange={(e) => setAttendant(e.target.value)}
+            value={customer}
+            onChange={(e) => setCustomer(e.target.value)}
+            className="border border-[#ddd] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] bg-white focus:outline-none cursor-pointer min-w-[200px]"
+          >
+            <option value="">Select...</option>
+            {customerOptions.map((c) => (
+              <option key={c.id} value={c.name}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mb-8">
+          <label className="text-[13px] font-semibold text-[#888] block mb-2">attendant</label>
+          <select
+            value={attendantId}
+            onChange={(e) => setAttendantId(e.target.value)}
             className="border border-[#ddd] rounded-xl px-4 py-2.5 text-[13px] font-semibold text-[#333] bg-white focus:outline-none cursor-pointer min-w-[200px]"
           >
             <option value="">Select...</option>
             {attendantOptions.map((a) => (
-              <option key={a.id} value={a.name}>{a.name}</option>
+              <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
         </div>
@@ -151,7 +195,7 @@ export function ChargeModal({ onBack, onClose, isEditing, depositId, initialData
 
         <button
           onClick={handleSubmit}
-          disabled={loading || effectiveAmount === 0 || !fuelGrade || !attendant || !shiftId}
+          disabled={loading || effectiveAmount === 0 || !fuelGrade || !customer || !licencePlate.trim() || !attendantId || !shiftId}
           className="w-full py-4 rounded-2xl border border-[#e0e0e0] text-[15px] font-semibold text-[#333] hover:bg-[#f4f4f4] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {loading ? 'Saving...' : 'Submit'}
